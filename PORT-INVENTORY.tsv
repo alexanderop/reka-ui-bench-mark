@@ -18,7 +18,7 @@ ConfigProvider/ConfigProvider.test.ts	T4-hostile	8	14	111	none	ResizeObserver	Re
 ContextMenu/ContextMenu.test.ts	T3-payoff	3	3	39	mounts	ResizeObserver	ResizeObserver	-	axe	no
 DateField/DateField.test.ts	T2-mechanical	62	156	1162	mounts	-	-	-	axe,keyboardEvents	no
 DatePicker/DatePicker.test.ts	T2-mechanical	20	66	473	mounts	-	-	-	axe	no
-DateRangeField/DateRangeField.test.ts	T2-mechanical	8	43	212	mounts	-	-	-	axe	no
+DateRangeField/DateRangeField.test.ts	T2-mechanical	8	43	212	mounts	-	-	-	axe	yes
 DateRangePicker/DateRangePicker.test.ts	T2-mechanical	13	46	321	mounts	-	-	-	axe	no
 Dialog/Dialog.test.ts	T2-mechanical	29	40	544	exists	-	focusApi	-	axe,spyOn,pointerEvents	no
 DismissableLayer/DismissableLayer.test.ts	T2-mechanical	20	51	494	mounts	-	focusApi	-	pointerEvents	no
@@ -48,7 +48,7 @@ Popper/Popper.test.ts	T4-hostile	22	33	176	none	ResizeObserver	ResizeObserver	sn
 Presence/Presence.test.ts	T2-mechanical	10	14	185	exists	-	computedStyle	-	spyOn	yes
 Primitive/Primitive.test.ts	T2-mechanical	15	24	270	none	-	-	-	-	yes
 Progress/Progress.test.ts	T2-mechanical	3	3	33	mounts	-	-	-	axe	yes
-RadioGroup/RadioGroup.test.ts	T2-mechanical	17	24	155	mounts	-	focusApi	-	axe,keyboardEvents	no
+RadioGroup/RadioGroup.test.ts	T2-mechanical	17	24	155	mounts	-	focusApi	-	axe,keyboardEvents	yes
 RangeCalendar/RangeCalendar.test.ts	T2-mechanical	45	216	1071	mounts	-	focusApi	-	axe,keyboardEvents	no
 Rating/Rating.test.ts	T2-mechanical	11	20	115	mounts	-	focusApi	-	axe,keyboardEvents	no
 RovingFocus/RovingFocus.test.ts	T2-mechanical	4	15	132	mounts	-	focusApi	-	keyboardEvents	yes
@@ -62,7 +62,7 @@ Splitter/utils/units.test.ts	T0-node	12	33	218	none	-	-	-	-	node
 Splitter/utils/validation.test.ts	T0-node	2	3	22	none	-	-	-	spyOn	node
 Stepper/Stepper.test.ts	T2-mechanical	10	28	200	mounts	-	-	-	axe	no
 Switch/Switch.test.ts	T2-mechanical	9	8	98	none	-	-	-	axe,keyboardEvents	yes
-Tabs/Tabs.test.ts	T2-mechanical	7	16	143	mounts	-	focusApi	-	axe,spyOn,keyboardEvents,ssr	no
+Tabs/Tabs.test.ts	T2-mechanical	7	16	143	mounts	-	focusApi	-	axe,spyOn,keyboardEvents,ssr	yes
 TagsInput/TagsInput.test.ts	T3-payoff	28	54	391	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	no
 Teleport/Teleport.test.ts	T2-mechanical	5	11	142	none	-	-	-	teleport	yes
 TimeField/TimeField.test.ts	T2-mechanical	72	154	1427	mounts	-	-	-	axe	no

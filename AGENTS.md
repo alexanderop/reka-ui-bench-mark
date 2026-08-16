@@ -141,9 +141,9 @@ Ported so far:
   try, and it still produced three findings — a click that cannot happen (`#empty-label-unclickable`),
   a `mousedown` handler jsdom structurally cannot reach (`#click-fires-no-mousedown`), and a
   behaviour neither suite ever asserts (`#no-positive-case`).
-- **T2 batches 1–5: 15 of 44 files complete.** The current batch adds Collapsible (11/11),
-  Presence (10/10), and Primitive (15/15). `PORT-INVENTORY.tsv` is the authoritative inventory;
-  `PORTING.md` records each batch and its evidence.
+- **T2 batches 1–6: 18 of 44 files complete.** The current batch adds DateRangeField (8/8),
+  Tabs (7/7), and RadioGroup (17 its / 21 runtime tests). `PORT-INVENTORY.tsv` is the
+  authoritative inventory; `PORTING.md` records each batch and its evidence.
 
 ### Commands
 
@@ -209,6 +209,11 @@ Baseline as of the last run: **116 files / 2163 passing + 6 expected fails.** Ne
 | `await nextTick()` only to settle an eventual DOM outcome | delete it; make `await expect.element(locator)…` own the wait |
 | `await nextTick()` after `await locator.click()` for a synchronous Vue update | delete it; the awaited real interaction crosses the event task and Vue's microtask flush |
 | `wrapper.text()` | `screen.container.textContent` |
+| `userEvent.keyboard('{19}')` — a **multi-character** braced key | type the real keys (`'1'`, `'9'`). A brace whose contents are not a real Playwright key name silently becomes `insertText` and fires **no key events at all** |
+| `fireEvent.keyDown(el, { key })` where the component also reads **`keyup`** | `{Key>}` / `await sleep(0)` / `{/Key}` — a plain `{Key}` releases before a `setTimeout(0)` runs |
+| `wrapper.findAllComponents(X)[n].emitted('e')` | **no equivalent** — `render`'s `emitted` is root-only and the `VueWrapper` is not exposed. Observe the DOM event that drives the emit (a `bubbles: false` `CustomEvent` still reaches a **capture** listener) |
+| `el.trigger('click')` on a **disabled** element | `loc.click({ force: true })` — delivers only `pointerdown`, then focuses the nearest *mouse*-focusable ancestor |
+| `wrapper.find('[type="Radio"]')` | ports **verbatim**, capital R and all — `type` is on HTML's case-insensitive attribute-value list |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
 `vitest-browser-vue`'s `render` accepts *almost* all `@vue/test-utils` mount options, so most of
@@ -222,6 +227,74 @@ to `container: document.body`.
 ---
 
 ## Known gotchas (found the hard way — add to this list)
+
+**A braced key that is not a real key name is not a keystroke.** `userEvent.keyboard('{19}')` looks
+like "type 19" and is not: vitest's Playwright provider checks the parsed key against a `VALID_KEYS`
+set of real Playwright key names (`@vitest/browser-playwright/src/commands/keyboard.ts:52`, used at
+L86-91) and otherwise falls back to `page.keyboard.insertText(key)`, **which fires no `keydown` at
+all**. Measured in `DateRangeField`: a literal port passed 7 of 8 tests with the day segment never
+filling and focus never advancing — the failure reads like a focus bug and is not one. The text does
+not even leak into the contenteditable, because `handleSegmentBeforeInput` prevents it. Type the real
+digits instead. **Blast radius, grepped: 8 sites in 4 date files** — `DateField.test.ts` L432/435/457/459,
+`TimeField.test.ts` L69, `DatePicker.test.ts` L364/368, `DateRangeField.test.ts` L67. The year sites
+(`{1980}`, `{2020}`, `{1111}`) need per-site verification, not a blind rewrite: four real digits go
+through year accumulation rather than one key.
+
+**A synthetic keypress has zero duration, and that loses races a human always wins.** Chromium
+services the input task before a 0ms timer, so `userEvent.keyboard('{X}')` delivers **keyup before a
+`setTimeout(…, 0)` scheduled from the keydown**. `RadioGroupItem` latches `isArrowKeyPressed` on
+keydown, clears it on keyup, and defers its `.click()` by `setTimeout(0)` — so a plain `{ArrowDown}`
+selects nothing. Measured over 15 isolated renders each: plain `{ArrowDown}` **1/15**, held
+`{ArrowDown>}` + `sleep(0)` + `{/ArrowDown}` **15/15**; the trace is always
+`keydown → focusin → keyup → setTimeout(0)`. `userEvent.keyboard(text)` takes no delay option, so the
+hold syntax is the only lever. The held form is also the *faithful* translation, because
+`fireEvent.keyDown` dispatches a keydown and **never a keyup** — which is why `RadioGroupItem.vue:69`,
+the keyup reset, has **hit count 0 across the entire jsdom file** and the flag stays stuck `true` for
+the rest of it.
+
+**Force-clicking a disabled element delivers only `pointerdown` — and then focuses an ancestor.**
+Confirming that `force: true` skips the wait rather than the gesture. Chromium then focuses the
+nearest *mouse*-focusable ancestor, and `tabindex="-1"` counts as mouse-focusable. In `RadioGroup`
+that ancestor is the roving-focus group, so its `@mousedown` never runs, `isClickFocus` stays false,
+and `handleFocus` runs the full **entry-focus** algorithm for what was a mouse interaction — i.e. the
+Safari workaround is bypassed exactly in the disabled case. Worth knowing before the T3 overlays.
+
+**A `bubbles: false` `CustomEvent` still reaches a capture listener.** That is the escape hatch when
+the Vue emit you need lives on a *child* component: `render` binds `emitted` to the root wrapper only
+and never exposes the `VueWrapper`, so `wrapper.findAllComponents(X)[n].emitted('e')` has no
+translation. Observe the DOM event that drives the emit instead — reka dispatches these through
+`shared/handleAndDispatchCustomEvent.ts` — with a capture listener on `document`.
+
+**`renderToString` works in the browser project, unmodified.** `@vue/server-renderer@3.5.17`'s package
+exports carry **no `browser` condition** — only `types`/`node`/`module`/`import`/`require` — so Vite
+takes `import` and serves `dist/server-renderer.esm-bundler.js`, a pure string builder over
+`@vue/shared` with no `node:` import in it. The "the `vue` browser condition gives you runtime-only"
+fear does not apply. `createSSRApp` + `idPrefix` + `renderToString` + `app.mount(container)` hydration
+all run in the tester iframe, and client-compiled SFCs (`render`, not `ssrRender`) work because Vue
+falls back to walking the client vnode tree. Verified in `Tabs` by falsifying its two *negative*
+hydration assertions: a probe hydrating a `nuxt-N` server tree against an `other-N` client tree
+produced a real `Hydration attribute mismatch` warning, captured by the spies.
+
+**…and the cost of an SSR test is not the SSR — it is the container.** Such a test builds its own
+`document.createElement('div')` and appends it to `document.body`, and `cleanup()` only removes
+containers *it* created, so a **live hydrated Vue app survives for the rest of the file**. Measured in
+`Tabs`: after a later `render()`, `screen.getByRole('tab').elements()` and `page.getByRole('tab')`
+both return **4** while `screen.container.querySelectorAll` returns 2. Since `screen`'s helpers are
+document-scoped, a role-query translation of `wrapper.findAll('button')[1]` indexes into the
+leftovers. **Container-scope every query in a file that contains an SSR test.**
+
+**`console.warn` and `console.error` DO reach the terminal; `log` and `info` do not.** Refining the
+entry below — the original claim was about `console.log` and over-generalised. Browser-mode `warn`/
+`error` are forwarded as `[vite] (client) [console.warn] …`. Forwarding and spying are also
+independent: `vi.spyOn(console, 'warn').mockImplementation(() => {})` captures the call *and*
+suppresses the forwarding.
+
+**`process.env.TZ` from `globalSetup` reaches Chromium by env inheritance.** `vitest.global.ts` sets
+`US/Eastern`, and the tester iframe reports `America/New_York` on a host whose `/etc/localtime` is
+`Europe/Berlin` — measured. So `@internationalized/date` fixtures, including `ZonedDateTime`, port
+unchanged, and `navigator.language` is `en-US` in both. But nothing sets `browser.timezoneId`, so this
+is inheritance rather than configuration: a single silent point of failure for 12 date files.
+*[mechanism inferred from the host/runner divergence, not read out of Playwright's launch code]*
 
 **A retrying matcher settles its own assertion, not "Vue's flush".** Never put
 `await expect.element(X).toHaveAttribute(expected)` immediately before a synchronous read of the
@@ -342,7 +415,9 @@ Bisect a 1-test run against a 2-test run before accepting that the port lost som
 **A failing retrying matcher costs the full locator timeout.** Pairs with the `Progress` entry:
 `expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms.
 Fine on the happy path, but it makes a mutation loop on a focus-heavy file ~2000× slower to answer.
-Budget for it, or mutate against a cheaper assertion.
+Budget for it, or mutate against a cheaper assertion. Second data point, from `Tabs`: a failing
+`expect.element(…).not.toHaveAttribute` cost **14990ms** against 7ms in jsdom — so the ~15s figure is
+the matcher's timeout, not something specific to focus.
 
 **`checkVisibility()` is not an oracle for "hidden".** It returns **`true`** for a correctly
 visually-hidden element — Chromium ignores `clip-path` and 1px geometry. Use
@@ -354,9 +429,10 @@ sourced from an `aria-hidden` subtree matches *with* the option and not without 
 `getByRole('button', { name: 'Save' })` returning 0 and the `includeHidden` variant returning 1 is
 a meaningful signal about the a11y tree, not a query quirk.
 
-**`console.log` from a browser test does not reach the terminal in this config.** Do not debug by
-failing an assertion to read the diff. `await expect(str).toMatchFileSnapshot('./out.txt')` writes
-probe output to disk through the server and works fine in browser mode.
+**`console.log` from a browser test does not reach the terminal in this config** — but `warn` and
+`error` do; see the forwarding entry above, measured in `Tabs`. Do not debug by failing an assertion
+to read the diff. `await expect(str).toMatchFileSnapshot('./out.txt')` writes probe output to disk
+through the server and works fine in browser mode.
 
 **Vue writes DOM *properties*, not attributes, whenever `key in el` — and jsdom and Chromium
 disagree about which IDL setters reflect back.** This is the most systematic T2 hazard found so

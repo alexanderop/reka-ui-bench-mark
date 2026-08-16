@@ -607,7 +607,7 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
 
 Order matters: T2 builds confidence in the loop cheaply, T3 is where the value is.
 
-- [ ] **T2** (44 files, 15 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
+- [ ] **T2** (44 files, 18 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
       Every browser worker spawns a Chromium and they starve each other; see the `port:coverage`
       retry note in §2.2. After each batch: `port:inventory`, `port:parity` across all pairs,
       spot-read two files yourself.
@@ -716,6 +716,51 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       became locator-existence waits, and 7 followed awaited real clicks. Presence's 500ms delayed-
       unmount mutation still fails both exact assertions, so the cleanup did not trade one-flush
       semantics for eventual success.
+      **Batch 6 — `DateRangeField`, `Tabs`, `RadioGroup` — DONE, 32 `it` call-sites / 36 runtime
+      tests, all green, nothing quarantined; every oracle clean first try** (coverage +5/-0, +16/-0,
+      +26/-0). The batch was picked to answer two questions rather than to retire three files, and
+      it answered both.
+      **Question 1 — can the date family be ported at all?** It is 12 files holding 389 of the 664
+      remaining T2 tests, several over 1000 lines, so `DateRangeField` (8 tests) went first as the
+      template. The blocker is one line long and would have been misread by every one of them:
+      **`userEvent.keyboard('{19}')` is not a keystroke.** vitest's Playwright provider checks the
+      parsed key against a `VALID_KEYS` set and otherwise falls back to `insertText`, which fires no
+      key events; a literal port passed 7 of 8 with the day segment silently never filling. Grepped
+      to **8 sites in 4 files**, with the year sites (`{1980}`, `{2020}`, `{1111}`) flagged as needing
+      per-site verification rather than a blind rewrite. Two results de-risk the rest of the family:
+      `process.env.TZ` from `globalSetup` **does** reach Chromium (`America/New_York` measured inside
+      the iframe on a Europe/Berlin host), so `ZonedDateTime` fixtures port unchanged; and `getByText`
+      has **zero hits across the entire family**, so the substring vacuity is structurally absent for
+      all 12. Segment traversal needed no geometry workaround and no gesture change.
+      **Question 2 — does SSR work in the browser project?** Yes, unmodified, and `Accordion` is
+      unblocked: `@vue/server-renderer`'s exports carry no `browser` condition, so Vite serves the
+      esm-bundler string builder. `Tabs` did not take green as proof — it falsified both *negative*
+      hydration assertions with a deliberately mismatched probe and mutation-verified the whole test
+      by swapping `useId.ts`'s branch order. **The cost is not the SSR, it is the container**: an SSR
+      test builds its own, `cleanup()` never removes it, and a live hydrated app then answers
+      document-scoped queries for the rest of the file (`getByRole('tab')` returns 4, not 2). That is
+      the instruction `Accordion` needs.
+      **The batch's sharpest single finding is `Tabs#click-is-inert-in-jsdom`:** `TabsTrigger`
+      activates on `@mousedown.left`, so under jsdom a VTU `trigger('click')` leaves the tab inactive
+      with `TabsTrigger.vue:54` at hit count 0 — **clicking a tab does not change tabs there** — and
+      neither suite has a click test, so the component's primary gesture is covered by nobody.
+      **`RadioGroup` produced the batch's other general result, and it is about gestures:** a
+      synthetic keypress has zero duration, so `{ArrowDown}` releases before the component's
+      `setTimeout(0)` runs and selects nothing (1/15 vs 15/15 for the held form). `fireEvent.keyDown`
+      never fires a keyup at all, which is why the keyup reset at `RadioGroupItem.vue:69` has hit
+      count 0 across the whole jsdom file — the flag is stuck `true` for the rest of it. The held-key
+      translation is therefore both the faithful one and the realistic one.
+      **Two counterweights, both filed by the agents themselves, and both worth more than a win.**
+      `Tabs` traced all 16 of its gained lines individually and found **every one is teardown** —
+      `onUnmounted` hooks, unregister callbacks — i.e. the largest `GAINED` list T2 has produced was
+      earned by `beforeEach(cleanup)` and not by Chromium. `RadioGroup` attributed its 26 per-describe:
+      **Chromium earned 2, the harness earned 10**, one is incidental (`matchMedia` at module load via
+      the `..` barrel, which jsdom lacks), and it found **no mutation that the browser catches and
+      jsdom does not** — the win there is coverage and diagnosis, not a red test. It also filed two
+      `found-gap`s where the port newly *covers* 20 lines of `focusFirst` while a no-op mutation of
+      that same function leaves both suites green. Covered ≠ tested, for the third batch running.
+      One open question, recorded rather than guessed: `duplicate-id-aria` audits 2 nodes under jsdom
+      and 4 in Chromium, and the obvious explanations were ruled out.
 - [ ] **T3** (23 files) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`
@@ -770,15 +815,15 @@ pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 |---|---|---|
 | `node` | 10 | 571 |
 | `unit` (jsdom) | 87 | 1444 |
-| `browser` | 13 | 95 + 3 expected fail |
+| `browser` | 22 | 184 + 6 expected fail |
 
 Baseline before this effort: **99 files / 2017 tests passing.**
-Current: **110 files / 2110 passing + 3 expected fail.**
+Current: **119 files / 2199 passing + 6 expected fail**, 15.7s for all three projects.
 
 **Read `unit` carefully — it is not the progress bar yet.** It dropped 10 files to `node` and
 will not drop another one until Phase 3, because ports keep their original alongside them on
 purpose. Until those per-component deletion decisions, progress is the `still on jsdom` line
 from `port:inventory`: files that are neither in the `node` project nor have a
-`.browser.test.ts` next to them. That number is **76 files / 1328 `it` call-sites** as of the end
-of the first T2 round (8 files ported). `unit`'s file count becomes the real measure only once deletions start, and it
+`.browser.test.ts` next to them. That number is **67 files / 1240 `it` call-sites** as of the end
+of T2 batch 6 (30 of 97 files off jsdom). `unit`'s file count becomes the real measure only once deletions start, and it
 has to reach zero either way.

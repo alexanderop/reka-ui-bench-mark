@@ -164,6 +164,10 @@ over VTU, which is why most of this is mechanical.
 | `expect(wrapper.html()).toBe('<label>…')` | `screen.container.firstElementChild.outerHTML` — there is no `.html()` |
 | `el.click()` / `el.trigger('click')` | `loc.click()` — which also fires `mousedown`, `focus`, `mouseup` |
 | `beforeEach(() => document.body.innerHTML = '')` | *(delete)* — the helper removes its container |
+| `userEvent.keyboard('{19}')` (multi-character brace) | type the real keys — a brace that is not a key name fires **no key events** |
+| `fireEvent.keyDown(el, { key })` where the code also reads `keyup` | `{Key>}` / `await sleep(0)` / `{/Key}` |
+| `el.trigger('click')` on a **disabled** element | `loc.click({ force: true })` |
+| `wrapper.findAllComponents(X)[n].emitted('e')` | **no equivalent** — observe the DOM event that drives the emit |
 | ResizeObserver / pointer-capture stubs | *(delete)* |
 
 `rerender` **merges** rather than replacing — confirmed in source
@@ -187,6 +191,14 @@ real click dispatches all of them. So **any `mousedown` / `pointerdown` / focus 
 components is invisible to a jsdom test that clicks**, and it stays invisible no matter how many
 click tests you write. This is one of the strongest arguments for migrating files that look
 boring; see [section 7](#7-some-of-your-jsdom-tests-are-lying).
+
+**The child-component `emitted` row has no fix, only a substitute.** The browser helper binds
+`emitted` to the root wrapper and never exposes the underlying VTU wrapper, so an assertion about
+what the *n*th child emitted cannot be translated directly. If the emit is driven by a DOM event —
+many component libraries dispatch a `CustomEvent` and emit from its handler — listen for that event
+instead; you also get to pin the target, which the array index gave you for free. One catch worth
+knowing: such events are often dispatched with `bubbles: false`, and a **capture** listener on an
+ancestor still receives them.
 
 ---
 
@@ -378,6 +390,43 @@ The event then bubbles to the component's handler exactly as it does in producti
 the point. If the element is not focusable in real life, the original test was asserting
 something a user cannot do.
 
+### A braced key that is not a real key name is not a keystroke
+
+`userEvent.keyboard('{19}')` reads like "type 19". It is a request for a single key whose name is
+`19`, which no keyboard has. Vitest's Playwright provider parses the braces, checks the result
+against a set of real Playwright key names, and silently falls back to `page.keyboard.insertText()`
+for anything else — **and `insertText` fires no key events at all**.
+
+Nothing errors. The test just stops doing the thing it says it does: measured on a date-field port,
+the segment never filled, focus never advanced, and 7 of 8 tests still passed. The symptom reads
+like a focus bug, which is the expensive part. Type the real characters instead.
+
+Grep your suite for `{` followed by anything that is not a key name — the pattern clusters in
+numeric-input tests, where `{1980}` and `{45}` look natural. Watch out for the ones that are not a
+one-for-one fix: four digits go through a different accumulation path than one key, so verify per
+site rather than rewriting in bulk.
+
+### A synthetic keypress has no duration, and real code races it
+
+This is the subtler half of the same problem. A real key is held for ~80ms; a synthetic one is
+pressed and released in the same tick. Browsers service input tasks before timer tasks, so
+`userEvent.keyboard('{ArrowDown}')` delivers **keyup before a `setTimeout(…, 0)` scheduled from the
+keydown**. Any component that latches state on keydown, clears it on keyup, and defers work by a
+zero-delay timer will observe the flag already cleared.
+
+Measured on a radio group built that way, over 15 isolated renders each:
+
+| Gesture | Selections |
+|---|---|
+| `userEvent.keyboard('{ArrowDown}')` | **1 / 15** |
+| `{ArrowDown>}` + `await sleep(0)` + `{/ArrowDown}` | **15 / 15** |
+
+The keyboard API takes no delay option, so the hold syntax is the only lever. It is also the
+*faithful* translation, not a workaround: `fireEvent.keyDown` dispatches a keydown and **never a
+keyup**, so the jsdom original left that flag stuck `true` for the rest of the file — the keyup
+handler had a hit count of zero across the entire suite. And it is the *realistic* one, because a
+human always wins this race.
+
 ### You cannot fake a `pointerId`
 
 This looks like a faithful port and is not:
@@ -477,6 +526,38 @@ line, verified by writing that test and reading the istanbul hit count. Before y
 gained line into your results, ask whether the *harness* or the *environment* produced it. If
 a `mount()` + `unmount()` in jsdom reproduces it, it belongs in the "we should have been doing
 this all along" column, not in the case for browser mode.
+
+### …but a container you created yourself is never cleaned up
+
+The cleanup only removes containers the render helper made. A test that builds its own — the usual
+shape for a server-rendering/hydration test — leaves it, and everything mounted into it, attached
+for the **rest of the file**:
+
+```ts
+const container = document.createElement('div')
+container.innerHTML = await renderToString(serverApp)
+document.body.append(container)
+clientApp.mount(container)                    // still live in every later test
+```
+
+Measured: in the next test, a document-scoped `getByRole('tab')` returned **4** elements where the
+component under test has 2. This matters because the testing-library-style `getBy*` helpers are
+document-scoped by default (see [section 2](#2-the-translation-table)) — so a role-query translation
+of `wrapper.findAll('button')[1]` quietly indexes into the leftovers. Container-scope every query in
+a file that contains a self-mounted test, and expect the same hazard from any manual `unmount()`.
+
+### Server-rendering works in the browser, if the package lets it
+
+Worth checking rather than assuming, because the plausible fear — "the `browser` export condition
+gives you the runtime-only build, so SSR is impossible" — turns out to be wrong for the obvious
+reason: the SSR package has no `browser` condition at all. Vue's server renderer resolves to its
+esm-bundler build, a pure string builder with no Node imports, so `createSSRApp` → `renderToString`
+→ hydrate runs unchanged inside the tester iframe, and spies on `console.warn` / `console.error`
+observe hydration warnings exactly as they did under jsdom.
+
+Check your framework's `exports` map before rewriting an SSR test. And when the port goes green,
+remember a hydration test's assertions are usually *negative* ("no mismatch warning") — construct
+the mismatch deliberately once, confirm the spy catches it, and you have proof the test can fail.
 
 ### Form submission is a real form submission
 
