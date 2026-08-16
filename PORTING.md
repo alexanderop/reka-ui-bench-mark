@@ -307,9 +307,9 @@ category, it is defined by a property of the file rather than a judgement about 
 was **verified by running them**, not by grepping. 28% of the suite left jsdom for the cost of
 a config block.
 
-**T1-pure (13 files, 161 tests → 8 remaining)** — `shared/*` composables. Four of the thirteen
-turned out to be DOM-free and moved to T0; `useForwardExpose` is ported; the remaining **8 are
-DOM-dependent and are queued for browser mode**: `component/Arrow`, `getActiveElement`,
+**T1-pure (13 files, 161 tests → DONE)** — `shared/*` composables. Four of the thirteen
+turned out to be DOM-free and moved to T0; all nine DOM-dependent files are now ported:
+`useForwardExpose`, `component/Arrow`, `getActiveElement`,
 `useArrowNavigation`, `useComposing`, `useForwardProps`, `useForwardScopeId`,
 `useIsUsingKeyboard`, `useSelectionBehavior`.
 **Expect these to be boring, and port them anyway.** `T1-pure#tier-audit` checked the four
@@ -607,7 +607,7 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
 
 Order matters: T2 builds confidence in the loop cheaply, T3 is where the value is.
 
-- [ ] **T2** (44 files, 18 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
+- [x] **T2** (44 files, all complete through batch 9 — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
       Every browser worker spawns a Chromium and they starve each other; see the `port:coverage`
       retry note in §2.2. After each batch: `port:inventory`, `port:parity` across all pairs,
       spot-read two files yourself.
@@ -761,19 +761,69 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       that same function leaves both suites green. Covered ≠ tested, for the third batch running.
       One open question, recorded rather than guessed: `duplicate-id-aria` audits 2 nodes under jsdom
       and 4 in Chromium, and the obvious explanations were ruled out.
-- [ ] **T3** (23 files) — one at a time, mutation-verified. Every file gets a
+      **Batch 7 — `Collection`, `Drawer/composables/useDrawerSnapPoints`, `Drawer`, `Stepper`,
+      `Toast`, `ToggleGroup`, `Pagination`, `Editable` — DONE, 109 declared tests / 110 runtime,
+      with two expected failures and every focused oracle clean.** Independent review changed the
+      output materially: `Collection` now truly makes registration order differ from DOM order;
+      five Drawer snap-math cases became mutation-sensitive; `Stepper` proves disabled input does
+      not change selection despite Chromium blurring focus to BODY; `ToggleGroup` restored the
+      original button-tag contract. `Toast` revealed that its old open axe audit never opened the
+      delayed toast, then Chromium found two aria-hidden focus proxies and a 4.48:1 contrast issue.
+      `Editable` found the batch's component bug: disabled Preview still enters edit mode. Drawer
+      gained 36 lines from real geometry/input and carries six per-line jsdom-artifact allowances;
+      the remaining files are coverage-neutral or small honest gains. The batch also added two
+      generalized review rules: make a test's named premise real, and never treat a bundled mouse
+      move as proof of a pointerdown handler.
+      **Batch 8 — `ColorSwatch`, `ColorSwatchPicker`, `ColorField`, `Rating`, `TimeRangeField`,
+      `MonthPicker`, `YearPicker`, `YearRangePicker`, `MonthRangePicker`, `DateRangePicker` — DONE,
+      196 declared tests / 204 runtime, with one expected failure and every focused oracle clean.**
+      Independent review again changed the result: exact values replaced self-fulfilling role/property
+      queries and count-only date-range assertions; the DateRangePicker open axe audit now proves the
+      calendar exists before auditing, and its closeOnSelect=false case proves selection happened.
+      Chromium exposed ColorField's 1.4:1 input contrast and five misleading ColorSwatch warnings for
+      supported transparent values. Real date input also established two reusable keyboard rules:
+      impossible multi-character braced digits must become actual digit sequences, and held modifiers
+      must be explicitly released because browser keyboard state survives later actions. Coverage stayed
+      equal for six files; the meaningful gains came from real focus/input or a newly shipped open-state
+      axe scenario, while Rating also documented barrel-import instrumentation and teardown-only gains.
+      **Batch 9 — `Accordion`, `Calendar`, `DateField`, `DatePicker`, `Dialog`, `DismissableLayer`,
+      `RangeCalendar`, `TimeField` — DONE, 327 declared tests / 329 runtime, 953 browser assertions
+      versus 915 original, with every focused oracle clean. T2 is complete: all 44 mechanical files
+      are off jsdom.** This batch made the review layer pay for itself repeatedly: exact segment text
+      exposed substring assertions already true at `12`/`1980`; date/range tests now prove complete
+      value and endpoint identity; disabled gestures prove delivery, prevention and unchanged state;
+      open axe audits prove their popup/range premise first. Dialog's warning tests had been borrowing
+      a warning from an outer instance because their click Promise was dropped, and its aria-hidden
+      restoration hook is disabled under test mode in both projects. DismissableLayer replaced every
+      fixed 1ms sleep with a named Vue/task boundary and now distinguishes deferred touch pointerdown
+      from click using exact event identity. Accordion proved SSR hydration in-browser and cleans its
+      manual container. The inventory now reports 68/97 files off jsdom, leaving only T3/T4.
+- [ ] **T3** (7/23 files complete) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
+  - [x] **First payoff slice: `Slider`, `Combobox`, `useSize`, `Popover`, `Splitter`,
+        `ContextMenu`, `Checkbox`.** `useSize` removes the observer replacement and mutation-proves both its
+        synchronous initial-offset path and native callback. Popover removes the same stub but
+        honestly records that its axe-only file still does not assert exact geometry; its open
+        audit now waits for visible, positioned content and runs `aria-dialog-name`. Splitter
+        deletes the callback registry/manual-fire apparatus; disabling native observation makes
+        Chromium retain a 3.4375px sidebar while jsdom stays green, and review replaced a bare rAF
+        with an emitted 300px initialization premise. ContextMenu uses a trusted right click and
+        exact click-anchored Popper coordinates; mutating the trigger anchor to 0,0 fails only the
+        browser port. Checkbox deletes a stale, unreachable ResizeObserver replacement and records
+        the honest zero-payoff result; real submits and isolated form state replace its synthetic,
+        order-dependent setup. All five new ports have clean focused oracles and independent review.
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`
       project. Identified by scanning all 97 for DOM signals, then verified by running them
       with `environment: 'node'` and no setup file. See `node-project#dom-free-files`.
-- [ ] **T1** (8 remaining) — **REOPENED.** The earlier "closed, 12 skipped" decision was made
+- [x] **T1** (8 reopened ports) — **DONE.** The earlier "closed, 12 skipped" decision was made
       under the old premise and is withdrawn; 4 of those 12 went to T0 and the other 8 are
-      DOM-dependent, so they get ported like everything else. Expect them to be boring:
+      DOM-dependent, so they were ported like everything else. As predicted, most were boring:
       `T1-pure#tier-audit` checked the four non-pure ones for vacuous assertions and found
-      none, and the measured cost is ~1.5× wall clock for no new coverage. Port for jsdom
-      removal, not for findings. Order: `useForwardProps`, `useForwardScopeId`, `useComposing`,
-      `useSelectionBehavior` (mount-and-assert, mechanical), then `component/Arrow`,
-      `getActiveElement`, `useArrowNavigation`, `useIsUsingKeyboard` (real input / focus).
+      none, and six of eight ports gained no lines. The exceptions were useful negative results:
+      `Arrow`'s axe test is fully unfailable, `useArrowNavigation` exposed three structurally-equal
+      wrong-node assertions, and independent review found masked guards in
+      `useSelectionBehavior` and `getActiveElement`. All eight focused browser/unit runs and all
+      three per-file oracles are clean. The inventory now reports all 9 T1 files off jsdom.
 - [ ] **T4** (12 files) — by hand, last. Decide per file whether a rewrite is worth it.
       **Reordered: the four pattern-frontier files run first** — `Select` (fake timers × real
       input), `NavigationMenu` (`vi.mock` in the browser), `Combobox` (expectations derived from

@@ -4,7 +4,7 @@ import { playwright } from '@vitest/browser-playwright'
 import tailwindcss from 'tailwindcss'
 import { defineConfig } from 'vitest/config'
 import tailwindConfig from './tailwind.browser.config.js'
-import { mouseDown, mouseMove, mouseUp } from './vitest.browser.commands.ts'
+import { mouseDown, mouseMove, mousePress, mouseUp } from './vitest.browser.commands.ts'
 
 /**
  * Test files that need no DOM at all, and therefore never needed jsdom.
@@ -133,10 +133,10 @@ export default defineConfig({
             headless: true,
             instances: [{ browser: 'chromium' }],
             // `page.mouse` is stateful and page-level; the locator API's only
-            // drag primitive (`dropTo`) is atomic and iframe-local. These three
+            // drag primitive (`dropTo`) is atomic and iframe-local. These commands
             // let a gesture be split across `beforeEach` hooks — see
             // `vitest.browser.commands.ts`.
-            commands: { mouseDown, mouseMove, mouseUp },
+            commands: { mouseDown, mouseMove, mousePress, mouseUp },
           },
         },
       },

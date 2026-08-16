@@ -170,6 +170,19 @@ over VTU, which is why most of this is mechanical.
 | `wrapper.findAllComponents(X)[n].emitted('e')` | **no equivalent** — observe the DOM event that drives the emit |
 | ResizeObserver / pointer-capture stubs | *(delete)* |
 
+A forced click on a disabled control skips Playwright's enabled-state wait but still asks Chromium
+to perform the gesture. Chromium suppresses the button's normal click sequence and may move focus:
+to the nearest mouse-focusable ancestor, or to `BODY` when none exists. We measured the latter in
+a stepper. Consequently `activeElement !== disabledTarget` can pass while valid focus and selection
+were lost. Keep the forced gesture when it is the faithful translation, but assert the current or
+selected state that must survive it as well.
+
+Held-key syntax is stateful across browser commands. A helper that returns `{Shift>}{Tab}` without
+`{/Shift}` leaves Shift physically held for later interactions and even later tests. We reproduced
+this with a time-range test whose later label click stopped activating its input until the modifier
+was released. Treat every held chord as a press/release pair unless persistent state is explicitly
+the subject.
+
 `rerender` **merges** rather than replacing — confirmed in source
 (`rerender: async props => { await wrapper.setProps(props) }`) and behaviourally. So chained
 `setProps` calls port one-for-one.
@@ -526,6 +539,12 @@ Pass `{ exact: true }` whenever the string is data rather than a label you contr
 strict-mode failure is the lucky case; budget an audit for the quiet ones, because name parity
 tooling cannot see a query that merely got wider.
 
+Matcher text can be equally permissive. `toHaveTextContent('1')` passes for initial values such as
+`12` and `1980`, and `toHaveTextContent('5')` accepts a broken accumulated value like `20245`.
+For date/time segments and other finite rendered values, compare trimmed text exactly—including
+visible padding such as `00`, `01` and `07`—so the assertion distinguishes overwrite, reset and
+formatting behavior.
+
 ### An open modal makes the rest of the page *really* inert
 
 Overlay libraries implement modality by setting `pointer-events: none` on `<body>` and re-enabling
@@ -658,6 +677,12 @@ the measurement landed a beat later. Any fixed flush choreography from the jsdom
 calibrated to the stub's synchronous timing, not the component. Let the assertion own the wait:
 `await expect.poll(() => options().length).toBeLessThan(total)`.
 
+Keep layout ownership coherent when driving the observer. Directly mutating an inline style that
+Vue owns can make the ResizeObserver callback trigger a render that restores Vue's old style,
+creating a real `ResizeObserver loop completed with undelivered notifications`. Put test dimensions
+in reactive fixture state and change them through the fixture's control so Vue and the native
+observer agree on the transition.
+
 ### Rituals that reconstruct the event sequence just evaporate
 
 A jsdom suite that needed a browser-compat sequence has to hand-assemble it — `pointerdown`,
@@ -730,6 +755,17 @@ observe hydration warnings exactly as they did under jsdom.
 Check your framework's `exports` map before rewriting an SSR test. And when the port goes green,
 remember a hydration test's assertions are usually *negative* ("no mismatch warning") — construct
 the mismatch deliberately once, confirm the spy catches it, and you have proof the test can fail.
+
+Warnings need causal isolation too. In one migrated suite a helper dropped the Promise from the
+click that should have mounted a nested dialog, so a count-only assertion passed on a warning from
+the still-open outer instance. Await the action, clear the targeted spy after unrelated teardown,
+filter known compiler noise if necessary, and assert the exact warning message—not merely that one
+warning occurred.
+
+Browser mode also cannot recover production behavior that source code disables under test mode.
+If a hook returns for `MODE === 'test'`, the same assertion in Chromium still exercises nothing.
+Testing that contract requires a production-mode seam or build and a concrete observable target;
+otherwise document the gap rather than presenting browser execution as proof.
 
 ### Form submission is a real form submission
 
@@ -839,6 +875,13 @@ that across a large suite and you get a fully migrated suite carrying zero infor
 
 If you are handing this work to agents, the danger is acute, but humans under deadline do the
 same thing.
+
+The most deceptive version is a truthful-sounding name with an unconstructed premise. We found an
+ordering test where registration and DOM order were identical, so deleting the sort stayed green,
+and snap-release tests whose "clamp" and "fast swipe" outcomes were already produced by fallback
+branches. Repair the existing case by making the two orders differ or choosing inputs on opposite
+sides of the branch boundary, then mutate the named branch. Name parity cannot detect a fixture
+that never reaches the condition its name describes.
 
 Two cheap automated checks close most of the gap. Both are worth building before you migrate
 in bulk.
@@ -1004,6 +1047,34 @@ equivalent assertions. We mutated a rendering primitive to serve `as="button"` a
 15 tests. When the component chooses the element and the tag is the contract, preserve the CSS tag
 query with the render container. Use a role locator when accessible semantics are the subject.
 
+Matcher semantics can hide the same class of weakening. Distinct DOM elements with identical
+markup can compare equal under structural equality. We measured three navigation assertions where
+the expected sibling was wrong—one loop case and reversed Home/End targets—and `toStrictEqual`
+still passed because every fixture node was the same empty `<div>`. When the contract is *which
+node* was returned or focused, use reference identity (`toBe`) and start from a node that makes the
+requested movement observable.
+
+Query semantics can make an assertion self-fulfilling. We reviewed a test that discovered items
+with `getByRole('option').elements()` and then asserted that every returned node had
+`role="option"`. Removing a role merely removes that item from the returned subset; the loop can
+stay green. Discover the complete fixture through an independent stable marker, then assert the
+role. The same independence rule applies to expected values: do not calculate an expected public
+label with the same production helper the component calls. Use literal expectations for a finite
+fixture so a helper regression cannot move both sides together.
+
+Counts do not establish the identity of stateful items. We mutation-tested two range pickers by
+shifting their selection predicate one period: the original count-only assertions stayed green
+while the selected years/months were all wrong. For a named range contract, assert the complete
+literal ordered labels and the exact start/end nodes. A count, one interior member, or merely the
+existence of generic endpoint markers cannot distinguish the intended range from an offset one.
+
+Real input helpers can also bundle an event you meant to test with another event that satisfies
+the same assertion first. We measured Chromium emitting a `pointermove` for
+`page.mouse.move(x, y)` even when the pointer was already at exactly `(x, y)`. A helper that
+implements mouse-down as “move, then press” therefore cannot isolate a down handler when move and
+down share the callback. Pre-position first, then call a press-only `page.mouse.down()` command
+when the event type itself is the contract.
+
 Wrapper scope matters too. Vue Test Utils' component-wrapper `find`/`findAll` includes component
 root nodes, while a DOM-wrapper `findAll` excludes the wrapped node itself. In the browser render
 helper, roots are direct children of the container, so a container query preserves the first
@@ -1042,6 +1113,21 @@ Keep a framework tick when the contract really is "after exactly one render flus
 mutates reactive state without an awaited browser interaction, or when a low-level lifecycle test
 needs that boundary. Timers, animations, network work, and async watchers need synchronization on
 their own observable outcome; a tick cannot make them complete.
+
+### A mounted overlay is not yet a positioned overlay
+
+Portal content can exist before a positioning engine has made it user-visible. In one measured
+popover, the floating wrapper was inserted immediately with `transform: translate(0, -200%)` and
+only moved on-page after Floating UI finished measuring. An eager role count therefore proved DOM
+insertion, not the premise named by an "after opening" accessibility test. Wait for independent
+public state such as the trigger's expanded attribute and visible content; if layout is relevant,
+also require the wrapper to leave its explicit measuring sentinel before auditing.
+
+Use the settled browser state to reassess copied axe exceptions too. That popover's DOM-emulator
+test disabled the dialog-name rule, but the live dialog was already labelled by its trigger and
+Chromium passed the rule. Carrying the exception forward would have silently reduced the audit for
+no current reason. This was established by running the full rule set after the positioned-state
+precondition and observing the dialog-name rule pass on the live dialog.
 
 ### Do not use a retry to pre-settle the assertion under test
 

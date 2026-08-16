@@ -129,7 +129,7 @@ describe('given default NavigationMenu', () => {
           await userEvent.keyboard('{ArrowDown}')
           await sleep(0)
         }
-        expect(links.at(-1)).toBe(document.activeElement)
+        expect(Array.from(links).at(-1)).toBe(document.activeElement)
       })
     })
 

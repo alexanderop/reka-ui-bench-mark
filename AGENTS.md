@@ -141,9 +141,22 @@ Ported so far:
   try, and it still produced three findings — a click that cannot happen (`#empty-label-unclickable`),
   a `mousedown` handler jsdom structurally cannot reach (`#click-fires-no-mousedown`), and a
   behaviour neither suite ever asserts (`#no-positive-case`).
-- **T2 batches 1–6: 18 of 44 files complete.** The current batch adds DateRangeField (8/8),
-  Tabs (7/7), and RadioGroup (17 its / 21 runtime tests). `PORT-INVENTORY.tsv` is the
-  authoritative inventory; `PORTING.md` records each batch and its evidence.
+- **T1 is complete: all 9 files are off jsdom** (1 earlier port plus the 8 reopened DOM-dependent
+  files). The mechanical ports mostly confirmed equal coverage; the useful exceptions were an
+  unfailable axe audit in `component/Arrow`, structurally-equal wrong-node assertions in
+  `useArrowNavigation`, and masked early-return guards found during independent review.
+- **T2 is complete: all 44 mechanical files are off jsdom through batch 9.** Batch 9 added
+  Accordion, Calendar, DateField, DatePicker, Dialog, DismissableLayer, RangeCalendar and TimeField.
+  Independent review replaced substring/count-only state checks with exact rendered values and full
+  date/range identity, made disabled gestures prove delivery and prevention, isolated exact Dialog
+  warnings, and removed DismissableLayer's arbitrary sleeps. Batch 8 added the ColorSwatch/ColorField,
+  Rating and picker families.
+- **T3 is 7/23 complete.** The current payoff slice adds `useSize`, `Popover`, `Splitter`,
+  `ContextMenu`, and `Checkbox` to the earlier `Slider` and `Combobox` frontiers. Native-observer
+  and coordinate mutations distinguish the first four where the browser adds evidence; Checkbox
+  deletes a stale unreachable observer stub and records the honest zero-payoff result. The
+  authoritative inventory now reports **73/97 files off jsdom**, leaving 24 files / 422 tests;
+  `PORTING.md` records every batch and its evidence.
 - `packages/core/src/Select/Select.browser.test.ts` — **complete, 29 of 29. First T4 file, and
   the pattern-frontier port for fake timers and modal hit-testing.** All three stubs deleted; the
   double-pointerup selection ritual evaporated (`#pointerup-guard-consumed-by-real-click`);
@@ -249,6 +262,7 @@ Baseline as of the last run: **123 files / 2293 passing + 8 expected fails.** Ne
 | `getByText('x')` | `getByText('x', { exact: true })` — vitest locators default to **substring** |
 | bare `getByTestId(…)` used *as* an assertion | `await expect.element(…).toBeInTheDocument()` — a locator is lazy and throws nothing |
 | `expect(wrapper.attributes('x')).toBeUndefined()` | `await expect.element(el).not.toHaveAttribute('x')` |
+| `expect(domNode).toStrictEqual(otherNode)` when identity is the contract | `expect(domNode).toBe(otherNode)` — structurally identical elements can compare equal under `toStrictEqual` |
 | `wrapper.find('button')` / `findAll('button')` when the **tag** is the subject | `screen.container.querySelector('button')` / `querySelectorAll('button')` — a role-equivalent `<div>` must not pass |
 | `wrapper.findAll('button')` when the **role** is the subject | `screen.getByRole('button').elements()` |
 | `VueWrapper.find(All)(sel)` | `screen.container.querySelector(All)(sel)` — both include component root nodes; `DOMWrapper.findAll` stays `element.querySelectorAll` and excludes the wrapped element |
@@ -298,12 +312,21 @@ hold syntax is the only lever. The held form is also the *faithful* translation,
 the keyup reset, has **hit count 0 across the entire jsdom file** and the flag stays stuck `true` for
 the rest of it.
 
+**A held modifier persists until explicitly released.** `useTestKbd().SHIFT_TAB` expands to
+`{Shift>}{Tab}` and contains no `{/Shift}`. Measured in `TimeRangeField`: Chromium carried Shift
+from the right-to-left navigation test into a later label click, suppressing native label
+activation; the label test passed alone and the exact pair reproduced the failure. Append the
+release token to every chord unless continued modifier state is the contract.
+
 **Force-clicking a disabled element delivers only `pointerdown` — and then focuses an ancestor.**
 Confirming that `force: true` skips the wait rather than the gesture. Chromium then focuses the
 nearest *mouse*-focusable ancestor, and `tabindex="-1"` counts as mouse-focusable. In `RadioGroup`
 that ancestor is the roving-focus group, so its `@mousedown` never runs, `isClickFocus` stays false,
 and `handleFocus` runs the full **entry-focus** algorithm for what was a mouse interaction — i.e. the
 Safari workaround is bypassed exactly in the disabled case. Worth knowing before the T3 overlays.
+If there is no mouse-focusable ancestor, the press instead blurs the current control to `BODY`
+(measured in `Stepper`). Therefore `activeElement !== disabledTarget` is a vacuous assertion: also
+assert the valid selection/current state that the disabled gesture must preserve.
 
 **A modal overlay's `body { pointer-events: none }` is real, and no click flag overrides it.**
 `DismissableLayer` with `disableOutsidePointerEvents` (every modal Select/Dialog path) styles the
@@ -358,6 +381,12 @@ hover isn't disabled there, and Chromium's `HTMLElement.click()` dispatches
 The original's own `{ pointerType: 'mouse' }` synthetic event is the faithful port. Expect this on
 `Tooltip`, `HoverCard`, and every hover-triggered overlay.
 
+**A zero-distance `page.mouse.move()` still emits `pointermove`.** Measured while reviewing
+`useIsUsingKeyboard`: the custom `mouseDown(x, y)` command moves before pressing, and Chromium
+emits one move even when the pointer is already at exactly `(x, y)`. If the component handles both
+move and down with the same callback, pre-positioning followed by that command does not isolate the
+down path. Split out a press-only command (`page.mouse.down()`) when the event type is the contract.
+
 **The compat-sequence rituals evaporate — and so do their workarounds' workarounds.** `Select`'s
 original opens with `pointerdown` + hand-fired `mousedown`/`mouseup`/`click`, then needs **two**
 `pointerup`s per selection, because its own opening gesture leaves the trigger-press position
@@ -396,6 +425,18 @@ entry below — the original claim was about `console.log` and over-generalised.
 `error` are forwarded as `[vite] (client) [console.warn] …`. Forwarding and spying are also
 independent: `vi.spyOn(console, 'warn').mockImplementation(() => {})` captures the call *and*
 suppresses the forwarding.
+
+**A warning count does not prove which warning fired, and an unawaited action can borrow one from
+another instance.** Dialog's helper dropped the Promise from its click, so the intended nested
+dialog had not opened when the assertion ran; the single counted warning belonged to the still-open
+outer dialog. Await the causal action, clear the targeted spy after unrelated teardown, filter only
+the component warning channel when compiler noise is expected, and assert the exact message rather
+than `toHaveBeenCalledTimes(1)`.
+
+**A production behavior explicitly disabled under `MODE === 'test'` cannot be validated by moving
+the same test to browser mode.** Dialog's hide-others hook returns before applying `aria-hidden` in
+both projects, and the old test also inspected `body` instead of a concrete outside sibling. Record
+the gap; meaningful coverage needs a production-mode seam/build and an observable outside element.
 
 **`process.env.TZ` from `globalSetup` reaches Chromium by env inheritance.** `vitest.global.ts` sets
 `US/Eastern`, and the tester iframe reports `America/New_York` on a host whose `/etc/localtime` is
@@ -437,6 +478,37 @@ unmutated nodes can be identical and still make the translation weaker. Serving 
 `as="button"` as `<div role="button">` made the original's `find('button')` fail while a role-only
 port passed all 15 tests. Use a container CSS query when the component chooses the element; use
 `getByRole` when accessible semantics are what the original asserts.
+
+**Do not discover nodes through the property you are about to assert.** A port that calls
+`getByRole('option').elements()` and then asserts every returned node has `role="option"` is
+self-fulfilling: a broken item simply disappears from the subset, and `elements()` need not throw.
+Measured in `ColorSwatchPicker`. Discover through an independent stable marker (`[data-color]` in
+that fixture), then assert the role on the complete set.
+
+**Expected values should not reuse the production derivation under test.** Comparing an item's
+label with the same `getColorName` helper the component calls lets a helper regression move actual
+and expected together. For a finite public fixture, use literal expected labels. First applied to
+all seven ColorSwatchPicker colors after independent review.
+
+**A selected-count assertion does not prove selection identity.** The YearRangePicker and
+MonthRangePicker originals asserted only that a range rendered four years or three months.
+Mutation-shifting `isSelected` by one period kept those counts green while selecting 1981–1984
+instead of 1980–1983 and February–April instead of January–March. When the contract names a range,
+assert the complete literal ordered labels and the concrete start/end nodes; partial membership and
+generic marker existence leave the same offset bug alive.
+
+**Structural equality is not DOM-node identity.** Distinct elements with the same markup can
+compare equal under `toStrictEqual`. Measured in `useArrowNavigation`: three assertions named the
+wrong sibling (`child1` vs `child2`, and reversed Home/End targets) yet stayed green because every
+fixture node was the same empty `<div>`. When the contract is which node was returned or focused,
+use `toBe` and ensure the starting node makes the requested navigation observable.
+
+**A test name can describe a premise the fixture never constructs.** Two reviewed ports caught
+this independently. `Collection` claimed registration order differed from DOM order, but both were
+`first, second, third`; deleting the sort stayed green. `useDrawerSnapPoints` named clamping and
+fast-swipe branches, but its outcomes were also produced by nearest-snap and physical-crossing
+fallbacks. Reorder after registration or choose inputs on opposite sides of the decision boundary,
+then mutation-check the exact branch named by the test.
 
 **`VueWrapper.find(All)` includes component roots; `DOMWrapper.findAll` does not include itself.**
 `vitest-browser-vue` unwraps its internal mount div, so component roots are direct children of
@@ -483,6 +555,12 @@ than a label you control. Related strict-mode trap from `Combobox`: an original'
 fixture renders two groups — a wait written with the locator times out on the violation. Poll the
 original's own container query instead.
 
+**`toHaveTextContent` is substring-based too.** DateField and DatePicker had named overwrite,
+overflow and ArrowUp cases where expected `1` was already present in initial `1980` or `12`, and
+expected `5` accepted a broken `20245`. When a segment's rendered value is the contract, compare
+trimmed text exactly and include visible formatting such as `00`, `01` and `07`; otherwise zero
+padding and stale prefixes can both hide regressions.
+
 **A virtualizer settles asynchronously under real ResizeObserver — and starts by mounting
 everything.** Measured in `Combobox`: `@tanstack/virtual-core` rendered all 100 rows at the
 original `flush()`'s timing and trimmed to 20 (8 visible + overscan 12) once the real RO
@@ -490,6 +568,13 @@ measurement of the 200px viewport landed. jsdom's rect stub made measurement syn
 original's flush choreography was calibrated to the stub. Let the subset assertion own the wait
 (`expect.poll(… .length).toBeLessThan(100)`); a fixed flush ports the stub's timing, not the
 component's.
+
+**Do not mutate a Vue-owned inline style behind Vue's back to drive ResizeObserver.** Measured in
+`useSize`: directly changing the observed element's `style.width/height` made the real callback
+trigger a render that restored the old virtual-DOM style, creating `ResizeObserver loop completed
+with undelivered notifications`. Put the dimensions in reactive fixture state and change them via
+the fixture's real control; then Vue and the observer agree on ownership and the size transition is
+the component's scenario rather than a test-induced feedback loop.
 
 **A mock-choreographed numeric expectation may rebase deterministically — measure before
 quarantining.** Combobox's popper slot-render ladder is 3-then-4 in jsdom and **4-then-4** in
@@ -981,6 +1066,15 @@ The button wins on two counts: it goes through the locator API like everything e
 is the interesting one — a user pressing Enter on this slider never submits the form, and neither
 jsdom nor the browser port would have caught that, because the original test fires a synthetic
 `submit` event and never exercises the path a user takes.
+
+**A mounted overlay is not necessarily an open, auditable overlay.** Floating UI inserts content
+before it has finished positioning it; reka's Popper wrapper deliberately starts at
+`translate(0, -200%)` while measuring. An eager role count can therefore make an "open" axe test
+pass over content that is still off-page and before mount autofocus settles. Synchronize on
+independent public state (`aria-expanded`, visible content) and, when positioning matters, require
+the wrapper to leave its measuring transform before auditing. Also re-evaluate inherited axe rule
+exceptions: Popover's jsdom test disabled `aria-dialog-name` even though the live content is
+labelled by its trigger, and Chromium passes that rule once the positioned state is awaited.
 
 ## Open questions
 

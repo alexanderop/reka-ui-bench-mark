@@ -11,7 +11,7 @@ import type { BrowserCommand } from 'vitest/node'
 // — with a `beforeEach` per step. `dropTo()` cannot be split across three hooks,
 // and porting the gesture into one hook would make two of those describe names
 // decorative. Playwright's `page.mouse` is stateful across calls, so exposing
-// down / move / up separately keeps the ported structure honest.
+// down / press / move / up separately keeps the ported structure honest.
 //
 // Coordinates are taken in the *tester iframe's* viewport — i.e. straight out
 // of `getBoundingClientRect()` inside the test — and translated to page
@@ -49,6 +49,12 @@ export const mouseMove: BrowserCommand<[x: number, y: number]> = async (context,
 export const mouseDown: BrowserCommand<[x: number, y: number]> = async (context, x, y) => {
   const { page, x: px, y: py } = await toPageCoordinates(context, x, y)
   await page.mouse.move(px, py)
+  await page.mouse.down()
+}
+
+/** Press the primary button at the mouse's current position without moving first. */
+export const mousePress: BrowserCommand<[]> = async (context) => {
+  const { page } = await toPageCoordinates(context, 0, 0)
   await page.mouse.down()
 }
 
