@@ -77,8 +77,11 @@ this file should say what went wrong in the changelog at the bottom.
 > - **A locator is lazy — `getBy*` does not throw.** In a `@testing-library` original the throw *is*
 >   the assertion. Translate a bare `getByTestId(…)` to
 >   `await expect.element(…).toBeInTheDocument()`, or the test has no assertion left.
-> - **Portalled content (Dialog, Popover, Select, Tooltip, Toast, menus) needs `page.getBy*`**, not
->   `screen.getBy*`, which is scoped to the render container and will match nothing.
+> - **Portalled content (Dialog, Popover, Select, Tooltip, Toast, menus) is reachable from BOTH
+>   `screen.getBy*` and `page.getBy*`** — they return the same node. `render`'s helpers bind to
+>   `baseElement`, which defaults to `document.body`. Only `screen.container` and `screen.locator`
+>   are container-scoped. The trap runs the other way: because the helpers are document-scoped,
+>   `screen.getBy*` also matches **other renders** in the same test.
 > - **A `attributes('x')` assertion may be testing jsdom, not the platform.** Vue writes a DOM
 >   *property* rather than an attribute whenever `key in el`, and jsdom's IDL setters reflect into
 >   the content attribute where Chromium's often do not. If an attribute assertion fails in the
@@ -231,8 +234,37 @@ Every entry here should be a batch that went wrong and the prompt change that fi
      test stops testing, so they matter more than anything else in this file.
   6. **Portalled content needs `page.getBy*`.** `AlertDialog` — `screen` is container-scoped, so an
      overlay port querying through `screen` matches nothing and fails in a way that looks like a
-     component bug.
+     component bug. **← WRONG, and corrected after batch 4. See below.**
   4. **Tell them a green oracle is not the finish line.** All three files came back `0 lost,
      0 gained` and every real result came from probing beyond the oracles — mutating the component
      to see if the test could fail, reading the istanbul map for code no test reaches. Batch 1's
      three most valuable findings are about the *test suite*, not the components.
+
+- **After T2 batch 4** (`RovingFocus`, `Teleport`, `Toggle`) — three clean ports, all oracles green
+  first try, 16 findings. No prompt change was needed to prevent a bad port. The change that *was*
+  needed is of a new kind, and it is the reason this changelog exists:
+
+  1. **A prompt line was factually wrong, and the batch caught it.** Entry 6 above told agents that
+     `screen.getBy*` is container-scoped and cannot see portalled content. `Teleport` measured the
+     opposite; the claim was then settled against `AlertDialog`'s own fixture — content's parent is
+     `BODY`, `container.contains(content)` is `false`, and `screen.getByRole('alertdialog')` still
+     returns **the same node** `page` does — and corroborated from `vitest-browser-vue` source
+     (`baseElement` defaults to `document.body`; the helpers bind to it). The prompt line is now
+     replaced, `AGENTS.md` is corrected, and the misleading comment in the `AlertDialog` port is
+     rewritten. **The failure mode to notice: a wrong rule that errs toward extra work is nearly
+     invisible.** Agents obeyed it, their ports stayed green, and the oracles had nothing to say —
+     because using `page` where `screen` would do costs nothing but a wrong belief. It would have
+     been inherited by all eight T3 overlays.
+  2. **Therefore: findings are evidence, not verdicts.** Two rows from earlier batches were
+     re-verdicted by this one — the portal claim, and `Toolbar#roving-focus-untested`, which
+     overstated its gap (`RovingFocus` re-measured across all 12 consumer suites in one istanbul run
+     and found the functions *are* reached; what is actually dead is narrower and better specified).
+     Nothing in the apparatus checks a finding's *reasoning*, only a port's structure — so a
+     plausible wrong cause survives a batch and ships to the next one. When a finding is the kind
+     that generalises to many files, measure it twice.
+  3. **Two `AGENTS.md` gotchas needed qualifiers rather than rewrites**, both from originals doing
+     something the rule did not anticipate: `userEvent.tab()` polyfills tab order in JS
+     (`getTabDestination.js`), so "tab-order tests are unportable from jsdom" holds only for raw
+     keydowns; and `color-contrast` — "the one rule browser mode adds" — is `inapplicable` in
+     Chromium too when the fixture has no text, which is the normal shape of a headless-library
+     fixture. Both were stated too absolutely because each came from a single file.

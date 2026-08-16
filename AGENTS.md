@@ -196,7 +196,7 @@ Baseline as of the last run: **102 files / 2072 passing + 1 expected fail.** Nev
 | `wrapper.unmount()` at the end of a test | *(delete)* — `render` cleans up |
 | `wrapper.find('style')` / any role-less element | `screen.container.querySelector(…)` — no locator can address it |
 | `wrapper.attributes('x')` | `await expect.element(el).toHaveAttribute('x', v)` — takes a raw `HTMLElement`, not just a locator |
-| `findByRole(document.body, …)` — **portalled content** | `page.getBy*` from `vitest/browser`, **not** `screen.getBy*`, which is container-scoped and finds nothing |
+| `findByRole(document.body, …)` — **portalled content** | `screen.getBy*` **or** `page.getBy*` — both are document-scoped and return the same node. Only `screen.locator` / `screen.container` are container-scoped |
 | `getByText('x')` | `getByText('x', { exact: true })` — vitest locators default to **substring** |
 | bare `getByTestId(…)` used *as* an assertion | `await expect.element(…).toBeInTheDocument()` — a locator is lazy and throws nothing |
 | `expect(wrapper.attributes('x')).toBeUndefined()` | `await expect.element(el).not.toHaveAttribute('x')` |
@@ -249,11 +249,38 @@ non-`exact` `getByText` calls all resolve correctly — **`getByText` targets th
 containing the text**, verified by probe (`<div><label>Label</label><input></div>` → one match,
 `LABEL`, not the div whose `textContent` is also `Label`).
 
-**Portalled content is invisible to `screen`.** `screen.getBy*` is scoped to the render container,
-and Dialog / Popover / Select / Tooltip / Toast / DropdownMenu / ContextMenu / HoverCard all
-teleport their content out of it. Use **`page.getBy*` from `vitest/browser`** — the direct
-equivalent of `@testing-library/vue`'s `findByRole(document.body, …)`. Get this wrong and the port
-does not fail loudly; the query simply matches nothing.
+**Portalled content is NOT invisible to `screen` — `render`'s `getBy*` helpers are document-scoped.**
+*(This entry previously claimed the opposite, and the wrong version is why `AlertDialog`'s port
+carries a comment saying `screen` "would find nothing". It does find it.)* From source,
+`vitest-browser-vue@2.1.0` `dist/pure-epEwB8Ps.js`:
+
+```js
+20: const baseElement = customBaseElement || customContainer || document.body
+21: const container   = customContainer || baseElement.appendChild(document.createElement('div'))
+34: locator: page.elementLocator(container),
+45: ...getElementLocatorSelectors(baseElement)
+```
+
+The destructured helpers bind to **`baseElement`, which defaults to `document.body`**. So
+`screen.getByRole(…)` reaches teleported content, and returns the *same node* `page.getByRole(…)`
+does. What is container-scoped is **`screen.container` and `screen.locator`**. Measured against the
+open `_AlertDialog.vue` fixture — content's `parentElement` is `BODY`, `container.contains(content)`
+is `false`, and:
+
+| root | dialog open |
+|---|---|
+| `screen.getByRole('alertdialog')` | **1** (same node as `page`) |
+| `page.getByRole('alertdialog')` | 1 |
+| `screen.locator.getByRole('alertdialog')` | **0** |
+
+`page.getBy*` still works and completed ports using it are correct — do not "fix" them. Two real
+consequences of the true rule, though, and the second is the hazard:
+
+- Pass `container:` explicitly and `baseElement` becomes that container, at which point the helpers
+  *are* container-scoped. That is probably how the wrong rule got written.
+- Because the helpers are document-scoped, **`screen.getBy*` also sees other renders.** Measured: with
+  two `render()` calls in one test, the first screen's `getByText('bravo')` matches the *second*
+  component. Pairs with the two-renders-do-not-unmount entry below.
 
 **jsdom's zero layout fakes a full-viewport scrollbar.** `window.innerWidth -
 document.documentElement.clientWidth` is the scrollbar-width idiom, and jsdom reports
@@ -302,8 +329,34 @@ true in both environments, so Vue assigns `el.nonce = …` and never calls `setA
 jsdom's `nonce` IDL setter reflects into the content attribute; Chromium's writes only the internal
 slot. So `Viewport.test.ts`'s `expect(styleEl.attributes('nonce')).toBe('abc123')` — and its comment
 claiming "jsdom exposes the attribute reliably" — is a jsdom implementation detail dressed as
-platform behaviour. **Any `attributes('x')` assertion on a binding that takes the prop path is
-suspect; sweep for them.** Quarantined as `Viewport/Viewport.test.ts#nonce-attribute`.
+platform behaviour. Quarantined as `Viewport/Viewport.test.ts#nonce-attribute`.
+
+**The sweep this demanded has been done, and the hazard is one attribute, not a class.** All 421
+`.attributes('…')` assertions in the 97 originals were counted (41 distinct names), the rule
+confirmed from source — `shouldSetAsProp` ends in `return key in el` against the **exact lowercase
+key** (`@vue/runtime-dom@3.5.17/dist/runtime-dom.cjs.js:763`), then `patchDOMProp` (L564) assigns
+`el[key] = value` — and every plausibly-IDL name probed in both environments:
+
+| key | prop path (jsdom/chromium) | jsdom | chromium |
+|---|---|---|---|
+| `disabled`, `required` | true/true | `''` | `''` |
+| `type`, `dir`, `placeholder`, `id`, `style` | true/true | value | **identical** |
+| `role` | **false/true** | n/a — `setAttribute` | `presentation` |
+| `nonce` | true/true | `abc123` | **`null`** ← the only test-visible divergence |
+| `tabindex`, `readonly`, `inputmode`, `aria-*`, `data-*`, `class` | false/false | n/a — `setAttribute` | n/a |
+
+**Only `nonce` diverges observably.** The blast radius stays small for a mechanical reason worth
+remembering: `key in el` needs the *exact* attribute spelling, and the IDL names are `tabIndex`,
+`readOnly`, `inputMode`, `ariaLabel`, `ariaValueNow` — none match the hyphenated or lowercase
+attribute, so they all take `setAttribute`. That exempts every `aria-*` (~150 assertions) and every
+`data-*` (`data-state` alone is 92). **So do not treat `attributes('x')` as a review flag.** The
+diagnostic rule still stands if one *does* fail in Chromium: read `el.x` before concluding the port
+is broken, and quarantine rather than switching the assertion to the property.
+
+*One nuance that outlives the sweep:* `role` shows **`key in el` is itself environment-dependent** —
+`'role' in div` is `false` under jsdom 20 and `true` in Chromium (ARIA reflection, `Element.role`).
+Vue therefore takes *different code paths* in the two environments for the same binding. Invisible
+here only because Chromium's `role` setter reflects.
 
 *This was diagnosed against a wrong prediction, recorded so nobody re-derives it:* it is **not** the
 spec's nonce hiding. Hiding requires a **header-delivered** CSP and *empties* the attribute while
@@ -321,13 +374,27 @@ nothing but render containers, and `vitest-browser-vue` registers `beforeEach(cl
 root suite while your reset sits inside a `describe`, so parent-first hook order runs `cleanup()`
 first and it never has its DOM yanked. All measured.
 
-**jsdom has no sequential focus navigation at all.** A Tab keydown moves nothing —
-`document.activeElement` is unchanged — so only programmatic `.focus()` works there, which behaves
-identically in both environments and therefore proves nothing. **Every test about tab order is
-unportable *from* jsdom, because it never existed there.** `FocusGuards` is the case in point: its
-guards exist to catch focus escaping to browser chrome and neither suite ever presses Tab. In
-Chromium, Tab from the last inner button lands on the trailing guard and a second Tab leaves to
-`BODY`.
+**jsdom has no *native* sequential focus navigation — but `userEvent.tab()` polyfills it.** A raw
+Tab keydown moves nothing there; `document.activeElement` is unchanged. So a test that fires
+`trigger('keydown', { key: 'Tab' })` never tested tab order and cannot be ported — only rewritten,
+which the verbatim-name rule forbids. `FocusGuards` is that case: its guards exist to catch focus
+escaping to browser chrome and neither suite ever presses Tab. In Chromium, Tab from the last inner
+button lands on the trailing guard and a second Tab leaves to `BODY`.
+
+**But `@testing-library/user-event` ships its own tab-order implementation** —
+`dist/esm/utils/focus/getTabDestination.js` — so an original calling `await userEvent.tab()` *does*
+exercise tab order and ports one-for-one. `RovingFocus` is that case (its original tabs at L41, L43,
+L91, L122) and the port is mechanical. Read the qualifier carefully in both directions: a passing
+jsdom `userEvent.tab()` test proves **user-event's model** of tab order, not the browser's. What
+makes `RovingFocus` interesting is that the port shows the two agree at every step — BODY → the
+group's single tab stop → out to BODY — which is a stronger claim than either environment alone.
+**So the rule is: a tab-order test is unportable only if the original had no way to move focus at
+all.** Check *how* it moves focus before concluding anything.
+
+*Unverified, worth knowing:* vitest's `userEvent.tab()` is `page.keyboard.press('Tab')` at **page**
+level with no `focusIframe()` step, unlike `userEvent.keyboard`, which focuses the tester iframe
+first. It caused no trouble in `RovingFocus`; it is the first thing to suspect if a ported tab test
+sends focus somewhere impossible.
 
 **Zero-size blocks clicking, not tabbing.** Refining the empty-`<label>` gotcha: the focus guards
 are exactly `0x0` and Chromium tabs to them fine. Actionability checks are a *click* concern.
@@ -438,6 +505,25 @@ candidate. If a port hangs on a click, measure the target with `getBoundingClien
 assuming the locator is wrong. Giving the element real content is a legitimate fix — it is a
 deviation from the original body, so it costs you a `FINDINGS.tsv` row.
 
+**Expect this on most button-like T2 components — it is the default shape of a headless suite.**
+`Switch` and `Toggle` both mount the primitive with **no children**, because a headless library's
+tests have no reason to pass a slot, and both measured exactly 0×0 under the Tailwind shim. Both
+fixed it the same way: a `beforeAll` `<style>` giving the control a box, removed in `afterAll`.
+Budget for it rather than re-diagnosing it per file.
+
+**Playwright will not click a *disabled* element, and `force: true` is the faithful gesture.**
+Actionability includes "enabled", so a plain `.click()` on a disabled control burns the full
+timeout (measured on `Toggle`: 1503ms to failure against 6ms forced). `force: true` skips the
+**wait**, not the gesture — Chromium still delivers a real `pointerdown` and then suppresses
+`mousedown`/`mouseup`/`click` itself, which is exactly the platform behaviour such a test is about.
+
+The jsdom side of these tests was never a click at all: **VTU's `DOMWrapper.trigger` short-circuits
+on `isDisabled()`** (`vue-test-utils.esm-bundler.mjs:7195`) for BUTTON/INPUT/SELECT/TEXTAREA, so
+"clicking a disabled X does nothing" asserts *VTU's own guard* rather than the platform's. Another
+member of the family the `nonce` case belongs to — an assertion about the harness wearing the
+costume of an assertion about the browser. Translation-table row: `el.trigger('click')` on a
+disabled element → `loc.click({ force: true })`.
+
 **Inline `template:` components still compile.** Worth stating because the opposite is plausible
 — under Vite the `vue` package's browser condition resolves to the runtime-only build. Measured:
 `render({ template: '<form>…</form>', components: { Slider } })` compiles and renders in the
@@ -507,6 +593,14 @@ are **not** vacuous, because `mount()` renders synchronously and nothing is `dis
 one rule — `color-contrast`, which jsdom structurally cannot run — and it is not a formality:
 `Progress` came in at **4.85:1 against a 4.5:1 threshold**. Always probe rather than assume, in
 whichever direction.
+
+**…and even that one rule is conditional on the fixture having text.** `Toggle` mounts a
+contentless `<button>`, so `color-contrast` is `inapplicable` **in Chromium too** and all three of
+its axe tests gain literally nothing from the browser — jsdom's only difference is the
+`aria-hidden-body` artifact from the detached-mount entry above, which is a jsdom bug, not a jsdom
+win. Pairs with the zero-size entry: the same contentless-primitive shape that breaks clicking also
+neuters the one rule browser mode was supposed to add. `Toggle` also runs its enabled and disabled
+axe censuses to **byte-identical** results — i.e. the file pays for the same audit twice.
 
 **A green axe test can still be unfailable.** `Separator`'s only test survives three mutations
 that matter: misspelt role and bad `aria-orientation` are caught, but **deleting `role="separator"`

@@ -13,10 +13,16 @@ import AlertDialog from './story/_AlertDialog.vue'
 //    `attachTo` throws in `vitest-browser-vue`; `render` attaches its own
 //    container to the live document, which is all this file needs.
 //  - `findByText/findAllByText/findByRole(document.body, …)` from
-//    `@testing-library/vue` → `page.getBy*`. `page` is the document-scoped
-//    locator root (`screen.getBy*` is container-scoped and would find nothing
-//    once the dialog is open, since `AlertDialogPortal` teleports the content
-//    out of the container).
+//    `@testing-library/vue` → `page.getBy*`, the document-scoped locator root.
+//    NOTE — this comment used to add "`screen.getBy*` is container-scoped and
+//    would find nothing once the dialog is open". **That is false**, and the
+//    correction is now in `AGENTS.md`: `render`'s `getBy*` helpers bind to
+//    `baseElement`, which defaults to `document.body`. Re-measured on this very
+//    fixture with the dialog open — content's parent is BODY and
+//    `container.contains(content)` is false, yet `screen.getByRole('alertdialog')`
+//    returns 1, the *same node* `page` returns; only `screen.locator.*` returns 0.
+//    `page` is kept here because it is explicit and correct, not because `screen`
+//    fails. See `Teleport/Teleport.test.ts#screen-is-body-scoped`.
 //  - `fireEvent.click(trigger)` — which the original does **not** await — →
 //    `await trigger.click()`, a real Playwright click that is awaited.
 //

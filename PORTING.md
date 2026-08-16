@@ -601,7 +601,7 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
 
 Order matters: T2 builds confidence in the loop cheaply, T3 is where the value is.
 
-- [ ] **T2** (49 files, 4 done) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
+- [ ] **T2** (44 files, 12 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
       Every browser worker spawns a Chromium and they starve each other; see the `port:coverage`
       retry note in §2.2. After each batch: `port:inventory`, `port:parity` across all pairs,
       spot-read two files yourself.
@@ -651,14 +651,49 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       `getByText` calls all target correctly, verified by probe (`getByText` resolves to the
       deepest element containing the text, so `Label`'s clicks land on the `<label>`, not the
       wrapping div whose `textContent` is identical).
-      `AlertDialog` also supplied the translation-table row that would have silently gutted every
-      overlay port — **portalled content needs `page.getBy*`, not container-scoped `screen.getBy*`** —
-      and found a real axe violation on open (4.07:1 against 4.5:1, shim ruled out by diffing the
-      palette against the Histoire config).
+      `AlertDialog` also supplied what looked like the translation-table row that would have silently
+      gutted every overlay port — "portalled content needs `page.getBy*`, not container-scoped
+      `screen.getBy*`" — **which batch 4 then proved false**; see below. It did find a real axe
+      violation on open (4.07:1 against 4.5:1, shim ruled out by diffing the palette against the
+      Histoire config).
       `Switch`'s mutation matrix is the best T3-style evidence yet from a T2 file: `.prevent` on
       the Enter handler is load-bearing and **jsdom structurally cannot test it**, because in
       Chromium Enter on a `<button>` also synthesises a click, so without `preventDefault` the
       switch toggles twice and lands back where it started — browser red, jsdom green.
+      **Batch 4 — `RovingFocus`, `Teleport`, `Toggle` — DONE, 20 tests, all oracles clean first try,
+      16 findings. Its distinctive output is that it corrected two earlier batches rather than only
+      adding to them**, which is a result about the apparatus and not about any component.
+      `Teleport` disproved the batch-3 portal rule: `render`'s `getBy*` helpers bind to `baseElement`,
+      which defaults to `document.body`, so `screen.getBy*` **does** reach teleported content and
+      returns the same node `page` does — verified from `vitest-browser-vue` source and re-measured
+      against `AlertDialog`'s own fixture (parent `BODY`, `container.contains` false, `screen` still
+      matches 1). Only `screen.container` / `screen.locator` are container-scoped. The hazard runs
+      the other way: document-scoped helpers also match **other renders** in the same test.
+      **Note the shape of that error — it errs toward extra work, so nothing catches it.** Ports
+      obeying it stayed green, because using `page` where `screen` would do costs nothing but a
+      wrong belief; the oracles check structure, never a finding's reasoning. It was one batch away
+      from being inherited by all eight T3 overlays. The apparatus rule that follows: **when a
+      finding generalises to many files, measure it twice.**
+      `RovingFocus` re-verdicted `Toolbar#roving-focus-untested` the same way — one istanbul run over
+      all 12 consumer suites (149 tests) shows `handleFocus`/`handleKeydown`/`focusFirst` *are*
+      reached; what is actually dead is narrower and now specified per branch (Home/End/PageUp/PageDown
+      `[0,28]`, RTL `[48,0]`, `focusFirst`'s loop `[0,44]`, the public `allowShiftKey` prop). It also
+      qualified the tab-order gotcha: `userEvent.tab()` **polyfills** sequential focus in JS, so an
+      original that tabs that way ports one-for-one — the "unportable from jsdom" rule only ever
+      applied to raw keydowns. And it found the best single argument for browser mode in T2 so far:
+      RovingFocus's entire `isClickFocus` mouse-entry path (the Safari workaround) has **hit count 0
+      across all 149 jsdom tests** and one `locator.click()` covers all four sites.
+      `Toggle` returned the clean negative it was batched for — neither `Switch` vacuity applies,
+      because the original is pure `@vue/test-utils` with no `@testing-library` query in it, which is
+      a one-grep check worth doing first. It cost two deviations (a `beforeAll` `<style>`, since a
+      contentless `<button>` is 0×0 — the second such case, and the default shape of a headless
+      fixture; and `click({ force: true })` on the disabled control, since Playwright will not click
+      a disabled element). Both revealed harness-shaped assertions: **VTU's `trigger` is a no-op on
+      disabled elements**, so "clicking a disabled X does nothing" asserted VTU's guard, not the
+      platform's. Two library-level `found-gap`s came with it — `togglePressed()` has no disabled
+      guard, so `<Toggle as="div" disabled>` toggles freely, and the hidden form input is rendered
+      without `:checked`, so a `Toggle` in a form **never submits a value** (`FormData.get` is `null`
+      before and after toggling on, measured).
 - [ ] **T3** (23 files) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`

@@ -51,7 +51,7 @@ Progress/Progress.test.ts	T2-mechanical	3	3	33	mounts	-	-	-	axe	yes
 RadioGroup/RadioGroup.test.ts	T2-mechanical	17	24	155	mounts	-	focusApi	-	axe,keyboardEvents	no
 RangeCalendar/RangeCalendar.test.ts	T2-mechanical	45	216	1071	mounts	-	focusApi	-	axe,keyboardEvents	no
 Rating/Rating.test.ts	T2-mechanical	11	20	115	mounts	-	focusApi	-	axe,keyboardEvents	no
-RovingFocus/RovingFocus.test.ts	T2-mechanical	4	15	132	mounts	-	focusApi	-	keyboardEvents	no
+RovingFocus/RovingFocus.test.ts	T2-mechanical	4	15	132	mounts	-	focusApi	-	keyboardEvents	yes
 ScrollArea/ScrollArea.test.ts	T4-hostile	9	15	171	mounts	ResizeObserver	ResizeObserver,rects	snapshot	axe,pointerEvents	no
 Select/Select.test.ts	T4-hostile	29	38	415	mounts	ResizeObserver,pointerCapture	ResizeObserver,pointerCapture,focusApi	fakeTimers	axe,spyOn,pointerEvents	no
 Separator/Separator.test.ts	T2-mechanical	1	2	17	none	-	-	-	axe	yes
@@ -64,11 +64,11 @@ Stepper/Stepper.test.ts	T2-mechanical	10	28	200	mounts	-	-	-	axe	no
 Switch/Switch.test.ts	T2-mechanical	9	8	98	none	-	-	-	axe,keyboardEvents	yes
 Tabs/Tabs.test.ts	T2-mechanical	7	16	143	mounts	-	focusApi	-	axe,spyOn,keyboardEvents,ssr	no
 TagsInput/TagsInput.test.ts	T3-payoff	28	54	391	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	no
-Teleport/Teleport.test.ts	T2-mechanical	5	11	142	none	-	-	-	teleport	no
+Teleport/Teleport.test.ts	T2-mechanical	5	11	142	none	-	-	-	teleport	yes
 TimeField/TimeField.test.ts	T2-mechanical	72	154	1427	mounts	-	-	-	axe	no
 TimeRangeField/TimeRangeField.test.ts	T2-mechanical	22	49	344	mounts	-	-	-	axe	no
 Toast/Toast.test.ts	T2-mechanical	7	14	119	mounts	-	rAF,focusApi	-	axe,spyOn	no
-Toggle/Toggle.test.ts	T2-mechanical	11	12	97	none	-	-	-	axe	no
+Toggle/Toggle.test.ts	T2-mechanical	11	12	97	none	-	-	-	axe	yes
 ToggleGroup/ToggleGroup.test.ts	T2-mechanical	15	29	187	mounts	-	focusApi	-	axe,keyboardEvents	no
 Toolbar/Toolbar.test.ts	T2-mechanical	4	4	97	mounts	-	-	-	axe	yes
 Tooltip/Tooltip.test.ts	T3-payoff	6	11	120	none	ResizeObserver	ResizeObserver,focusApi	-	axe,teleport	no
