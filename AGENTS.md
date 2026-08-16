@@ -191,11 +191,26 @@ Baseline as of the last run: **102 files / 2072 passing + 1 expected fail.** Nev
 | `mount(…)` once in the `describe` body | move into `beforeEach` — `render` auto-unmounts |
 | `expect(wrapper.html()).toBe('<label>…')` | `screen.container.firstElementChild.outerHTML` — there is no `.html()` |
 | `el.click()` / `el.trigger('click')` | `loc.click()` — and it fires `mousedown` too, which the originals never did |
-| `beforeEach(() => document.body.innerHTML = '')` | *(delete)* — `render` removes its container |
+| `mount(C, { attachTo: document.body })` | `await render(C)` — **drop `attachTo`; it throws** |
+| `beforeEach(() => document.body.innerHTML = '')` | *(delete)* **only if assertions are container-scoped** — keep it when they query the whole document (see gotcha) |
+| `wrapper.unmount()` at the end of a test | *(delete)* — `render` cleans up |
+| `wrapper.find('style')` / any role-less element | `screen.container.querySelector(…)` — no locator can address it |
+| `wrapper.attributes('x')` | `await expect.element(el).toHaveAttribute('x', v)` — takes a raw `HTMLElement`, not just a locator |
+| `findByRole(document.body, …)` — **portalled content** | `page.getBy*` from `vitest/browser`, **not** `screen.getBy*`, which is container-scoped and finds nothing |
+| `getByText('x')` | `getByText('x', { exact: true })` — vitest locators default to **substring** |
+| bare `getByTestId(…)` used *as* an assertion | `await expect.element(…).toBeInTheDocument()` — a locator is lazy and throws nothing |
+| `expect(wrapper.attributes('x')).toBeUndefined()` | `await expect.element(el).not.toHaveAttribute('x')` |
+| `wrapper.findAll('button')` | `screen.getByRole('button').elements()` — **re-probe the equivalence per file**, tag↔role only coincides sometimes |
+| `wrapper.text()` | `screen.container.textContent` |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
-`vitest-browser-vue`'s `render` accepts all `@vue/test-utils` mount options, so most of this is
-mechanical.
+`vitest-browser-vue`'s `render` accepts *almost* all `@vue/test-utils` mount options, so most of
+this is mechanical. **The exception is `attachTo`, which it rejects outright** —
+`dist/pure-epEwB8Ps.js:24` is `if (mountOptions.attachTo) throw new Error("`attachTo` is not
+supported, use `container` instead")`. `render` owns the mount point. A file whose every test
+mounts with `attachTo: document.body` (`FocusGuards`, `VisuallyHidden`, `Viewport` all do) will
+crash on the first test if you port that option literally, so **drop it** — do not translate it
+to `container: document.body`.
 
 ---
 
@@ -204,6 +219,128 @@ mechanical.
 **Reading an attribute after an interaction needs a retry first.** `expect.element(…)` retries;
 `.element()` is a synchronous escape hatch that does not. When a test computes a delta, put the
 awaited `expect.element` assertion *before* reading the new value, or you race Vue's flush.
+
+**…but a retrying matcher is a silent weakening when the test's subject *is* timing.** The two
+rules are a pair; apply the wrong one and you gut the test. `Progress` has
+`describe('after 200ms')` asserting `expect(wrapper.html()).toContain('data-value="50"')` — one
+instantaneous read, which fails if the value is late. Translate that mechanically to
+`await expect.element(…).toHaveAttribute('data-value', '50')` and it now passes anywhere inside
+the sleep **plus the retry budget** — it would stay green if the fixture flipped at 900ms.
+Fix: assert **twice** — the retrying `expect.element` first to settle Vue's flush, then the
+original's exact synchronous read. That makes the port run more `expect`s than the original,
+which `port:parity` permits (it only fails on *fewer*). Rule of thumb: **when a `describe` name
+mentions a duration, never let a retrying matcher be the only assertion.**
+
+**Two silent vacuities from `@testing-library` originals — the oracle cannot see either.** Both
+leave the assertion count unchanged, so `port:parity` passes while the test stops testing.
+
+1. **`getByText` defaults to a *substring* match in vitest locators; `@testing-library`'s defaults
+   to whole-string.** Measured: `screen.getByText('checked').elements()` returns **one element whose
+   `textContent` is `unchecked`**. With `{ exact: true }` it returns zero. Both of `Switch`'s toggle
+   tests would have passed against a switch that never toggles. It bites hardest when the two
+   expected strings are prefixes of each other — `checked`/`unchecked`, `valid`/`invalid`.
+2. **A locator is lazy, so `getBy*` no longer asserts.** In a `@testing-library` original the
+   *throw* is the assertion; `screen.getByTestId('does-not-exist')` constructs without throwing
+   (measured). A test whose only "assertion" was a bare `getBy*` becomes a test with no assertion
+   at all.
+
+Audited across every port completed so far: the lazy-locator class is clean, and the four
+non-`exact` `getByText` calls all resolve correctly — **`getByText` targets the deepest element
+containing the text**, verified by probe (`<div><label>Label</label><input></div>` → one match,
+`LABEL`, not the div whose `textContent` is also `Label`).
+
+**Portalled content is invisible to `screen`.** `screen.getBy*` is scoped to the render container,
+and Dialog / Popover / Select / Tooltip / Toast / DropdownMenu / ContextMenu / HoverCard all
+teleport their content out of it. Use **`page.getBy*` from `vitest/browser`** — the direct
+equivalent of `@testing-library/vue`'s `findByRole(document.body, …)`. Get this wrong and the port
+does not fail loudly; the query simply matches nothing.
+
+**jsdom's zero layout fakes a full-viewport scrollbar.** `window.innerWidth -
+document.documentElement.clientWidth` is the scrollbar-width idiom, and jsdom reports
+`clientWidth === 0`, so it evaluates to the **entire viewport width**. Measured:
+`useBodyScrollLock.ts:60` computes a **1024px phantom scrollbar** under jsdom and every modal open
+sets `padding-right: 1024px`. Chromium gives 414−414=0 and correctly skips the branch. No test in
+either suite asserts the value, so nobody noticed. `useBodyScrollLock` sits on every modal path, so
+expect this across T3.
+
+**A LOST coverage line can mean the port is *cleaner*.** The mirror of the `#auto-unmount` rule.
+jsdom coverage of module-level stacks and registries can come from **test-to-test bleed** when
+teardown is deferred — `FocusScope.vue`'s `focusScopesStack.remove` runs in a `setTimeout(…, 0)`,
+so its `pause()`/`resume()` lines are covered when jsdom runs two tests and not when it runs one.
+Bisect a 1-test run against a 2-test run before accepting that the port lost something real.
+
+**A failing retrying matcher costs the full locator timeout.** Pairs with the `Progress` entry:
+`expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms.
+Fine on the happy path, but it makes a mutation loop on a focus-heavy file ~2000× slower to answer.
+Budget for it, or mutate against a cheaper assertion.
+
+**`checkVisibility()` is not an oracle for "hidden".** It returns **`true`** for a correctly
+visually-hidden element — Chromium ignores `clip-path` and 1px geometry. Use
+`getBoundingClientRect()` plus `document.elementFromPoint()`; a properly hidden element measures
+1×1 at (-2,-2) and hit-tests to `null`.
+
+**`includeHidden` changes accessible-name computation, not just the visibility filter.** A name
+sourced from an `aria-hidden` subtree matches *with* the option and not without — so
+`getByRole('button', { name: 'Save' })` returning 0 and the `includeHidden` variant returning 1 is
+a meaningful signal about the a11y tree, not a query quirk.
+
+**`console.log` from a browser test does not reach the terminal in this config.** Do not debug by
+failing an assertion to read the diff. `await expect(str).toMatchFileSnapshot('./out.txt')` writes
+probe output to disk through the server and works fine in browser mode.
+
+**Vue writes DOM *properties*, not attributes, whenever `key in el` — and jsdom and Chromium
+disagree about which IDL setters reflect back.** This is the most systematic T2 hazard found so
+far, because it makes a whole class of jsdom assertion an assertion about jsdom. `shouldSetAsProp`
+(`@vue/runtime-dom`, `patchProp`) ends in `return key in el`, and `'nonce' in HTMLStyleElement` is
+true in both environments, so Vue assigns `el.nonce = …` and never calls `setAttribute`. Then:
+
+| | `getAttribute('nonce')` | `hasAttribute` | `.nonce` |
+|---|---|---|---|
+| jsdom | `'abc123'` | `true` | `'abc123'` |
+| Chromium | `null` | **`false`** | `'abc123'` |
+
+jsdom's `nonce` IDL setter reflects into the content attribute; Chromium's writes only the internal
+slot. So `Viewport.test.ts`'s `expect(styleEl.attributes('nonce')).toBe('abc123')` — and its comment
+claiming "jsdom exposes the attribute reliably" — is a jsdom implementation detail dressed as
+platform behaviour. **Any `attributes('x')` assertion on a binding that takes the prop path is
+suspect; sweep for them.** Quarantined as `Viewport/Viewport.test.ts#nonce-attribute`.
+
+*This was diagnosed against a wrong prediction, recorded so nobody re-derives it:* it is **not** the
+spec's nonce hiding. Hiding requires a **header-delivered** CSP and *empties* the attribute while
+leaving it present — so "attribute absent entirely" is never nonce hiding. Verified the consumer
+impact separately: under a real `style-src 'nonce-…'` CSP the style still applies, because Vue
+patches props before insertion, so this is a test artifact and not a reka bug.
+
+**A manual `unmount()` leaks its container.** `cleanup()` removes a container only for a wrapper it
+unmounts itself, so a test that calls `unmount()` explicitly leaves an empty `div` in `<body>` for
+the rest of the file. Harmless if your assertions are container-scoped; **fatal if they query the
+whole document.** Which is why the `document.body.innerHTML = ''` habit is *not* always deletable —
+`FocusGuards` counts `[data-reka-focus-guard]` document-wide, and deleting its reset turns
+`toBe(2)` into a pass-for-the-wrong-reason. Keeping it is safe: the tester iframe's `<body>` holds
+nothing but render containers, and `vitest-browser-vue` registers `beforeEach(cleanup)` on the file
+root suite while your reset sits inside a `describe`, so parent-first hook order runs `cleanup()`
+first and it never has its DOM yanked. All measured.
+
+**jsdom has no sequential focus navigation at all.** A Tab keydown moves nothing —
+`document.activeElement` is unchanged — so only programmatic `.focus()` works there, which behaves
+identically in both environments and therefore proves nothing. **Every test about tab order is
+unportable *from* jsdom, because it never existed there.** `FocusGuards` is the case in point: its
+guards exist to catch focus escaping to browser chrome and neither suite ever presses Tab. In
+Chromium, Tab from the last inner button lands on the trailing guard and a second Tab leaves to
+`BODY`.
+
+**Zero-size blocks clicking, not tabbing.** Refining the empty-`<label>` gotcha: the focus guards
+are exactly `0x0` and Chromium tabs to them fine. Actionability checks are a *click* concern.
+
+**Fragment-root components put every root as a direct child of `screen.container`.** `Viewport`
+yields `['DIV','STYLE']`, so `container.firstElementChild` is not the whole component — a real
+consideration when choosing what to hand to `axe`.
+
+**Two `render()` calls in one test do not unmount each other.** Cleanup is registered as a
+`beforeEach`, not between renders, so both containers coexist for the rest of the test and are
+removed before the next one. Measured: `document.body.children.length === 2` mid-test with both
+elements connected, `0` at the start of the next test. A jsdom original that mounts twice inside
+one `it` (`Separator` does) ports literally, with no restructuring.
 
 **Keyboard goes to whatever has focus.** jsdom fires `keydown` straight at an element. Playwright
 does not. The slider thumb has `tabindex=0` (`SliderThumbImpl.vue:60`), so
@@ -273,9 +410,25 @@ port picks them up for free. Measured on the smallest possible case: `Label.vue:
 `@mousedown` handler is covered by the port and not by the jsdom original, which performs the
 identical gesture on the identical element.
 
+**And it is not only `mousedown` handlers — a real click also *focuses*.** So any
+`getActiveElement() !== document.body` guard flips in the browser and never under jsdom. Measured:
+`activeElement` is `BODY` both before and after `HTMLElement.click()` in jsdom, so
+`DialogContentImpl.vue:63` (which records the trigger element for focus restoration) is unreachable
+there. That one is a genuine environment win — `mount()` + `unmount()` does not reproduce it.
+
 Check the branch map before celebrating, though. That same handler's `if (event.detail > 1)` is
 `[0,2]` — never taken, because nothing in either suite double-clicks. The line went green; the
 behaviour it guards is still tested by nobody. **A covered line is not a tested behaviour.**
+
+**The CSS shim can *cause* zero-size, not just fail to prevent it.** Tailwind preflight zeroes
+`button { padding }` and `* { border-width }`, so a contentless `<button>` in a fixture measures
+**0×0** and cannot be clicked — `force: true` does not help either. Proven cheaply by rendering the
+identical empty `<button>` inside a **shadow root**, which preflight cannot reach: 16×6 there, 0×0
+in the light DOM. So when a port hangs on a click, the shim is a suspect, not just a victim.
+
+**`toMatchFileSnapshot` cannot be called from `afterAll`** — "cannot be used without test context".
+Since it is the way to get probe output out of a browser test, the dump has to live in a trailing
+`it('dump')`.
 
 **A zero-size element cannot be clicked, and plenty of them are zero-size.** An empty `<label>`
 measures `0x18` in Chromium — zero *width* — so `locator.click()` retries and times out. jsdom's
@@ -327,6 +480,40 @@ Both specifiers are aliased, in the `browser` project only, to browser-safe shim
 is what axe is *for* — and reimplement `configureAxe` / `axe` / `toHaveNoViolations` without
 `createRequire`, `lodash-es` or `chalk`. Ported files keep the exact `import { axe } from 'vitest-axe'`
 their jsdom originals use; the alias does the work, so there is nothing to change per file.
+
+**axe audits a *detached copy* under jsdom and the *live element* in browser mode — all 62 axe
+files.** `vitest-axe`'s `mount()` branches on `document.body.contains(html)`; VTU's `mount()`
+leaves the component detached, so every jsdom axe test in this repo takes the fallback branch —
+axe never sees the live component, it sees a copy re-parsed from `outerHTML` and pasted into
+`document.body`, with the audit *context* being `document.body` rather than the component.
+`vitest-browser-vue`'s `render` attaches, so ports take the first branch. Verified the local shim
+reproduces the published `dist/index.js` logic, so this is real and not a shim artifact.
+Consequence: **a ported axe test legitimately reports a different number of passing rules than
+its original**, in both directions, and that is not a weakening. `Separator` measured 6 jsdom
+passes vs 5 in Chromium, the extra being `aria-hidden-body` — a rule about `<body aria-hidden>`,
+applicable only because jsdom accidentally widened the context.
+
+**Census by node count, not by bucket.** An earlier version of this entry said `color-contrast`
+lands in `incomplete` under jsdom. That is too specific to be safe: `AlertDialog` measured the same
+rule landing in **`incomplete` with the dialog closed and `inapplicable` with it open, in the same
+file**. The reliable test is not which bucket a rule is in — it is **whether its entry has any
+nodes**. A zero-node entry in either bucket means the rule did not run, and a census that reads
+buckets alone will report "the rule ran" when nothing was examined.
+
+**Do not over-generalise `Slider`'s vacuous axe test — it was vacuous for a specific reason.**
+Measured across three more files: `Progress` (13 jsdom passes, 0 violations) and `Toolbar` (15)
+are **not** vacuous, because `mount()` renders synchronously and nothing is `display: none`. The
+`Slider` case needed an element hidden *at mount time*. What browser mode reliably adds is exactly
+one rule — `color-contrast`, which jsdom structurally cannot run — and it is not a formality:
+`Progress` came in at **4.85:1 against a 4.5:1 threshold**. Always probe rather than assume, in
+whichever direction.
+
+**A green axe test can still be unfailable.** `Separator`'s only test survives three mutations
+that matter: misspelt role and bad `aria-orientation` are caught, but **deleting `role="separator"`
+entirely yields zero violations *and* zero passes** — the component's whole contract can be removed
+and the test stays green. Same shape in `Progress`: `aria-progressbar-name` passes only because
+reka names the bar with its own *value* ("0%"), a name that describes nothing and changes as it
+fills. axe green means "no violation found", never "the component is correct".
 
 **axe in a real browser is much less forgiving, and that is the point.** `Slider.test.ts:27-33`
 calls `axe(wrapper.element)` *synchronously* after `mount()`. Vue has not flushed yet, so the thumb

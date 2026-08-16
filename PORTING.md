@@ -160,6 +160,15 @@ GAINED — reached only by the port:
 That is the real `ResizeObserver` path. Under jsdom the stub means those lines never
 execute. One test, and the argument for the whole exercise is a number.
 
+#### It retries once, and you want to know why
+
+`collect()` re-runs a project whose report file never appeared. Concurrent agents each spawn
+their own vitest, and a browser-project run that loses the race for Chromium dies without writing
+a report — which from the script's side is indistinguishable from a port that does not compile.
+Measured during T2 batch 1: one run in four exited 2 while three re-runs of the identical command
+were clean. The retry is not papering over flake in the *tests*; it is stopping an agent from
+"fixing" a file that was never broken. If both attempts fail, it still exits 2 with the output.
+
 #### Allowed losses — `PORT-COVERAGE-ALLOW.tsv`
 
 Occasionally a lost line is the *right* outcome, because jsdom only reached it by being jsdom.
@@ -207,8 +216,17 @@ parent directory (`shared/` holds many unrelated ports, so the directory is not 
 
 For the mock-deleting files the claim is "the mock was hiding a real gap." Prove it: break
 the component the way the mock papered over, then confirm **the browser test fails and the
-jsdom test still passes**. That divergence is the finding. Don't do this for T1/T2 — it is
-expensive and there is nothing to show.
+jsdom test still passes**. That divergence is the finding.
+
+**Do it on T2 files too — this advice used to say don't, and that was wrong.** It cost about a
+minute on `Viewport` and produced that file's best row: renaming the attribute the component ships
+turns three of five tests red and leaves the fourth green, because
+`renders a <style> sibling whose text mentions [data-reka-viewport]` compares a string literal in
+the template against a string literal in the test and nothing ties the injected stylesheet to the
+element it selects. `Separator` is the same story — deleting `role="separator"` outright leaves its
+only test green. **On a T2 file the mutation is cheap and it is often the only thing that
+distinguishes a real test from a decorative one.** What stays T3-only is the *mock-deleting* form
+of the claim, where you also have to show the jsdom test cannot fail.
 
 **Done once, for `Slider`, and it worked.** Deleting `target.setPointerCapture(event.pointerId)`
 from `SliderImpl.vue`'s `pointerdown` handler makes the browser port's
@@ -358,8 +376,22 @@ Slider/Slider.test.ts	ported	ResizeObserver,pointerCapture,scrollIntoView	-	+9/-
 | `ported` | browser version is at least as strong; the jsdom file is now redundant |
 | `ported-weaker` | it runs, but something was lost — say what in `notes` |
 | `found-bug` | the port is faithful and **fails because it found something real**; the test is quarantined and this row is what its `@finding` tag points at |
+| `found-gap` | the port is **green**, and in getting it green you proved something real is **untested or broken** — but rule 7 forbids the patch and an added `it` would be `INVENTED`, so there is nothing to quarantine |
 | `node` | the file touches no DOM, so it moved to the `node` project instead — it never needed jsdom and does not need a browser either |
 | `blocked` | cannot port yet; `notes` says what is missing |
+
+> **`found-gap` was added after the first T2 batch**, which produced four rows that had to be
+> filed as `ported` — a verdict meaning "fine" — while actually recording a real a11y violation
+> (`Progress#indeterminate-untested`), a roving-focus implementation no test ever reaches
+> (`Toolbar#roving-focus-untested`), an axe test that survives deleting the component's only
+> attribute (`Separator#axe-near-vacuous`), and a component whose one job is asserted only in
+> the negative (`Label#no-positive-case`). Burying those under `ported` is how the deliverable
+> gets lost, since `FINDINGS.tsv` is the output and the test files are the byproduct. The four
+> rows have been re-verdicted.
+>
+> Note what `found-gap` is *not*: it is not a softer `found-bug` for when you could not get the
+> port green. If the port fails, quarantine it and use `found-bug`. `found-gap` is for the more
+> insidious case — **everything passes and that is the problem.**
 
 > **`stay-jsdom` is retired.** It was the right verdict while browser mode was a
 > second tier being evaluated on its merits. It is not reachable now: the goal is to
@@ -390,6 +422,12 @@ the right call" is more useful to a reader than another success story.
 
 One implementer, one reviewer, separate context windows. The reviewer never implements; the
 implementer never reviews its own work.
+
+**The two prompts live in `PORT-PROMPTS.md`.** They are a file rather than something typed per
+batch for one reason: the most transferable lesson in the Bun post is *fix the prompt, not the
+code*, and you cannot fix a prompt that was improvised into an agent call and discarded. When a
+batch produces a weakened port, the change goes there and the batch re-runs — and the file has a
+changelog so the next reader learns what went wrong rather than just inheriting the fix.
 
 **Implementer gets:** the jsdom file, `AGENTS.md` (translation table + gotchas), the file's
 row from `PORT-INVENTORY.tsv`. Produces `X.browser.test.ts` plus a `FINDINGS.tsv` row.
@@ -549,15 +587,78 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
       Rule 4 should read: fix the test when the name describes something that does not happen;
       when the name is simply mislabelled, port verbatim and write it down. Renaming stays
       banned either way.
-- [ ] Update `AGENTS.md` gotchas with whatever these three taught you. *(Slider's are in:
-      atomic `dropTo`, `includeHidden`, `render` auto-unmount, inline templates compile.)*
+- [x] **Update `AGENTS.md` gotchas with whatever these three taught you. DONE.**
+      Slider's: atomic `dropTo`, `includeHidden`, `render` auto-unmount, inline templates
+      compile. `useForwardExpose`'s: the auto-unmount coverage trap and its "do not book that
+      as a browser-mode win" counter-rule. `Label`'s: two translation-table rows (there is no
+      `.html()`; the `document.body.innerHTML` teardown is deleted) plus the two gotchas that
+      generalise furthest — `.click()` fires only a click, and a zero-size element cannot be
+      clicked.
+      **The other output of Phase 1 was the prompts themselves**, which had been improvised per
+      file and thrown away. They are now written down in `PORT-PROMPTS.md` — see §6.
 
 ### Phase 2 — fan out, tier by tier.
 
 Order matters: T2 builds confidence in the loop cheaply, T3 is where the value is.
 
-- [ ] **T2** (49 files) — batches of ~8. After each batch: `port:inventory` to refresh the
-      progress column, `port:parity` across all pairs, spot-read two files yourself.
+- [ ] **T2** (49 files, 4 done) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
+      Every browser worker spawns a Chromium and they starve each other; see the `port:coverage`
+      retry note in §2.2. After each batch: `port:inventory`, `port:parity` across all pairs,
+      spot-read two files yourself.
+      **Batch 1 — `Separator`, `Progress`, `Toolbar` — DONE, 8 tests, all oracles clean first
+      try, zero coverage delta on all three.** The mechanical part of T2 is genuinely mechanical.
+      The findings are not: 8 rows from 3 small files, and **the three most valuable ones are
+      about the test suite rather than about the components.** `Separator#axe-context-detached-mount`
+      applies to all 62 axe files (jsdom audits a detached copy, browser mode the live element, so
+      rule counts legitimately differ). `Progress#retry-widens-timing` is a weakening the oracle
+      cannot catch — a retrying matcher makes `describe('after 200ms')` pass anywhere in the sleep
+      plus the retry budget. `Toolbar#roving-focus-untested` found an entire `RovingFocusGroup`
+      implementation no test in either suite ever reaches.
+      Three of the three also came back **0 lines gained**, against `Label`'s +1 — because none of
+      these components has teardown code and none of the tests click. The `#auto-unmount` freebie
+      is not universal.
+      **Batch 2 — `Viewport`, `FocusGuards`, `VisuallyHidden`.** `Viewport`'s nonce assertion did
+      fail in Chromium and is quarantined, **but the predicted cause was wrong** and the real one is
+      worth more. It is not the spec's nonce hiding (that needs a header-delivered CSP and *empties*
+      the attribute rather than removing it). It is that **Vue writes a DOM property instead of an
+      attribute whenever `key in el`, and jsdom's IDL setter reflects into the content attribute
+      while Chromium's does not** — so the assertion, and its comment claiming jsdom "exposes the
+      attribute reliably", were testing jsdom. That generalises to every `attributes('x')` assertion
+      on a prop-path binding and is the most systematic T2 hazard found so far.
+      `FocusGuards` corrected a **factual error** in the translation table: `render` *throws* on
+      `attachTo`, so the three files in this batch that mount with it would each have crashed on a
+      literal port.
+      **`VisuallyHidden` produced the batch's most consequential finding, and it is about the
+      library rather than the harness.** `VisuallyHidden.vue:19` sets `aria-hidden="true"`
+      **unconditionally** — the ternary tests a union type that admits only its two members — so
+      sr-only text nested inside a control silently vanishes from the accessibility tree. Two
+      independent accname implementations agree: `<button><VisuallyHidden>Save</VisuallyHidden></button>`
+      is an axe `button-name` violation and `getByRole('button', { name: 'Save' })` matches zero.
+      Direct `aria-labelledby` IDREFs still resolve, which is how `Tooltip` uses it, so most library
+      usage is fine. Upstream v2 is byte-identical, so it is not a fork artifact.
+      The same file also shows why its own test cannot fail: with `!important` overrides making the
+      element fully visible, both original assertions still pass, because they read the **inline
+      style string** and never the computed result. Recorded, not fixed — rule 7.
+      **Batch 3 — `AlertDialog`, `Switch` — DONE, and between them they found the two silent
+      vacuities that most threaten this whole effort**, because both leave the assertion count
+      unchanged and therefore **pass `port:parity` while the test stops testing**:
+      (1) `getByText` defaults to a **substring** match in vitest locators where
+      `@testing-library`'s defaults to whole-string — `getByText('checked')` returns one element
+      whose text is `unchecked`, so both of `Switch`'s toggle tests would have passed against a
+      switch that never toggles; (2) **a locator is lazy**, so a bare `getBy*` — which in a
+      `@testing-library` original *is* the assertion, via its throw — asserts nothing.
+      **Swept every completed port for both.** Lazy-locator class clean; the four non-`exact`
+      `getByText` calls all target correctly, verified by probe (`getByText` resolves to the
+      deepest element containing the text, so `Label`'s clicks land on the `<label>`, not the
+      wrapping div whose `textContent` is identical).
+      `AlertDialog` also supplied the translation-table row that would have silently gutted every
+      overlay port — **portalled content needs `page.getBy*`, not container-scoped `screen.getBy*`** —
+      and found a real axe violation on open (4.07:1 against 4.5:1, shim ruled out by diffing the
+      palette against the Histoire config).
+      `Switch`'s mutation matrix is the best T3-style evidence yet from a T2 file: `.prevent` on
+      the Enter handler is load-bearing and **jsdom structurally cannot test it**, because in
+      Chromium Enter on a `<button>` also synthesises a click, so without `preventDefault` the
+      switch toggles twice and lands back where it started — browser red, jsdom green.
 - [ ] **T3** (23 files) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`
@@ -612,15 +713,15 @@ pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 |---|---|---|
 | `node` | 10 | 571 |
 | `unit` (jsdom) | 87 | 1444 |
-| `browser` | 5 | 57 + 1 expected fail |
+| `browser` | 13 | 95 + 3 expected fail |
 
 Baseline before this effort: **99 files / 2017 tests passing.**
-Current: **102 files / 2072 passing + 1 expected fail.**
+Current: **110 files / 2110 passing + 3 expected fail.**
 
 **Read `unit` carefully — it is not the progress bar yet.** It dropped 10 files to `node` and
 will not drop another one until Phase 3, because ports keep their original alongside them on
 purpose. Until those per-component deletion decisions, progress is the `still on jsdom` line
 from `port:inventory`: files that are neither in the `node` project nor have a
-`.browser.test.ts` next to them. That number is **84 files / 1367 `it` call-sites** as of the
-`Label` port (1368 `it` call-sites). `unit`'s file count becomes the real measure only once deletions start, and it
+`.browser.test.ts` next to them. That number is **76 files / 1328 `it` call-sites** as of the end
+of the first T2 round (8 files ported). `unit`'s file count becomes the real measure only once deletions start, and it
 has to reach zero either way.
