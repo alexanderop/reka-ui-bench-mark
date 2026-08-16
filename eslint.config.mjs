@@ -18,7 +18,18 @@ export default antfu(
     },
   },
   {
-    ignores: ['*.js'],
+    ignores: [
+      '*.js',
+      // Code blocks inside the browser-mode docs. They quote third-party build
+      // output verbatim (so `module` must not become `node:module`) and use
+      // deliberately partial snippets to illustrate a pattern, which the TS
+      // parser cannot help but reject. The prose in these files is still
+      // linted — only the extracted blocks are skipped.
+      'AGENTS.md/**',
+      'CLAUDE.md/**',
+      'PORTING.md/**',
+      'MIGRATING-TO-BROWSER-MODE.md/**',
+    ],
   },
   {
     rules: {

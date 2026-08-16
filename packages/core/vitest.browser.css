@@ -1,0 +1,39 @@
+/*
+ * Stylesheet for the `browser` vitest project, imported from
+ * `vitest.browser.setup.ts` and compiled by `tailwind.browser.config.js`.
+ *
+ * Without this the story fixtures render unstyled, collapse to ~0x0, and
+ * Playwright refuses to click them. Attribute-only assertions work either way;
+ * anything geometric does not.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Mirrored from `.histoire/style.css` — several story fixtures reference these
+ * class names rather than spelling the utilities out inline, so they have to
+ * exist here too or those components lose their box entirely.
+ *
+ * The histoire-specific selectors at the bottom of that file are deliberately
+ * not copied: they style Histoire's own story chrome, which does not exist in
+ * a test.
+ */
+@layer components {
+  .accordion-item {
+    @apply mt-px overflow-hidden first:mt-0 first:rounded-t last:rounded-b focus-within:relative focus-within:z-10 focus-within:ring-2 focus-within:ring-black;
+  }
+
+  .accordion-trigger {
+    @apply flex h-12 flex-1 cursor-pointer items-center justify-between bg-white px-5 text-base font-medium leading-none text-green-700 shadow-[0_1px_0] shadow-[--line-color] outline-none hover:bg-gray-200;
+  }
+
+  .accordion-content {
+    @apply overflow-hidden bg-gray-100 text-sm text-gray-900 px-5 py-4;
+  }
+
+  .accordion-animated-content {
+    @apply overflow-hidden bg-gray-100 text-sm text-gray-900;
+  }
+}

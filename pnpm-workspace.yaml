@@ -19,3 +19,10 @@ onlyBuiltDependencies:
   - simple-git-hooks
   - unrs-resolver
   - vue-demi
+packageExtensions:
+  '@testing-library/jest-dom':
+    peerDependencies:
+      vitest: '*'
+    peerDependenciesMeta:
+      vitest:
+        optional: true

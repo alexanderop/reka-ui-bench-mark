@@ -38,3 +38,8 @@ playwright-report/
 vite.config.ts.timestamp*
 */.vitepress/cache
 .eslintcache
+
+# Vitest browser mode writes these on every failing test. They are diagnostics,
+# not baselines — there is no visual-regression suite here (see AGENTS.md).
+.vitest-attachments/
+**/__screenshots__/
