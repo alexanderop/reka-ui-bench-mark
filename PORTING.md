@@ -775,6 +775,55 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       `useSelectionBehavior` (mount-and-assert, mechanical), then `component/Arrow`,
       `getActiveElement`, `useArrowNavigation`, `useIsUsingKeyboard` (real input / focus).
 - [ ] **T4** (12 files) — by hand, last. Decide per file whether a rewrite is worth it.
+      **Reordered: the four pattern-frontier files run first** — `Select` (fake timers × real
+      input), `NavigationMenu` (`vi.mock` in the browser), `Combobox` (expectations derived from
+      stubbed geometry; T3 but frontier), `ScrollArea` (snapshots of a really-positioned DOM) —
+      so every pattern class has a worked precedent before the mechanical remainder is delegated.
+  - [x] **`Select` — DONE, 29/29, all three oracles clean** (parity 40/38, coverage +40/−0 with
+        21 argued allow lines). The frontier answers: `vi.useFakeTimers()` works in the tester
+        iframe but freezes rAF/`performance` (default `toFake`), so positioning-dependent focus
+        fires arbitrarily late — measured stealing focus mid-keystroke; modal
+        `body { pointer-events: none }` is enforced by Chromium hit-testing, forced clicks
+        included, so two original hooks were gestures no user can make; the outside-press
+        dismiss path was zombie-covered in jsdom (bisected: 0 lines in isolation, all lines in
+        the full file — deferred `setTimeout(0)` listener registration never fires inside one
+        test's microtask hook chain); and the double-pointerup selection ritual evaporates under
+        real clicks. Nine findings in `FINDINGS.tsv` under `Select/Select.test.ts*`.
+  - [x] **`NavigationMenu` — DONE, 13/13 (one `it.fails`), all three oracles clean, coverage
+        +100/−0** with no allow lines — the largest genuinely-earned GAINED list yet, because
+        real hovers reach the enter/leave and viewport-measurement surface synthetic events
+        never did. Frontier answers: `vi.mock` + `importActual` + per-test `mockImplementation`
+        work in browser mode unchanged (probed before porting); a real mouse click cannot avoid
+        hovering first, which rewrites what click tests mean on hover-triggered components; the
+        frozen clock starves the ResizeObserver→CSS-var pipeline, making open menu content
+        unhoverable under fake timers; and axe surfaced a real `aria-hidden-focus` violation on
+        the focus proxy that jsdom filed under `incomplete`. Seven findings under
+        `NavigationMenu/NavigationMenu.test.ts*`.
+  - [x] **`Combobox` — DONE, 45/45 (one `it.fails`), all three oracles clean, coverage +13/−0
+        with 2 argued allow lines.** The geometry frontier: the prototype rect stub feeding the
+        virtualizer deletes 1:1 against the real 200px viewport (with the settle behaviour the
+        stub hid — all rows mount, then trim, so the subset assertion owns the wait), the
+        narrated blur simulations become one real click, and the file produced the migration's
+        first **deliberately kept stub** (the popper describe's choreographed RO — construct,
+        not compensate) plus its first **rebased numeric expectation** (slot renders 3/4 →
+        4/4, measured deterministic). axe: the open popup fails AA contrast by 0.06,
+        quarantined. Third bisected zombie-coverage instance (`ListboxRoot.vue:167` — covered
+        by the full file, by no describe in isolation). Seven findings under
+        `Combobox/Combobox.test.ts*`.
+  - [x] **`ScrollArea` — DONE, 9/9, all three oracles clean, coverage +1/−0 with 4 argued allow
+        lines.** The snapshot frontier: browser snapshots carry measured thumb geometry
+        (locally deterministic, font-dependent across machines — normalize with a serializer if
+        cross-machine CI ever matters), `scrollTop = 40` is a real scroll whose event the
+        browser fires itself, and the prototype geometry stub turned out to be silently
+        *authoring* the fixture (a headless scrollbar has no intrinsic thickness; the port
+        declares the stub's 10px as real CSS). Fourth zombie-coverage instance plus a
+        stub-timing artifact, both bisected. Five findings under
+        `ScrollArea/ScrollArea.test.ts*`.
+
+  **The frontier is closed.** All four pattern classes — fake timers × real input, `vi.mock`,
+  stub-derived geometry/virtualization, and DOM snapshots — now have a completed, oracle-clean
+  precedent, and every sharp edge found on the way is in `AGENTS.md`'s gotcha list. The
+  remaining T2/T3/T4 files can be delegated as mechanical work against those documents.
 
 ### Phase 3 — the write-up.
 

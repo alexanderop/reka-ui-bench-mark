@@ -13,7 +13,7 @@ ColorField/ColorField.test.ts	T2-mechanical	29	41	381	mounts	-	-	-	axe,keyboardE
 ColorSlider/ColorSlider.test.ts	T3-payoff	16	25	214	mounts	ResizeObserver,pointerCapture,scrollIntoView	ResizeObserver,pointerCapture,scrollIntoView	-	axe,keyboardEvents	no
 ColorSwatch/ColorSwatch.test.ts	T2-mechanical	17	20	150	exists	-	-	-	axe	no
 ColorSwatchPicker/ColorSwatchPicker.test.ts	T2-mechanical	9	14	77	mounts	-	-	-	axe	no
-Combobox/Combobox.test.ts	T3-payoff	45	67	896	mounts	ResizeObserver,pointerCapture,scrollIntoView,getBoundingClientRect,getComputedStyle	ResizeObserver,pointerCapture,scrollIntoView,rects,computedStyle,rAF,focusApi	-	axe,pointerEvents,keyboardEvents	no
+Combobox/Combobox.test.ts	T3-payoff	45	67	896	mounts	ResizeObserver,pointerCapture,scrollIntoView,getBoundingClientRect,getComputedStyle	ResizeObserver,pointerCapture,scrollIntoView,rects,computedStyle,rAF,focusApi	-	axe,pointerEvents,keyboardEvents	yes
 ConfigProvider/ConfigProvider.test.ts	T4-hostile	8	14	111	none	ResizeObserver	ResizeObserver,rects	moduleMock	-	no
 ContextMenu/ContextMenu.test.ts	T3-payoff	3	3	39	mounts	ResizeObserver	ResizeObserver	-	axe	no
 DateField/DateField.test.ts	T2-mechanical	62	156	1162	mounts	-	-	-	axe,keyboardEvents	no
@@ -39,7 +39,7 @@ Menu/Menu.test.ts	T3-payoff	6	7	95	mounts	ResizeObserver	ResizeObserver,focusApi
 Menubar/Menubar.test.ts	T3-payoff	6	6	61	mounts	ResizeObserver	ResizeObserver	-	axe,pointerEvents	no
 MonthPicker/MonthPicker.test.ts	T2-mechanical	25	74	420	mounts	-	focusApi	-	axe	no
 MonthRangePicker/MonthRangePicker.test.ts	T2-mechanical	23	87	481	mounts	-	focusApi	-	axe	no
-NavigationMenu/NavigationMenu.test.ts	T4-hostile	13	20	273	mounts	-	focusApi	fakeTimers,moduleMock	axe,pointerEvents	no
+NavigationMenu/NavigationMenu.test.ts	T4-hostile	13	20	273	mounts	-	focusApi	fakeTimers,moduleMock	axe,pointerEvents	yes
 NumberField/NumberField.test.ts	T3-payoff	41	89	522	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	no
 Pagination/Pagination.test.ts	T2-mechanical	28	46	262	mounts	-	-	-	axe	no
 PinInput/PinInput.test.ts	T3-payoff	38	79	476	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	no
@@ -52,8 +52,8 @@ RadioGroup/RadioGroup.test.ts	T2-mechanical	17	24	155	mounts	-	focusApi	-	axe,ke
 RangeCalendar/RangeCalendar.test.ts	T2-mechanical	45	216	1071	mounts	-	focusApi	-	axe,keyboardEvents	no
 Rating/Rating.test.ts	T2-mechanical	11	20	115	mounts	-	focusApi	-	axe,keyboardEvents	no
 RovingFocus/RovingFocus.test.ts	T2-mechanical	4	15	132	mounts	-	focusApi	-	keyboardEvents	yes
-ScrollArea/ScrollArea.test.ts	T4-hostile	9	15	171	mounts	ResizeObserver	ResizeObserver,rects	snapshot	axe,pointerEvents	no
-Select/Select.test.ts	T4-hostile	29	38	415	mounts	ResizeObserver,pointerCapture	ResizeObserver,pointerCapture,focusApi	fakeTimers	axe,spyOn,pointerEvents	no
+ScrollArea/ScrollArea.test.ts	T4-hostile	9	15	171	mounts	ResizeObserver	ResizeObserver,rects	snapshot	axe,pointerEvents	yes
+Select/Select.test.ts	T4-hostile	29	38	415	mounts	ResizeObserver,pointerCapture	ResizeObserver,pointerCapture,focusApi	fakeTimers	axe,spyOn,pointerEvents	yes
 Separator/Separator.test.ts	T2-mechanical	1	2	17	none	-	-	-	axe	yes
 Slider/Slider.test.ts	T3-payoff	39	69	437	mounts	ResizeObserver,pointerCapture,scrollIntoView	ResizeObserver,pointerCapture,scrollIntoView,coords	-	axe,pointerEvents,keyboardEvents	yes
 Splitter/Splitter.test.ts	T3-payoff	3	7	178	mounts	ResizeObserver	ResizeObserver	-	axe	no

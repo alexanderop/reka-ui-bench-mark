@@ -144,6 +144,47 @@ Ported so far:
 - **T2 batches 1–6: 18 of 44 files complete.** The current batch adds DateRangeField (8/8),
   Tabs (7/7), and RadioGroup (17 its / 21 runtime tests). `PORT-INVENTORY.tsv` is the
   authoritative inventory; `PORTING.md` records each batch and its evidence.
+- `packages/core/src/Select/Select.browser.test.ts` — **complete, 29 of 29. First T4 file, and
+  the pattern-frontier port for fake timers and modal hit-testing.** All three stubs deleted; the
+  double-pointerup selection ritual evaporated (`#pointerup-guard-consumed-by-real-click`);
+  Chromium enforcing the modal's `body { pointer-events: none }` forced two hooks to be
+  re-derived and exposed the outside-press dismiss path as zombie-covered in jsdom (bisected,
+  `#outside-press-coverage-is-zombie`); `vi.useFakeTimers()` works in the tester iframe but
+  freezes rAF (`#fake-timers-work-but-freeze-raf`). Nine findings, 21 argued allow lines,
+  coverage +40/−0.
+- `packages/core/src/NavigationMenu/NavigationMenu.browser.test.ts` — **complete, 13 of 13 (one
+  `it.fails`). The `vi.mock` frontier: module mocking works in browser mode unchanged**
+  (`#module-mock-works`), including a hoisted async factory over `@vueuse/core` with
+  `importActual` and per-test `mockImplementation` swaps. Coverage **+100/−0** — real hovers
+  earned the whole viewport-measurement and enter/leave surface. axe found a real
+  `aria-hidden-focus` violation on the focus proxy that jsdom filed under `incomplete`
+  (`#focus-proxy-aria-hidden-focus`), and the real mouse forced three re-derivations, led by
+  "a mouse click cannot avoid hovering first" (`#mouse-click-cannot-avoid-hover`). Seven
+  findings.
+- `packages/core/src/Combobox/Combobox.browser.test.ts` — **complete, 45 of 45 (one `it.fails`).
+  The geometry frontier, and the port that set the construct-vs-compensate stub rule**: six
+  stubs deleted — including the prototype `getBoundingClientRect` feeding the virtualizer,
+  which the real 200px viewport replaces 1:1 (`#virtualizer-real-viewport`), and the narrated
+  blur simulations a real click performs itself (`#simulated-blur-becomes-real`) — while the
+  popper describe's choreographed ResizeObserver is **kept on purpose**, because it constructs
+  the scenario rather than compensating for jsdom (`#popper-ro-mock-kept`). axe caught the
+  fixture failing AA contrast by 0.06 (`#color-contrast-4-44`); the popper render ladder
+  rebased 3/4 → 4/4 deterministic; coverage +13/−0 with 2 argued allow lines, one of them the
+  third bisected zombie-coverage instance (`#zombie-covered-lines`).
+- `packages/core/src/ScrollArea/ScrollArea.browser.test.ts` — **complete, 9 of 9. The snapshot
+  frontier, and the first port where scrolling is real.** All six stubs deleted — the prototype
+  geometry overrides, the hand-fired scroll event (`viewport.scrollTop = 40` now makes the
+  *browser* fire the event, `#scroll-event-is-real`), and the corner describe's RO mock. The
+  snapshots carry measured thumb geometry (`18px`, sub-pixel post-scroll transforms) — locally
+  deterministic, font-dependent across machines (`#snapshots-real-geometry`). A headless
+  scrollbar has no intrinsic thickness; jsdom's `offsetWidth = 10` stub was silently fabricating
+  it, replaced by 10px of real CSS (`#scrollbar-thickness-was-stubbed`). Fourth bisected
+  zombie-coverage instance. Coverage +1/−0 with 4 argued lines.
+
+**All four pattern-frontier files (Select, NavigationMenu, Combobox, ScrollArea) are complete** —
+fake timers, `vi.mock`, stub-derived geometry, and DOM snapshots each have a worked precedent.
+The remaining files are mechanical against this document; the sharp edges they can still hit are
+all in the gotcha list below.
 
 ### Commands
 
@@ -162,7 +203,7 @@ pnpm --filter reka-ui port:coverage Slider               # still reaches the sam
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Baseline as of the last run: **116 files / 2163 passing + 6 expected fails.** Never leave the
+Baseline as of the last run: **123 files / 2293 passing + 8 expected fails.** Never leave the
 `unit` project broken to make progress on `browser`; the two run side by side on purpose.
 
 ---
@@ -177,6 +218,11 @@ Baseline as of the last run: **116 files / 2163 passing + 6 expected fails.** Ne
 - Render with `vitest-browser-vue`, mount the **story fixture** (`story/_<Component>.vue`), not
   the raw primitive — same house rule as the jsdom tests.
 - Delete every mock the browser makes unnecessary. That deletion is the deliverable.
+- **…but only the *compensating* mocks.** A stub that **constructs the scenario** — Combobox's
+  popper describe mocks ResizeObserver to fire twice synchronously because *RO-driven re-render
+  counts are the subject* — ports with the test, scoped and restored. Ask of every stub: is it
+  faking what the browser would do (delete), or is it the test's input (keep, and record it as
+  a kept stub in `FINDINGS.tsv`)? First applied in `Combobox/Combobox.test.ts#popper-ro-mock-kept`.
 
 ### Translation table
 
@@ -258,6 +304,68 @@ nearest *mouse*-focusable ancestor, and `tabindex="-1"` counts as mouse-focusabl
 that ancestor is the roving-focus group, so its `@mousedown` never runs, `isClickFocus` stays false,
 and `handleFocus` runs the full **entry-focus** algorithm for what was a mouse interaction — i.e. the
 Safari workaround is bypassed exactly in the disabled case. Worth knowing before the T3 overlays.
+
+**A modal overlay's `body { pointer-events: none }` is real, and no click flag overrides it.**
+`DismissableLayer` with `disableOutsidePointerEvents` (every modal Select/Dialog path) styles the
+body inert, and Chromium's hit-testing honours it: everything outside the content — *including the
+trigger* — is unreachable by any pointer. `force: true` does not help, because a forced click is
+still trusted input dispatched at coordinates, and the browser routes it to `<html>` (the one
+element that keeps `pointer-events: auto`, since the inherited `none` starts at `body`). Measured
+in `Select`: the original's "click Close while open" and "pointerdown the trigger while open" are
+gestures no user can make; jsdom performed them happily because it has no hit-testing. Three rules
+fall out: (1) a press *at those coordinates* is an **outside press** and dismisses — which jsdom
+never saw, because of the zombie-listener entry below; (2) the **keyboard is exempt** —
+`pointer-events` does not gate keydown, so Escape (and Tab, where not trapped) are the gestures a
+port can use; (3) keyboard-activating a button inside a not-yet-positioned popper world is racy —
+see the fake-timers entry. Expect all of this on every remaining T3/T4 overlay.
+
+**`vi.useFakeTimers()` works in browser mode — and freezes `requestAnimationFrame`.** First
+exercised in `Select`'s cleanup test, all of it real: sinon installs on the tester-iframe window,
+`vi.getTimerCount()` sees the component's pending `setTimeout`s, `vi.spyOn(window, 'clearTimeout')`
+wraps the fake and catches unmount cleanup, and Playwright actions plus retrying matchers keep
+running on *real* time outside the page, so you can still click and poll while the page clock is
+frozen. The sharp edge is the default `toFake` set, which includes `requestAnimationFrame` and
+`performance`: floating-ui positioning freezes, so anything downstream of `isPositioned` — Select's
+`focusSelectedItem` auto-focus above all — is deferred indefinitely and then fires *whenever a
+later RPC lets a frame through*. Measured: focusing the Close button and pressing Enter lost a race
+to exactly that deferred auto-focus; the component stole focus mid-`userEvent.keyboard` and Enter
+selected an item instead — every assertion still passed, and only the coverage oracle noticed the
+Close handler never ran. Under browser fake timers: never wait on anything rAF- or
+positioning-dependent, don't build poll loops on `performance.now()` (it is frozen too), and drive
+state through microtask-only paths.
+
+Second data point, from `NavigationMenu`: the frozen clock also starves the **ResizeObserver →
+CSS-var pipeline** — the viewport's `--reka-navigation-menu-viewport-height` never gets set, the
+`overflow-hidden` viewport computes 0px tall, and every link in the open menu hit-tests to the nav
+list behind it. A real hover of content is therefore *impossible* in a fake-timer test (Playwright
+burns the full timeout on interception), and the original's synthetic `pointerleave` dispatch is
+the correct port, not a shortcut.
+
+**`vi.mock` works in browser mode, unchanged.** Measured in `NavigationMenu` on Vitest 4.1.10: a
+hoisted `vi.mock('@vueuse/core', async factory)` with `vi.importActual`, per-test
+`vi.mocked(...).mockImplementation` swaps, and a mid-test restore of the real implementation all
+behave exactly as under jsdom, and the component under test receives the same mocked module
+instance the test file sees. No config, no `{ spy: true }` needed for a factory mock.
+
+**A real mouse click cannot avoid hovering first.** Playwright's click moves the pointer onto the
+element, so every `pointerenter`/`pointermove` handler fires before `mousedown` does — which
+inverts jsdom's world, where a click was *only* a click. On a hover-opening component
+(`NavigationMenuTrigger`), the "open on click" test still passes but through the hover-open path
+(the trigger ignores the click that follows a hover-open within 300ms), and a
+"clicking must NOT open" test (`disableClickTrigger`) cannot be expressed with real input at all —
+hover isn't disabled there, and Chromium's `HTMLElement.click()` dispatches
+`PointerEvent { pointerType: '' }`, which such guards deliberately let through for keyboard/AT.
+The original's own `{ pointerType: 'mouse' }` synthetic event is the faithful port. Expect this on
+`Tooltip`, `HoverCard`, and every hover-triggered overlay.
+
+**The compat-sequence rituals evaporate — and so do their workarounds' workarounds.** `Select`'s
+original opens with `pointerdown` + hand-fired `mousedown`/`mouseup`/`click`, then needs **two**
+`pointerup`s per selection, because its own opening gesture leaves the trigger-press position
+armed and `SelectContentImpl`'s capture guard swallows the next `pointerup`. A real trigger click
+delivers its own `pointerup` at the unmoved position — the exact "accidental pointerup" the guard
+exists for — so the guard consumes it, disarms, and a following real option click selects on the
+first try. When a jsdom file performs the same event twice with a comment explaining why, the
+comment is usually describing its own gesture's incompleteness, not the component.
 
 **A `bubbles: false` `CustomEvent` still reaches a capture listener.** That is the escape hatch when
 the Vue emit you need lives on a *child* component: `render` binds `emitted` to the root wrapper only
@@ -365,6 +473,54 @@ non-`exact` `getByText` calls all resolve correctly — **`getByText` targets th
 containing the text**, verified by probe (`<div><label>Label</label><input></div>` → one match,
 `LABEL`, not the div whose `textContent` is also `Label`).
 
+**Role-*name* matching is substring too — `getByRole('option', { name: 'Apple' })` matches
+Pine*apple*.** The third member of the substring family, measured in `Select`: the un-exact
+locator resolved to 2 elements and failed as a strict-mode violation. That is the *loud* failure
+mode; the quiet one is a name with a single substring match, which silently widens the query the
+day a colliding option is added. Pass `{ name: …, exact: true }` whenever the name is data rather
+than a label you control. Related strict-mode trap from `Combobox`: an original's
+`find('[role=group]')` (first match) is NOT `getByRole('group')` (strict, one match) when the
+fixture renders two groups — a wait written with the locator times out on the violation. Poll the
+original's own container query instead.
+
+**A virtualizer settles asynchronously under real ResizeObserver — and starts by mounting
+everything.** Measured in `Combobox`: `@tanstack/virtual-core` rendered all 100 rows at the
+original `flush()`'s timing and trimmed to 20 (8 visible + overscan 12) once the real RO
+measurement of the 200px viewport landed. jsdom's rect stub made measurement synchronous, so the
+original's flush choreography was calibrated to the stub. Let the subset assertion own the wait
+(`expect.poll(… .length).toBeLessThan(100)`); a fixed flush ports the stub's timing, not the
+component's.
+
+**A mock-choreographed numeric expectation may rebase deterministically — measure before
+quarantining.** Combobox's popper slot-render ladder is 3-then-4 in jsdom and **4-then-4** in
+Chromium (real floating-ui does at open the position update jsdom deferred a tick), stable across
+repeated isolated runs and a +50ms settle probe. The browser numbers are the *stronger* form of
+the test's claim ("does not keep re-rendering"), so the port pins them with a finding
+(`#popper-render-count-rebased`) instead of quarantining. Rebase only on measured determinism.
+
+**DOM snapshots of real layout embed font metrics.** `ScrollArea`'s browser snapshots carry
+`--reka-scroll-area-thumb-height: 18px` and a post-scroll `translate3d(0px, 0.79476px, 0px)` —
+values computed from how tall lorem text wraps at 50px, i.e. from the font stack. Verified stable
+across consecutive runs on one machine; do **not** expect the baselines to survive a different
+OS/font image, the same way screenshots don't. A `.browser.test.ts` file writes its own `.snap`,
+so the jsdom baselines stay untouched for diffing — and the diff is the payoff: jsdom's
+prototype-stubbed geometry made every thumb ratio the same fiction. If cross-machine CI ever
+matters, normalize computed values with a snapshot serializer rather than re-stubbing geometry.
+
+**A headless scrollbar has no intrinsic thickness — geometry stubs can be silent fixture
+authors.** Unstyled, ScrollArea's bars measure 0×200/200×0 (probed), so the corner that sizes
+itself from them can never render. jsdom's prototype `offsetWidth/Height = 10` didn't just
+compensate for missing layout, it invisibly *designed* a 10px scrollbar nobody wrote. The port
+declares the same 10px as real CSS on the fixture — the zero-size family again, but the lesson is
+sharper: when deleting a geometry stub, ask what the numbers were standing in for; some of them
+were the fixture.
+
+**`el.scrollTop = 40` is a real scroll in Chromium.** The browser scrolls the overflow and fires
+the scroll event itself, asynchronously on a rendering frame — delete the hand-dispatched
+`trigger('scroll')` along with the property stub, and let a polling assertion absorb the frame
+delay. The port gains the real scroll-handler path (`prevScrollPos` tracking) jsdom's synthetic
+event skipped.
+
 **Portalled content is NOT invisible to `screen` — `render`'s `getBy*` helpers are document-scoped.**
 *(This entry previously claimed the opposite, and the wrong version is why `AlertDialog`'s port
 carries a comment saying `screen` "would find nothing". It does find it.)* From source,
@@ -411,6 +567,17 @@ jsdom coverage of module-level stacks and registries can come from **test-to-tes
 teardown is deferred — `FocusScope.vue`'s `focusScopesStack.remove` runs in a `setTimeout(…, 0)`,
 so its `pause()`/`resume()` lines are covered when jsdom runs two tests and not when it runs one.
 Bisect a 1-test run against a 2-test run before accepting that the port lost something real.
+
+**…and the bleed has a second, bigger form: zombie *document listeners*.** The jsdom originals
+never unmount, and `document.body.innerHTML = ''` removes elements but not document-level
+listeners — so every "outside press" and "focus outside" handler from every previously-opened
+overlay stays live for the rest of the file, attached to detached content. In `Select`, the
+**entire outside-press dismiss path** (`DismissableLayer.vue:118-128` plus its `utils.ts` support)
+was covered only this way: a 2-test isolated run covers none of it, the full describe covers all
+of it. The kicker is *why* the current instance never handles its own events: the listener
+registration is deferred by `setTimeout(0)` (`utils.ts:126`), and one jsdom test's hook chain is
+microtask-only, so **the listener only ever attaches between tests** — on instances that are
+already zombies. jsdom "covering" a line can mean a dead component processed a live test's event.
 
 **A failing retrying matcher costs the full locator timeout.** Pairs with the `Progress` entry:
 `expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms.
@@ -704,6 +871,13 @@ rule landing in **`incomplete` with the dialog closed and `inapplicable` with it
 file**. The reliable test is not which bucket a rule is in — it is **whether its entry has any
 nodes**. A zero-node entry in either bucket means the rule did not run, and a census that reads
 buckets alone will report "the rule ran" when nothing was examined.
+
+**…and `incomplete` *with* nodes is a third failure mode: the rule ran and abstained — which
+`toHaveNoViolations` treats as a pass.** Measured in `NavigationMenu`: the focus proxy
+(`aria-hidden="true"` + `tabindex="0"`) is a straight `aria-hidden-focus` violation in Chromium,
+but jsdom cannot determine focusability without layout, so axe files the same node under
+`incomplete` — and the jsdom test has been green over a real WAI-ARIA violation the whole time.
+When porting an axe test, diff the `incomplete` bucket between environments, not just violations.
 
 **Do not over-generalise `Slider`'s vacuous axe test — it was vacuous for a specific reason.**
 Measured across three more files: `Progress` (13 jsdom passes, 0 violations) and `Toolbar` (15)

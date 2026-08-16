@@ -272,6 +272,17 @@ have it.
 If your untouched jsdom suite explodes at import time right after you add a browser
 dependency, this is why. It is not your migration.
 
+### Module mocking (`vi.mock`) works in the browser, unchanged
+
+Worth stating plainly because it is the thing people assume browser mode cannot do. On
+Vitest 4, a hoisted `vi.mock('some-package', async factory)` with `vi.importActual`, per-test
+`vi.mocked(fn).mockImplementation(...)` swaps, and a mid-test restore of the real
+implementation all behave exactly as under jsdom — and the component under test receives the
+same mocked module instance the test file sees (we probed that before trusting it: render the
+component, assert the mock's call count grew). No configuration, no `{ spy: true }` needed for
+a factory mock. Files that were tiered "hostile" purely for `vi.mock` are more portable than
+their tier suggests.
+
 ---
 
 ## 4. Coverage
@@ -499,6 +510,167 @@ This is a real improvement disguised as friction: the port has to state that it 
 something deliberately hidden from the accessibility tree, which the CSS selector never made
 you say.
 
+### Locator text — and role *name* — matching is substring by default
+
+`@testing-library`'s `getByText('checked')` is a whole-string match; the vitest locator of the
+same name is a **substring, case-insensitive** match, and so is the `name` option of `getByRole`.
+Both bite hardest when your domain strings are prefixes of each other:
+
+- `getByText('checked')` happily matches an element whose text is `unchecked` — measured; a
+  toggle test written this way passes against a switch that never toggles.
+- `getByRole('option', { name: 'Apple' })` matches Pine**apple** too — measured; with two matches
+  it fails loudly as a strict-mode violation, but with one match today it silently widens the
+  query until the day a colliding item is added.
+
+Pass `{ exact: true }` whenever the string is data rather than a label you control. The loud
+strict-mode failure is the lucky case; budget an audit for the quiet ones, because name parity
+tooling cannot see a query that merely got wider.
+
+### An open modal makes the rest of the page *really* inert
+
+Overlay libraries implement modality by setting `pointer-events: none` on `<body>` and re-enabling
+it on the overlay content. jsdom does not hit-test, so its synthetic clicks sail through — your
+jsdom suite can "click" the trigger of an open modal, or a button behind it, and the component
+answers. A real browser refuses: the click times out on actionability, and even a forced click
+does not help, because forcing skips the *wait*, not the routing — the trusted input lands on
+`<html>` (the one element above the inherited `none`) and becomes an **outside press**, which
+*dismisses* the overlay instead of reaching the element.
+
+Three consequences for a port, all measured on a modal select:
+
+1. A jsdom test that interacts through an open modal is performing a gesture no user can make.
+   The honest translation is whatever a user actually has: Escape, selection, or a deliberate
+   outside press — not `force: true`.
+2. The **keyboard is exempt.** `pointer-events` gates pointers only; focus movement and keydown
+   still work behind a modal. When a fixture's control is pointer-unreachable, keyboard
+   activation is a legitimate real gesture — but see the next subsection for how it can lose a
+   race.
+3. If your jsdom suite appeared to cover the outside-press dismiss path anyway, check *which
+   instance* covered it before trusting the port to match — see the zombie-listener entry in
+   [section 8](#coverage-parity).
+
+### Fake timers work in the browser — and freeze `requestAnimationFrame`
+
+`vi.useFakeTimers()` in browser mode is real: the fake clock installs on the tester-iframe
+window, `vi.getTimerCount()` sees the component's pending timeouts, and a spy on
+`window.clearTimeout` observes unmount cleanup. Crucially, Playwright actions and retrying
+matchers run on **real time outside the page**, so you can still click, type, and poll while the
+page's clock is frozen — a test that freezes time and then performs real input is a coherent
+thing to write.
+
+The trap is the default `toFake` set, which includes `requestAnimationFrame` and `performance`:
+
+- Anything positioning-dependent (floating-ui, measurement loops) freezes until *something* lets
+  a frame through — at which point deferred callbacks fire at an arbitrary later moment, such as
+  the middle of your next `userEvent` call. Measured: a popover's deferred auto-focus fired
+  mid-keystroke and stole focus, turning "press Enter on the Close button" into "select the
+  first item" — with every assertion still passing.
+- A hand-rolled wait built on `performance.now()` deadlocks, because the faked clock never
+  advances on its own.
+
+Under browser fake timers, drive state through microtask-only paths (direct events, Escape) and
+never wait on anything rAF-dependent. `[unverified]` whether adding `toFake` exclusions for
+`requestAnimationFrame`/`performance` is safe for components that *read* the faked clock — we
+kept the default and routed around it instead.
+
+The freeze also reaches **measurement-driven rendering**. A second component sized its popup
+with a CSS variable set from a ResizeObserver callback; under fake timers the measurement never
+landed, the `overflow: hidden` container computed 0px tall, and every element inside the open
+menu hit-tested to the content *behind* it — so a real hover of the popup's contents was
+impossible (the driver burns its full timeout on "element intercepts pointer events"). In that
+situation the jsdom original's synthetic boundary-event dispatch is the *correct* port, not a
+compromise: it is the only gesture that exists while the clock is frozen, and it still runs the
+real framework-bound handler.
+
+### A real click hovers first
+
+The click driver moves the pointer onto the element before pressing, so every
+`pointerenter` / `pointermove` handler fires before `mousedown` does — the inverse of jsdom,
+where a click was only ever a click. On hover-triggered components this rewrites what your
+click tests mean:
+
+- "opens on click" still passes, but through the hover-open path (our menu ignores a click that
+  follows its own hover-open within 300ms — so the click branch was never what passed).
+- "must NOT open on click when the click trigger is disabled" cannot be expressed with real
+  input at all if hover remains enabled — and `HTMLElement.click()` is not the answer either,
+  because Chromium dispatches it as `PointerEvent { pointerType: '' }`, which mouse-only guards
+  deliberately let through for keyboard and assistive tech. The faithful port is the original's
+  own explicit synthetic event with `pointerType: 'mouse'`.
+- The clean way to cover the true click-open branch is the configuration that disables hover —
+  if the suite has such a test, the branch keeps its coverage there.
+
+And mind real `href`s: a real click on a link with a live URL navigates the tester iframe away
+mid-suite. Cancel the navigation with a **bubble-phase** `document` click listener added for
+that one click — bubble, not capture, so the component's own click logic has already run.
+
+### Not every mock is yours to delete
+
+The migration thesis is "browser mode lets you delete mocks" — but only the **compensating**
+ones, the stubs that fake what the browser would have done (rects, pointer capture,
+ResizeObserver-as-no-op). A stub that **constructs the test's scenario** ports *with* the test.
+Our example: a describe that mocks ResizeObserver to fire its callback twice, synchronously, on
+`observe` — because the subject is how many times a slot re-renders under RO-driven position
+updates. A real RO delivers on frame timing and cannot anchor exact-count assertions; deleting
+that mock doesn't make the test more real, it makes it flaky. Keep it, scope it to the
+describe, restore the native implementation afterwards, and record it as a deliberately kept
+stub. Ask of every stub before deleting: is this faking the environment, or is it the input?
+
+Corollary, for the numbers such choreography asserts: when the real environment shifts a
+mock-era expectation (our slot-render ladder went from jsdom's 3-then-4 to the browser's
+4-then-4, because real positioning happens at open instead of a tick later), **measure for
+determinism before deciding**. Repeated isolated runs plus a settle-window probe showed the
+browser numbers stable — and actually a stronger form of the test's claim ("the count does not
+keep growing") — so we pinned the new values with a written finding. If the numbers had
+wobbled, quarantine would have been the answer, never a loosened matcher.
+
+### DOM snapshots become real — and inherit screenshot problems
+
+An HTML snapshot of a component whose geometry was stubbed is stable by vacuity: every thumb
+ratio, every size variable is the same fiction. Migrate it and the snapshot starts carrying
+*measured* values — ours gained a computed `--thumb-height: 18px` and a post-scroll
+`translate3d(0px, 0.79476px, 0px)`. Three practical rules:
+
+1. The browser test file writes its **own** snapshot file, so the old baselines survive — diff
+   them; the delta is a compact record of everything the stubs were inventing.
+2. Those measured values come from layout, and layout comes from fonts. A sub-pixel transform
+   derived from how text wraps is deterministic on one machine image and different on another —
+   HTML snapshots of real layout are machine-class-dependent the way screenshots are. Verify
+   local determinism (run it three times), and if cross-machine CI matters, normalize computed
+   values with a snapshot serializer rather than re-stubbing the geometry.
+3. Watch for stubs that were silently *authoring the fixture*. Our scrollbars are headless —
+   they have no intrinsic thickness, and unstyled they measure zero, so the corner component
+   that sizes itself from them could never render. The jsdom prototype stub
+   (`offsetWidth = 10`) wasn't compensating for missing layout there; it was designing a 10px
+   scrollbar nobody had written. The port moves those 10px into real CSS on the fixture, where
+   they are visible and reviewable.
+
+Related: `el.scrollTop = 40` in a real browser *scrolls* — the browser fires the scroll event
+itself, asynchronously. Delete the hand-dispatched event along with the property stub, and give
+the assertion a poll to absorb the frame delay.
+
+### Virtualized lists settle late — and start by rendering everything
+
+jsdom migrations of virtualized components usually carry a `getBoundingClientRect` stub so the
+virtualizer sees a non-zero viewport. Delete it — the inline `height: 200px` your test always
+declared is real layout now — but know what the stub was hiding: under a real ResizeObserver
+the virtualizer's first render mounted **all** rows, and only trimmed to visible+overscan once
+the measurement landed a beat later. Any fixed flush choreography from the jsdom test is
+calibrated to the stub's synchronous timing, not the component. Let the assertion own the wait:
+`await expect.poll(() => options().length).toBeLessThan(total)`.
+
+### Rituals that reconstruct the event sequence just evaporate
+
+A jsdom suite that needed a browser-compat sequence has to hand-assemble it — `pointerdown`,
+then synthetic `mousedown`/`mouseup`/`click` — and then work around the side effects of its own
+assembly. Ours needed **two** `pointerup`s per menu selection, with a comment explaining that the
+component "prevents accidental pointerups": the component's capture guard was armed by the
+opening gesture and swallowed the first one. A real click *is* the accidental pointerup that
+guard exists for — it arrives at the unmoved press position, the guard consumes it and disarms,
+and the next real click selects on the first try. The double-dispatch does not port because the
+thing it worked around does not happen to a real pointer. When an original fires the same event
+twice with an explanatory comment, the comment is usually describing the gesture's
+incompleteness, not the component.
+
 ### The render helper unmounts after every test
 
 Testing-library-style `render` registers an automatic cleanup, so a component mounted once at
@@ -614,6 +786,14 @@ The generalisable lessons:
    — we verified that experimentally rather than assuming. Browser mode did not have better
    detection; it had an API that made the mistake impossible to keep making. **Resist the urge
    to blame the environment before you have run the experiment.**
+
+A second axe shape, from a different component: **the rule runs and abstains, and the matcher
+calls that a pass.** An element that is `aria-hidden="true"` *and* `tabindex="0"` (a focus-proxy
+pattern several headless libraries use) is a straight `aria-hidden-focus` violation in a real
+browser — but jsdom has no layout, axe cannot decide whether the element is focusable, and it
+files the node under `incomplete`. `toHaveNoViolations` reads only `violations`, so the jsdom
+test had been green over a real WAI-ARIA violation the whole time. When you port an axe test,
+diff the `incomplete` bucket between environments, not just the violations.
 
 ### The handler your click tests never call
 
@@ -750,6 +930,19 @@ Slider     Slider/utils.ts  109   Slider/Slider.test.ts#degenerate  jsdom-only z
 An allowance naming a key that does not exist in the findings file fails the run, same as a
 quarantine tag would. The point is that arguing your way past an oracle should cost you a
 written finding every time.
+
+The second legitimate class of lost line, and the harder one to spot: **coverage produced by
+zombie instances.** A jsdom suite that never unmounts (and few do — `mount()` without an
+explicit `unmount()` leaks the app) accumulates live document-level listeners from every overlay
+any previous test opened; wiping `document.body.innerHTML` removes the elements but not the
+listeners. Later tests' events are then processed by dead components, and the lines they execute
+show up as covered. We bisected one file's entire outside-press dismiss path this way: no test
+covers it in isolation, the full file covers all of it — and the mechanism was exquisite, because
+the listener registration is deferred by `setTimeout(0)`, which a single test's microtask-only
+hook chain never fires, so **the listener only ever attached between tests, on instances that
+were already dead.** A browser port cleans up per test and loses those lines; what it actually
+lost is the illusion. The bisect — run 1 test, run 2, diff the coverage — is cheap and settles
+it either way.
 
 ### Mutation, for the files where the mocks were the whole problem
 
