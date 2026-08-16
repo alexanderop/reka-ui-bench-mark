@@ -5,8 +5,17 @@ ship a feature. It exists for two reasons, in order:
 
 1. **Learn Vitest Browser Mode properly** — by using it on a real, non-trivial component
    library rather than a toy app.
-2. **Port the testing strategy from jsdom to Vitest Browser Mode** — eventually all 97 test
-   files, starting with `Slider`.
+2. **Get rid of jsdom entirely.** All 97 test files move: the 87 that touch the DOM go to
+   Vitest Browser Mode, and the 10 that touch none go to a plain `node` project. Nothing
+   stays on jsdom. Started with `Slider`.
+
+> **The second goal changed mid-effort.** It used to read "port the testing strategy from
+> jsdom to browser mode", with browser mode as a second tier and `stay-jsdom` a legitimate
+> per-file verdict. It is not one any more: "this port gains nothing" is now an observation
+> about value, not a reason to leave a file on jsdom. The only exemption is *needs no DOM at
+> all*, which is a property of the file rather than a judgement. Findings written under the
+> old premise have been re-verdicted; their measurements are unchanged and still worth
+> reading.
 
 `CLAUDE.md` is a symlink to this file — one document, two names, so every agent reads the same
 thing. Repo mechanics are at the bottom under [Repo reference](#repo-reference); everything
@@ -85,11 +94,16 @@ Most useful paths:
 
 ## Current state
 
-Config lives in `packages/core/vite.config.ts`, split into two projects over the same source
+Config lives in `packages/core/vite.config.ts`, split into three projects over the same source
 tree:
 
-- **`unit`** — jsdom, `./**/*.test.{ts,js}`, explicitly excluding `**/*.browser.test.ts`,
-  setup file `vitest.setup.ts`.
+- **`node`** — `environment: 'node'`, **no setup file**, an explicit list of the 10 files that
+  touch no DOM (`NODE_TESTS` in the config). These never needed jsdom; they are the first
+  files to leave it. 571 tests, 28% of the suite. `vitest.setup.ts` is deliberately not
+  loaded — it exists entirely to paper over jsdom.
+- **`unit`** — jsdom, `./**/*.test.{ts,js}`, excluding `**/*.browser.test.ts` *and* the
+  `NODE_TESTS` list, setup file `vitest.setup.ts`. **This is the project being deleted.** It
+  only ever shrinks; the migration is done when its include list matches nothing.
 - **`browser`** — Playwright/Chromium headless, `./**/*.browser.test.ts`, setup file
   `vitest.browser.setup.ts`. That is a *separate* file, not the jsdom one: it loads the CSS shim
   and the axe matchers and nothing else. The project also carries its own `resolve.alias` (the
@@ -118,13 +132,18 @@ Ported so far:
   `port:parity Slider --complete` and `port:coverage Slider` both exit 0; 1 test is quarantined
   under `it.fails` (the axe finding), 1 coverage line is allowed (the `linearScale` finding),
   and the pointer-capture claim is mutation-verified. Five findings in `FINDINGS.tsv`.
+- `packages/core/src/shared/useForwardExpose.browser.test.ts` — **complete, 10 of 10.** A
+  composable with no stubs to delete and no fixture, so the port is near character-identical to
+  the original and gains no coverage, at ~1.5× the wall clock. Worth knowing as the honest
+  price of a boring port; not a reason to skip one. Numbers in `FINDINGS.tsv`.
 
 ### Commands
 
 ```bash
-pnpm --filter reka-ui exec vitest run                    # both projects
-pnpm --filter reka-ui exec vitest run --project=browser  # browser only
-pnpm --filter reka-ui exec vitest run --project=unit     # jsdom only
+pnpm --filter reka-ui exec vitest run                    # all three projects
+pnpm --filter reka-ui exec vitest run --project=browser  # the destination
+pnpm --filter reka-ui exec vitest run --project=unit     # jsdom — shrinking
+pnpm --filter reka-ui exec vitest run --project=node     # no DOM at all
 
 pnpm --filter reka-ui port:checklist Slider              # every describe/it, ✓ or ✗
 pnpm --filter reka-ui port:parity Slider --complete      # nothing renamed or weakened
@@ -135,7 +154,7 @@ pnpm --filter reka-ui port:coverage Slider               # still reaches the sam
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Baseline as of the last run: **100 files / 2055 passing + 1 expected fail.** Never leave the
+Baseline as of the last run: **101 files / 2065 passing + 1 expected fail.** Never leave the
 `unit` project broken to make progress on `browser`; the two run side by side on purpose.
 
 ---
@@ -225,6 +244,18 @@ habit of mounting once in the `describe` body (the form fixtures do this) leaves
 the first with nothing on screen. Move it into `beforeEach`. Module-level `vi.fn()` spies are
 *not* cleared by that, so originals that depend on a call count accumulating across tests
 (`toHaveBeenCalledTimes(1)`, then `(2)`) still port unchanged.
+
+**…which means ports cover teardown, and the jsdom suite never did.** `cleanup()` calls
+`wrapper.unmount()` (`vitest-browser-vue/dist/index.js` registers it in a `beforeEach`), so
+every ported test tears its component down — released refs, disconnected observers, removed
+listeners. VTU's `mount()` only unmounts if you ask, and essentially no jsdom file here does.
+Measured: `useForwardExpose.ts:68` (`if (!ref) return`, the ref-detach path) is covered by the
+port and by no jsdom test in the file.
+
+**Do not book that as a browser-mode win.** It is the mirror image of the allowed-loss rule in
+`PORTING.md` §2.2: a `GAINED` line needs arguing too. Adding one `wrapper.unmount()` to a jsdom
+test covers that exact line (verified — probe written, istanbul hit count 1, probe deleted), so
+the harness earned it, not Chromium. Ask which one it was before writing it into a finding.
 
 **Inline `template:` components still compile.** Worth stating because the opposite is plausible
 — under Vite the `vue` package's browser condition resolves to the runtime-only build. Measured:
@@ -345,9 +376,11 @@ jsdom nor the browser port would have caught that, because the original test fir
 ## Open questions
 
 - **Performance — deliberately deferred until the migration is done.** Measuring one ported file
-  tells you about browser startup, not about the suite. Revisit with the whole thing ported:
-  is browser mode fast enough to be the default, or does it stay a second tier for the components
-  that actually need layout and real input?
+  tells you about browser startup, not about the suite. The question is no longer *whether*
+  browser mode is fast enough to be the default — it is the default by decision — but **what an
+  all-browser suite costs**, and whether CI needs sharding to absorb it. Per-file evidence so far
+  says it is affordable: ~1.5× wall clock on the worst case (a composable that gains nothing) and
+  ~0.6s for a cold Chromium. Measure the whole suite before trusting that.
 - Worth adding `toMatchScreenshot` visual regression once a CSS shim exists? Probably **not yet**,
   and possibly never in this fork. `docs/guide/browser/visual-regression-testing.md:31-49` is blunt
   that screenshots are unstable across environments — font rendering, GPU drivers, headless vs

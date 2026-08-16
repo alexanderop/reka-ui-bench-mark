@@ -46,7 +46,20 @@ the thing the mock stands in for, and see which suite notices.
 
 The cost is real too, and the honest framing is: **browser mode is not a strictly better
 jsdom.** Some files get worse. A test for a pure function pays browser startup for nothing.
-Decide per file, not per suite — see [What not to migrate](#10-what-not-to-migrate).
+
+So decide up front which migration you are running, because it changes almost every later
+call: browser mode **alongside** jsdom for the files that need it, or browser mode
+**instead of** jsdom, with the environment deleted at the end. This guide was written during
+the first and finished during the second. Two things carry over regardless:
+
+- **Find your DOM-free files first and move them to a plain `node` project.** Not to a
+  browser, and not left on jsdom either. 10 of our 97 files — 28% of all tests — needed no DOM
+  at all. Cheapest step available, and it is the same step under both strategies.
+- **Measure one boring port early.** A composable that gains nothing cost 1.5× wall clock, and
+  a cold Chromium launch was ~0.6s. That number is what decides whether replacing jsdom
+  outright is affordable for you.
+
+See [What not to migrate](#10-what-not-to-migrate).
 
 ---
 
@@ -402,6 +415,26 @@ Move it into `beforeEach`. Module-level spies are *not* reset by that, so an ori
 depends on a call count accumulating across tests (`toHaveBeenCalledTimes(1)`, then `(2)`)
 still ports unchanged.
 
+That cleanup has a second effect nobody asks for and everybody benefits from: **your ported
+tests exercise teardown, and your jsdom tests probably never did.** `mount()` in
+`@vue/test-utils` (and its equivalents elsewhere) only unmounts if you call `unmount()`
+yourself, and most suites never do — there is no reason to, and no visible penalty. The
+browser helper does it for you in a `beforeEach`, so every port covers the unmount path for
+free: released refs, cleared observers, removed listeners, `onScopeDispose`.
+
+Measured here: a composable's ref-detach branch (`if (!ref) return`, reached only when Vue
+releases a template ref at unmount) was covered by the port and not by the original, in a file
+whose ten tests mount ten times and unmount zero.
+
+**But be careful how you score it** — this is the one way the coverage oracle in
+[section 8](#coverage-parity) will lie to you in your favour. A gained line is *not*
+automatically evidence that the real browser earned something. Here the environment
+contributed nothing: adding a single `wrapper.unmount()` to a jsdom test covers the exact same
+line, verified by writing that test and reading the istanbul hit count. Before you write a
+gained line into your results, ask whether the *harness* or the *environment* produced it. If
+a `mount()` + `unmount()` in jsdom reproduces it, it belongs in the "we should have been doing
+this all along" column, not in the case for browser mode.
+
 ### Form submission is a real form submission
 
 Worth checking your assumptions. Three approaches, all tested in Chromium on a slider inside
@@ -613,12 +646,90 @@ never a softer expectation.
 
 ## 10. What not to migrate
 
-Browser mode is a second tier, not a replacement. Triage before you start; we sorted 97 files
-into four buckets and the shape will likely match yours.
+**First decide which migration you are doing**, because it changes this section completely:
 
-**Pure logic — don't.** Composables, date maths, colour utilities, anything with no DOM
-layout. A pure-function test gains nothing from a real browser and pays browser startup for
-it. Migrate one or two to confirm with numbers, then stop.
+- **Browser mode as a second tier**, kept alongside jsdom for the components that need layout
+  and real input. Then triage hard, migrate only what pays, and leave the rest alone.
+- **Browser mode as a replacement**, with jsdom deleted at the end. Then triage only to
+  *sequence* the work. "This file gains nothing" stops being a reason to skip it, because the
+  deliverable is removing an environment, not improving a file.
+
+We started on the first and switched to the second, which is why the measurements below argue
+one way and the recommendation goes the other. **The switch is worth considering on its own
+merits**: two DOM implementations in one repo means two sets of quirks, two setup files, and a
+standing question of which environment any given test belongs in. Deleting one is worth real
+money even where an individual port is not.
+
+If you are replacing jsdom, exactly one category is exempt, and it is not a judgement call:
+
+**Files that need no DOM at all — send them to a plain `node` project, not to a browser.**
+Not "pure logic" as a vibe: run them in `environment: 'node'` with no setup file and see. We
+scanned all 97 files for DOM signals (test-utils/testing-library/axe imports, `document`,
+`window`, `HTMLElement`, DOM event constructors, `navigator`) and found 10, then confirmed by
+running them — **571 tests, 28% of the whole suite, green with no DOM whatsoever.** Those
+files never needed jsdom in the first place, and a browser would be an even worse fit than the
+jsdom they had. Cumulative cost that vanished for those 10 files alone: 2.71s of setup-file
+execution and 2.92s of environment construction, down to 0ms and 2ms.
+
+This is the cheapest step in the whole migration and it is worth doing first, whichever
+strategy you picked — a fifth to a third of a typical component-library suite is often pure
+data transformation wearing a DOM-shaped test harness.
+
+> A useful side effect: the scan tells you your real ratio before you commit. 87/10 here.
+> If yours comes back 30/70, you are not doing a browser-mode migration, you are doing a
+> `node` migration with a browser-mode tail.
+
+**Pure logic, if you are keeping jsdom — don't migrate it.** Composables, date maths, colour
+utilities: anything with no DOM *layout* even if it touches the DOM. Migrate one or two to
+confirm with numbers, then stop.
+
+Our confirmation, since a hypothesis with an obvious mechanism is still a hypothesis. One
+composable test file (ten tests, no stubs, no fixture, assertions purely about the framework's
+ref forwarding) ported cleanly on the first try — full name and assertion parity, no coverage
+lost — and gained nothing for it. Nothing was deleted, because a file that mocks nothing
+has nothing to delete, and the port ended up near character-identical to the original. Cost,
+steady state over three runs each:
+
+| | jsdom | browser | ratio |
+|---|---|---|---|
+| total wall clock | 1.11s | 1.72s | 1.5× |
+| Vitest-reported duration | 539ms | 1.17s | 2.2× |
+| test execution | 17ms | 45ms | 2.7× |
+
+The absolute numbers are the surprise, and they cut against the folklore: a cold Chromium
+launch cost about **0.6s**, not the multi-second tax the tiering assumed. So the argument for
+leaving pure logic in jsdom is not that browser mode is slow — at this size it is barely
+slower. It is that **the port buys nothing**, and a test suite you changed for no gain is
+worse than one you left alone.
+
+That same number is what makes the *other* strategy viable, which is the direction we
+eventually went. If a boring port costs 1.5× on a file that gains nothing, an all-browser
+suite is affordable, and "buys nothing" stops being decisive once the deliverable is deleting
+an environment rather than improving a file. **Measure this early either way** — it is the
+number that tells you whether replacing jsdom is even on the table.
+
+The one coverage line the port did gain came from the harness, not the browser — see
+[the render helper unmounts after every test](#the-render-helper-unmounts-after-every-test),
+which is exactly the trap this measurement exists to avoid falling into.
+
+**Audit the tier before you trust it, though.** "Pure" usually gets assigned by "installs no
+stubs", which is not the same property. Four of our thirteen touched focus, keyboard, pointer
+or axe, and each needed checking against the specific way its jsdom test could be green for
+the wrong reason. All four came back negative, and the most interesting one is worth repeating
+because it cuts *against* the migration:
+
+> `getActiveElement` is nothing but a shadow-DOM retargeting loop — walk `shadowRoot.activeElement`
+> down from `document.activeElement` until you reach the deepest focused node. If jsdom did not
+> retarget, that loop would be dead code and its test would be asserting nothing. We fully
+> expected that. Probing both environments against the test's own nested-shadow fixture gave
+> **identical** results: `document.activeElement` is the outer host and the loop runs exactly
+> twice, in jsdom and in Chromium alike.
+
+jsdom's reputation for a weak focus model is real in places, but it is not a licence to assume
+any focus-touching test is vacuous. Check the specific mechanism. A negative result costs one
+throwaway probe, and it is worth having under either strategy: if you are triaging, it saves
+you a port; if you are replacing jsdom anyway, it tells you to expect that port to be boring,
+so nobody goes hunting for a finding that was never there.
 
 **Mechanical — cheap, low value.** Attribute and role assertions, no stubs, no geometry. The
 translation table handles these almost literally. This is the bulk of the work and the least
@@ -648,8 +759,12 @@ Honest gaps. Do not read past silence here as endorsement.
   measuring one ported file tells you about browser startup, not about a suite. The question we
   intend to answer: is browser mode fast enough to be the default, or does it stay a second
   tier for the components that genuinely need layout and real input?
-- **Is "pure logic stays in jsdom" actually true? [unverified]** It is a hypothesis with an
-  obvious mechanism, not a measurement. Being wrong about it is a publishable result.
+- ~~**Is "pure logic stays in jsdom" actually true? [unverified]**~~ **Answered — see
+  [section 10](#10-what-not-to-migrate).** Measured on one composable file: the port is clean
+  and gains nothing, at 1.5× the wall clock. The verdict held, but the *reason* it held was
+  not the predicted one — browser startup turned out to be cheap (~0.6s), so "too slow" is the
+  wrong argument against porting pure logic. "Buys nothing" is the right one. Still
+  `[unverified]` for date/colour utilities specifically; only the composable case was measured.
 - **Visual regression.** `toMatchScreenshot` exists, but the Vitest docs are blunt that
   screenshots are unstable across environments (font rendering, GPU drivers, headless vs
   headed) and recommend Docker or a cloud service for stable baselines. For a *headless*
