@@ -33,7 +33,7 @@ Editable/Editable.test.ts	T2-mechanical	17	27	175	mounts	-	-	-	axe,keyboardEvent
 FocusGuards/FocusGuards.test.ts	T2-mechanical	5	9	67	none	-	-	-	-	no
 FocusScope/FocusScope.test.ts	T3-payoff	10	12	297	exists	pointerCapture,scrollIntoView	pointerCapture,scrollIntoView,focusApi	-	keyboardEvents	no
 HoverCard/HoverCard.test.ts	T3-payoff	6	8	90	mounts	ResizeObserver	ResizeObserver	-	axe,pointerEvents	no
-Label/Label.test.ts	T2-mechanical	7	7	79	none	-	focusApi	-	axe	no
+Label/Label.test.ts	T2-mechanical	7	7	79	none	-	focusApi	-	axe	yes
 Listbox/Listbox.test.ts	T3-payoff	40	83	616	mounts	ResizeObserver,pointerCapture,scrollIntoView,getBoundingClientRect	ResizeObserver,pointerCapture,scrollIntoView,rects,rAF,focusApi	-	axe,keyboardEvents	no
 Menu/Menu.test.ts	T3-payoff	6	7	95	mounts	ResizeObserver	ResizeObserver,focusApi	-	axe,pointerEvents	no
 Menubar/Menubar.test.ts	T3-payoff	6	6	61	mounts	ResizeObserver	ResizeObserver	-	axe,pointerEvents	no

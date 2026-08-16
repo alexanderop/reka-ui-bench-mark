@@ -161,11 +161,32 @@ over VTU, which is why most of this is mechanical.
 | `wrapper.find('[type="number"]')` (hidden) | `screen.getByRole('spinbutton', { includeHidden: true })` |
 | `form.trigger('submit')` | click a real `<button type="submit">` |
 | `mount(…)` once in the `describe` body | move it into `beforeEach` — `render` auto-unmounts |
+| `expect(wrapper.html()).toBe('<label>…')` | `screen.container.firstElementChild.outerHTML` — there is no `.html()` |
+| `el.click()` / `el.trigger('click')` | `loc.click()` — which also fires `mousedown`, `focus`, `mouseup` |
+| `beforeEach(() => document.body.innerHTML = '')` | *(delete)* — the helper removes its container |
 | ResizeObserver / pointer-capture stubs | *(delete)* |
 
 `rerender` **merges** rather than replacing — confirmed in source
 (`rerender: async props => { await wrapper.setProps(props) }`) and behaviourally. So chained
 `setProps` calls port one-for-one.
+
+Two rows there are less mechanical than they look.
+
+**There is no `.html()`.** The browser helper returns `container`, a locator, `emitted`,
+`rerender` and `unmount` — no VTU wrapper, so nothing to call `.html()` on. If you are coming
+from `@testing-library/vue` rather than VTU, note its `html()` is literally
+`() => wrapper.html()`, i.e. the *component root's* `outerHTML`, so
+`container.firstElementChild.outerHTML` is an exact translation and your expected strings port
+unchanged. Resist swapping an exact-HTML assertion for `toHaveAttribute`: the original pins the
+entire rendered output, and the attribute matcher lets extra attributes through. That is a
+weakened test, and it is the failure mode section 8 exists to catch.
+
+**`.click()` is not a click.** `HTMLElement.click()` and VTU's `trigger('click')` dispatch a
+`click` event and nothing else — no `pointerdown`, no `mousedown`, no focus, no `mouseup`. A
+real click dispatches all of them. So **any `mousedown` / `pointerdown` / focus handler in your
+components is invisible to a jsdom test that clicks**, and it stays invisible no matter how many
+click tests you write. This is one of the strongest arguments for migrating files that look
+boring; see [section 7](#7-some-of-your-jsdom-tests-are-lying).
 
 ---
 
@@ -316,6 +337,28 @@ it('compiles the fixtures styles', async () => {
   await screen.getByRole('slider').click() // throws if it has no box
 })
 ```
+
+### It is not only a CSS problem — empty elements are zero-size too
+
+The stylesheet is the big cause, but the same timeout shows up in suites with no CSS at all,
+and the guard test above will not catch it. **An element with no content has no box.** An empty
+`<label>` measures `0x18` in Chromium: full line-height, and zero *width*. Playwright will not
+click it.
+
+Which means a jsdom test can be asserting about a gesture that cannot physically occur.
+`HTMLElement.click()` dispatches on any node regardless of layout — jsdom has no layout to
+consult — so the test passes, and reads as though a user clicked something. Nobody can click a
+zero-width element.
+
+When a port hangs on a click, **measure the target before you doubt the locator**:
+
+```ts
+console.log(el.getBoundingClientRect()) // 0 × 18 → nothing is wrong with your selector
+```
+
+Giving the element real content is a legitimate fix. It is a change to the test body rather
+than a translation, so write it down — see [section 9](#9-quarantining-bugs-the-migration-finds)
+for why deviations have to cost you something.
 
 ---
 
@@ -490,6 +533,35 @@ The generalisable lessons:
    — we verified that experimentally rather than assuming. Browser mode did not have better
    detection; it had an API that made the mistake impossible to keep making. **Resist the urge
    to blame the environment before you have run the experiment.**
+
+### The handler your click tests never call
+
+Here is one that *is* the environment's doing, and it is worth checking for before you write off
+a whole tier of "boring" files.
+
+`HTMLElement.click()` — and VTU's `trigger('click')` — dispatch a `click` event and **nothing
+else**. No `pointerdown`, no `mousedown`, no focus, no `mouseup`. A real click dispatches the
+whole sequence. So a component like this:
+
+```vue
+<label @mousedown="e => { if (e.detail > 1) e.preventDefault() }">
+```
+
+has a handler that **no jsdom click test can reach, in any environment, no matter how many you
+write.** Measured on exactly that component: the browser port covers the handler line and the
+jsdom original does not, performing the identical gesture on the identical element. The coverage
+oracle from [section 8](#coverage-parity) reports it as a gained line without being asked.
+
+This generalises to every `mousedown` / `pointerdown` / focus handler in a component library,
+and it is the strongest argument we found for migrating files that look mechanical. A file with
+no stubs to delete and no geometry can still be systematically blind to a whole class of
+handler.
+
+**Then read the branch map, not the line count.** That same handler's `if (e.detail > 1)` came
+back `[0, 2]` — never taken — because nothing in either suite double-clicks. The line went
+green; the behaviour it guards is still tested by nobody, in either environment. A covered line
+is not a tested behaviour, and a migration that reports gained lines will happily let you
+believe otherwise.
 
 ---
 

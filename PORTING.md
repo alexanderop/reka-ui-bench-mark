@@ -239,12 +239,12 @@ Regenerate it after every batch; the `ported` column is the progress bar.
 tier             files  tests  off jsdom
 T0-node             10    144    10
 T1-pure              9     63     1
-T2-mechanical       44    767     0
+T2-mechanical       44    767     1
 T3-payoff           23    448     1
 T4-hostile          11    146     0
-TOTAL               97   1568    12
+TOTAL               97   1568    13
 
-still on jsdom: 85 files / 1375 tests
+still on jsdom: 84 files / 1368 tests
 ```
 
 (1568 counts `it` call-sites; `it.each` expands to more at runtime, which is why the suite
@@ -510,8 +510,27 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
       `#auto-unmount` (the harness covers teardown the jsdom suite never did — and coverage
       *gains* need the same per-line scrutiny §2.2 demands of losses), and the
       `port:coverage` path fix in §2.2 below.
-- [ ] One T2 file (`Checkbox` minus its ResizeObserver stub, or `Label`) — expect a clean
-      mechanical port.
+- [x] **One T2 file (`Label`) — DONE, 7/7, and it was a clean mechanical port.**
+      `port:parity --complete`, `port:checklist --complete` and `port:coverage` all clean on the
+      first run; 1 line gained, 0 lost; no stubs to delete, because the original installs none.
+      `Checkbox` was the other candidate and was the wrong one — it is tiered T3 for its
+      ResizeObserver stub, and the point of this box was to rehearse the *boring* path before
+      committing 44 files to it.
+      **The result that matters: "mechanical" did not mean "uninformative."** Three findings out
+      of a 79-line file, and only one of them is about `Label`:
+      `#click-fires-no-mousedown` is the generalisable one — `HTMLElement.click()` and VTU's
+      `trigger('click')` dispatch a click and nothing else, so **every `mousedown`/`pointerdown`/
+      focus handler in the library is unreachable from a jsdom test that clicks.** It also
+      carries the counter-lesson: the gained line's `if` branch is `[0,2]`, never taken, so the
+      behaviour behind the newly-covered line is still tested by nobody. Read the branch map,
+      not the line count.
+      `#empty-label-unclickable` is the practical one — an empty `<label>` is 0px wide, and
+      Playwright will not click it, so the original's gesture cannot occur at all in a browser.
+      `#no-positive-case` is a gap in the original suite that the port is forbidden to fix.
+      **Two translation-table gaps came out of it**, both now in `AGENTS.md`: there is no
+      `.html()` on a `vitest-browser-vue` result (the original is a `@testing-library/vue` file,
+      and four of its seven tests assert exact HTML), and the `document.body.innerHTML = ''`
+      teardown habit is simply deleted.
 - [x] **Finish `Slider` (T3). DONE — 39/39.**
       `port:parity Slider --complete` and `port:coverage Slider` both exit 0. All five jsdom
       stubs deleted. 16 lines gained (`shared/useSize.ts` L19-48, `SliderThumbImpl.vue:40`,
@@ -589,13 +608,19 @@ pnpm --filter reka-ui exec vitest run --project=unit     # jsdom — shrinking; 
 pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 ```
 
-Progress is the `unit` project's file count, and it only goes down:
-
 | Project | Files | Tests |
 |---|---|---|
 | `node` | 10 | 571 |
 | `unit` (jsdom) | 87 | 1444 |
-| `browser` | 4 | 50 + 1 expected fail |
+| `browser` | 5 | 57 + 1 expected fail |
 
 Baseline before this effort: **99 files / 2017 tests passing.**
-Current: **101 files / 2065 passing + 1 expected fail.**
+Current: **102 files / 2072 passing + 1 expected fail.**
+
+**Read `unit` carefully — it is not the progress bar yet.** It dropped 10 files to `node` and
+will not drop another one until Phase 3, because ports keep their original alongside them on
+purpose. Until those per-component deletion decisions, progress is the `still on jsdom` line
+from `port:inventory`: files that are neither in the `node` project nor have a
+`.browser.test.ts` next to them. That number is **84 files / 1367 `it` call-sites** as of the
+`Label` port (1368 `it` call-sites). `unit`'s file count becomes the real measure only once deletions start, and it
+has to reach zero either way.

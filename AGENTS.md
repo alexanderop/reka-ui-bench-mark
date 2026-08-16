@@ -136,6 +136,11 @@ Ported so far:
   composable with no stubs to delete and no fixture, so the port is near character-identical to
   the original and gains no coverage, at ~1.5× the wall clock. Worth knowing as the honest
   price of a boring port; not a reason to skip one. Numbers in `FINDINGS.tsv`.
+- `packages/core/src/Label/Label.browser.test.ts` — **complete, 7 of 7.** The T2 trial run, and
+  the answer to whether a mechanical port is worth the trouble: all three oracles clean first
+  try, and it still produced three findings — a click that cannot happen (`#empty-label-unclickable`),
+  a `mousedown` handler jsdom structurally cannot reach (`#click-fires-no-mousedown`), and a
+  behaviour neither suite ever asserts (`#no-positive-case`).
 
 ### Commands
 
@@ -154,7 +159,7 @@ pnpm --filter reka-ui port:coverage Slider               # still reaches the sam
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Baseline as of the last run: **101 files / 2065 passing + 1 expected fail.** Never leave the
+Baseline as of the last run: **102 files / 2072 passing + 1 expected fail.** Never leave the
 `unit` project broken to make progress on `browser`; the two run side by side on purpose.
 
 ---
@@ -184,6 +189,9 @@ Baseline as of the last run: **101 files / 2065 passing + 1 expected fail.** Nev
 | `wrapper.find('[type="number"]')` (hidden) | `screen.getByRole('spinbutton', { includeHidden: true })` |
 | `wrapper.find('form').trigger('submit')` | click a real `<button type="submit">` |
 | `mount(…)` once in the `describe` body | move into `beforeEach` — `render` auto-unmounts |
+| `expect(wrapper.html()).toBe('<label>…')` | `screen.container.firstElementChild.outerHTML` — there is no `.html()` |
+| `el.click()` / `el.trigger('click')` | `loc.click()` — and it fires `mousedown` too, which the originals never did |
+| `beforeEach(() => document.body.innerHTML = '')` | *(delete)* — `render` removes its container |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
 `vitest-browser-vue`'s `render` accepts all `@vue/test-utils` mount options, so most of this is
@@ -256,6 +264,26 @@ port and by no jsdom test in the file.
 `PORTING.md` §2.2: a `GAINED` line needs arguing too. Adding one `wrapper.unmount()` to a jsdom
 test covers that exact line (verified — probe written, istanbul hit count 1, probe deleted), so
 the harness earned it, not Chromium. Ask which one it was before writing it into a finding.
+
+**`.click()` fires only a click. A real click fires the whole sequence.** `HTMLElement.click()` —
+and VTU's `trigger('click')` — dispatch a `click` event and nothing else: no `pointerdown`, no
+`mousedown`, no focus, no `mouseup`. Playwright dispatches the lot. So **every `mousedown` /
+`pointerdown` / focus handler in the library is invisible to a jsdom test that clicks**, and the
+port picks them up for free. Measured on the smallest possible case: `Label.vue:24`'s inline
+`@mousedown` handler is covered by the port and not by the jsdom original, which performs the
+identical gesture on the identical element.
+
+Check the branch map before celebrating, though. That same handler's `if (event.detail > 1)` is
+`[0,2]` — never taken, because nothing in either suite double-clicks. The line went green; the
+behaviour it guards is still tested by nobody. **A covered line is not a tested behaviour.**
+
+**A zero-size element cannot be clicked, and plenty of them are zero-size.** An empty `<label>`
+measures `0x18` in Chromium — zero *width* — so `locator.click()` retries and times out. jsdom's
+`.click()` does not care, because there is no layout to consult. This is the CSS-shim failure in
+miniature and it does not need Tailwind to bite: any element whose content is empty is a
+candidate. If a port hangs on a click, measure the target with `getBoundingClientRect()` before
+assuming the locator is wrong. Giving the element real content is a legitimate fix — it is a
+deviation from the original body, so it costs you a `FINDINGS.tsv` row.
 
 **Inline `template:` components still compile.** Worth stating because the opposite is plausible
 — under Vite the `vue` package's browser condition resolves to the runtime-only build. Measured:
