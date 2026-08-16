@@ -8,7 +8,7 @@
 //   node scripts/port/inventory.mjs --stdout   # print instead
 //   node scripts/port/inventory.mjs --summary  # tier/mock rollup
 
-import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -23,6 +23,32 @@ const RE_TEST_FILE = /\.test\.ts$/
 const RE_BROWSER_TEST = /\.browser\.test\.ts$/
 const RE_STORY_IMPORT = /from\s+['"`]\.\/story\//
 const RE_PURE_DIR = /^(?:shared|date)\//
+const RE_NODE_TESTS_BLOCK = /const NODE_TESTS = \[([\s\S]*?)\]/
+const RE_NODE_TESTS_ENTRY = /'\.\/src\/(.+?)'/g
+
+/**
+ * The files already running in the `node` project, read out of the vitest
+ * config rather than duplicated here.
+ *
+ * This has to come from the config or the inventory lies: a file that left
+ * jsdom for `node` is *done*, and counting it as an unported T2 keeps the
+ * progress bar from ever reaching zero. The config is the only place that
+ * decides which environment a file actually runs in, so it is the only honest
+ * source. Parsed as text — executing vite.config.ts from a plain node script
+ * would drag in the vue plugin and Tailwind for no reason.
+ */
+function readNodeTests() {
+  const config = readFileSync(join(CORE, 'vite.config.ts'), 'utf8')
+  const block = config.match(RE_NODE_TESTS_BLOCK)
+  if (!block)
+    throw new Error('vite.config.ts: no `const NODE_TESTS = [...]` — the node project moved or was renamed; fix this script rather than letting the inventory under-report')
+  const files = Array.from(block[1].matchAll(RE_NODE_TESTS_ENTRY), m => m[1])
+  if (!files.length)
+    throw new Error('vite.config.ts: NODE_TESTS parsed as empty — refusing to report every node file as unported')
+  return new Set(files)
+}
+
+const NODE_TESTS = readNodeTests()
 
 /**
  * Browser APIs the file *replaces*. Presence of one of these is the whole
@@ -90,11 +116,22 @@ function walkTests(dir, acc = []) {
 }
 
 /**
- * Tier, most-constraining first. T4 files need a rewrite rather than a port;
- * T3 files are the ones that justify the whole exercise; T1 files probably
- * should not be ported at all, and proving that is itself a result.
+ * Tier, most-constraining first.
+ *
+ * T0 wins over everything, including T4: `shared/useNonce` is tagged hostile
+ * for its `vi.mock` and it does not matter, because the file needs no DOM and
+ * module mocking works fine in a node environment. Needing no DOM is a property
+ * of the file; every other tier is a difficulty estimate for a port that still
+ * has to happen.
+ *
+ * Below T0 the tiers sequence the work rather than decide whether it happens:
+ * T4 files need a rewrite rather than a port, T3 files are the ones that
+ * justify the whole exercise, and T1 files are expected to be boring — which
+ * is a prediction about what they teach, not a reason to skip them.
  */
 function tierOf(row) {
+  if (row.isNode)
+    return 'T0-node'
   if (row.hostile.length)
     return 'T4-hostile'
   if (row.stubs.length || row.touches.includes('rects') || row.touches.includes('coords'))
@@ -126,8 +163,13 @@ const rows = walkTests(SRC).sort().map((full) => {
     touches: hits(text, TOUCHES),
     hostile: hits(text, HOSTILE),
     other: hits(text, OTHER),
+    isNode: NODE_TESTS.has(file),
     ported: existsSync(browserPort),
   }
+  // A file off jsdom is off jsdom. The `node` ones got there without a port,
+  // and the migration is finished when nothing is left on `unit` — not when
+  // every file has a `.browser.test.ts`.
+  row.done = row.isNode || row.ported
   row.tier = tierOf(row)
   return row
 })
@@ -143,7 +185,7 @@ const COLUMNS = [
   ['touches', r => r.touches.join(',') || '-'],
   ['hostile', r => r.hostile.join(',') || '-'],
   ['flags', r => r.other.join(',') || '-'],
-  ['ported', r => (r.ported ? 'yes' : 'no')],
+  ['ported', r => (r.isNode ? 'node' : r.ported ? 'yes' : 'no')],
 ]
 
 const tsv = [
@@ -167,16 +209,26 @@ if (process.argv.includes('--summary') || !process.argv.includes('--stdout')) {
   }, {})
 
   const tiers = by('tier')
-  const order = ['T1-pure', 'T2-mechanical', 'T3-payoff', 'T4-hostile']
-  process.stdout.write('\ntier             files  tests  ported\n')
-  for (const t of order) {
-    const inTier = rows.filter(r => r.tier === t)
+  const order = ['T0-node', 'T1-pure', 'T2-mechanical', 'T3-payoff', 'T4-hostile']
+  const line = (label, inTier) => process.stdout.write(
+    `${label.padEnd(16)} ${String(inTier.length).padStart(5)}  ${String(inTier.reduce((n, r) => n + r.tests, 0)).padStart(5)}  ${String(inTier.filter(r => r.done).length).padStart(4)}\n`,
+  )
+  process.stdout.write('\ntier             files  tests  off jsdom\n')
+  for (const t of order)
+    line(t, rows.filter(r => r.tier === t))
+  line('TOTAL', rows)
+
+  // The number that actually measures the migration: what the `unit` project
+  // still matches. It only goes down, and reaching zero is the whole goal.
+  const left = rows.filter(r => !r.done)
+  process.stdout.write(
+    `\nstill on jsdom: ${left.length} files / ${left.reduce((n, r) => n + r.tests, 0)} tests\n`,
+  )
+  if (tiers['T0-node'] !== NODE_TESTS.size) {
     process.stdout.write(
-      `${t.padEnd(16)} ${String(tiers[t] || 0).padStart(5)}  ${String(inTier.reduce((n, r) => n + r.tests, 0)).padStart(5)}  ${String(inTier.filter(r => r.ported).length).padStart(6)}\n`,
+      `WARNING: vite.config.ts lists ${NODE_TESTS.size} NODE_TESTS but ${tiers['T0-node'] || 0} matched a real file — a path is stale\n`,
     )
   }
-  const totals = rows.reduce((n, r) => n + r.tests, 0)
-  process.stdout.write(`${'TOTAL'.padEnd(16)} ${String(rows.length).padStart(5)}  ${String(totals).padStart(5)}  ${String(rows.filter(r => r.ported).length).padStart(6)}\n`)
 
   const stubs = by('stubs')
   process.stdout.write('\nstubs deleted by porting (the deliverable):\n')

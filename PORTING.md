@@ -236,16 +236,26 @@ document that lets you shard the work and predict cost *before* spending any of 
 Regenerate it after every batch; the `ported` column is the progress bar.
 
 ```
-tier             files  tests  ported
-T1-pure             13    161       0
-T2-mechanical       49    811       0
-T3-payoff           23    448       1
-T4-hostile          12    148       0
-TOTAL               97   1568       1
+tier             files  tests  off jsdom
+T0-node             10    144    10
+T1-pure              9     63     1
+T2-mechanical       44    767     0
+T3-payoff           23    448     1
+T4-hostile          11    146     0
+TOTAL               97   1568    12
+
+still on jsdom: 85 files / 1375 tests
 ```
 
 (1568 counts `it` call-sites; `it.each` expands to more at runtime, which is why the suite
-reports ~2017.)
+reports ~2017 and why T0's 144 call-sites are the 571 tests quoted everywhere else.)
+
+**The last line is the progress bar, and it is the only number that measures the goal.** The
+column is `off jsdom`, not `ported`: a T0 file got there without a port, and the migration ends
+when the `unit` project matches nothing — not when every file has a `.browser.test.ts`. `T0-node`
+is read out of `NODE_TESTS` in `vite.config.ts` rather than re-derived, because the config is the
+only thing that decides which environment a file actually runs in; a stale path there prints a
+warning instead of quietly shrinking the tier.
 
 Stubs that porting deletes — this is the deliverable, quantified:
 
