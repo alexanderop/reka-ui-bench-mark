@@ -9,6 +9,11 @@
 //   node scripts/port/parity-coverage.mjs Slider --scope Slider   # component only
 //   node scripts/port/parity-coverage.mjs Slider --keep           # keep raw reports
 //
+// One exemption exists, and it is deliberately expensive: a line that jsdom
+// only reaches *because* it is jsdom (a zero-geometry branch, say) can be
+// listed in PORT-COVERAGE-ALLOW.tsv, but only against a key that exists in
+// FINDINGS.tsv. See the `allowances` block below.
+//
 // KNOWN LIMITATION — read before trusting a green result:
 // istanbul currently reports no `.vue` files at all in this repo, in either
 // environment. Every entry is a `.ts` module. That is pre-existing (the
@@ -26,6 +31,40 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CORE = resolve(HERE, '../..')
 const SRC = join(CORE, 'src')
+const ROOT = resolve(CORE, '../..')
+const FINDINGS = join(ROOT, 'FINDINGS.tsv')
+const ALLOW = join(ROOT, 'PORT-COVERAGE-ALLOW.tsv')
+
+function readTsv(file) {
+  if (!existsSync(file))
+    return []
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .slice(1)
+    .map(line => line.split('\t').map(cell => cell.trim()))
+    .filter(cells => cells[0])
+}
+
+/**
+ * Lines the port is allowed to lose.
+ *
+ * Some jsdom coverage is an artefact of jsdom, not of the test: a branch that
+ * only runs because every rect is 0x0 is not coverage a real browser can or
+ * should reproduce. Losing it is a result, not a regression — but "the browser
+ * covers less" is also exactly what a gutted port looks like, so the exemption
+ * is machine-checked and costs a written finding, the same way `@finding` does
+ * in parity-names.mjs.
+ *
+ * PORT-COVERAGE-ALLOW.tsv: component <tab> file <tab> line <tab> finding <tab> why
+ */
+const findingKeys = new Set(readTsv(FINDINGS).map(cells => cells[0]))
+const allowances = readTsv(ALLOW).map(([component, file, line, finding, why]) => ({
+  component,
+  file,
+  line: Number(line),
+  finding,
+  why,
+}))
 
 const RE_BROWSER_TEST = /\.browser\.test\.ts$/
 const RE_ANY_TEST = /\.(?:browser\.)?test\.ts$/
@@ -132,13 +171,30 @@ let gainedTotal = 0
 let sharedTotal = 0
 const lost = []
 const gained = []
+const allowed = []
+const unrecorded = []
+
+/** The allowance covering this lost line, if any — and whether it is honest. */
+function allowanceFor(file, line) {
+  return allowances.find(a => a.component === name && a.file === file && a.line === line)
+}
 
 for (const file of files) {
   const a = jsdom.lines.get(file) || new Set()
   const b = browser.lines.get(file) || new Set()
-  const onlyA = [...a].filter(l => !b.has(l)).sort((x, y) => x - y)
   const onlyB = [...b].filter(l => !a.has(l)).sort((x, y) => x - y)
   const both = [...a].filter(l => b.has(l)).length
+
+  const onlyA = []
+  for (const line of [...a].filter(l => !b.has(l)).sort((x, y) => x - y)) {
+    const allowance = allowanceFor(file, line)
+    if (!allowance)
+      onlyA.push(line)
+    else if (findingKeys.has(allowance.finding))
+      allowed.push({ file, line, allowance })
+    else
+      unrecorded.push({ file, line, allowance })
+  }
 
   lostTotal += onlyA.length
   gainedTotal += onlyB.length
@@ -153,7 +209,7 @@ for (const file of files) {
 process.stdout.write(`\n${name} — covered-line parity${scope ? ` (scope: ${scope})` : ''}\n`)
 process.stdout.write(`  files instrumented   jsdom ${jsdom.lines.size}, browser ${browser.lines.size}\n`)
 process.stdout.write(`  lines in both        ${sharedTotal}\n`)
-process.stdout.write(`  lost by the port     ${lostTotal}\n`)
+process.stdout.write(`  lost by the port     ${lostTotal}${allowed.length ? ` (+${allowed.length} allowed)` : ''}\n`)
 process.stdout.write(`  gained by the port   ${gainedTotal}\n`)
 
 if (!jsdom.vueEntries && !browser.vueEntries) {
@@ -170,6 +226,18 @@ if (lost.length) {
     process.stdout.write(`    ${file}  L${lines.join(', L')}\n`)
 }
 
+if (allowed.length) {
+  process.stdout.write('\n  ALLOWED — lost on purpose, jsdom-only code paths (see PORT-COVERAGE-ALLOW.tsv):\n')
+  for (const { file, line, allowance } of allowed)
+    process.stdout.write(`    ${file}  L${line}  → ${allowance.finding}  ${allowance.why ?? ''}\n`)
+}
+
+if (unrecorded.length) {
+  process.stdout.write('\n  UNRECORDED — allowance names a key that is not in FINDINGS.tsv:\n')
+  for (const { file, line, allowance } of unrecorded)
+    process.stdout.write(`    ${file}  L${line}  → ${allowance.finding}\n`)
+}
+
 if (gained.length) {
   process.stdout.write('\n  GAINED — reached only by the port:\n')
   for (const { file, lines } of gained)
@@ -179,4 +247,4 @@ if (gained.length) {
 if (!keep)
   rmSync(outRoot, { recursive: true, force: true })
 
-process.exit(lostTotal > 0 ? 1 : 0)
+process.exit(lostTotal > 0 || unrecorded.length > 0 ? 1 : 0)

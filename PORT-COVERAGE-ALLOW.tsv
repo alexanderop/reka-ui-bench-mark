@@ -1,0 +1,2 @@
+component	file	line	finding	why
+Slider	Slider/utils.ts	109	Slider/Slider.test.ts#linear-scale-degenerate	linearScale's `input[0] === input[1]` short-circuit. jsdom reaches it on every test because the slider measures 0x0, so `rect.width - thumbWidth` is 0. A real browser cannot reach it without a slider exactly as wide as its thumb, and the port covers L110-111 (the actual linear interpolation) instead.

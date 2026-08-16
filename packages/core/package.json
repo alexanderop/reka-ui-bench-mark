@@ -85,6 +85,7 @@
     "test-update": "vitest -u",
     "port:inventory": "node scripts/port/inventory.mjs",
     "port:parity": "node scripts/port/parity-names.mjs",
+    "port:checklist": "node scripts/port/checklist.mjs",
     "port:coverage": "node scripts/port/parity-coverage.mjs",
     "pub:release": "npm publish --access public --provenance",
     "size": "size-limit"

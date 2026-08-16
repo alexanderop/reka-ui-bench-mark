@@ -101,6 +101,36 @@ Tests *missing* from the port are reported as **progress, not failure** — the 
 incremental by design. `--complete` flips that, and is how you certify a file as fully
 ported.
 
+#### The checklist view — `port:checklist`
+
+```bash
+pnpm --filter reka-ui port:checklist Slider
+pnpm --filter reka-ui port:checklist Slider --complete       # exit 1 if anything is missing
+pnpm --filter reka-ui port:checklist Slider --missing-only   # just the gaps
+```
+
+`port:parity` answers *"did the port weaken what it took"* and caps its missing list at five
+names. This prints the **whole original tree in source order**, every node marked ✓ or ✗, with
+quarantine tags inline. It is the "what do I port next" view, and the thing to run before
+claiming a file is done:
+
+```
+✓ Slider/Slider.browser.test.ts   39/39 its, 15/15 describes
+
+    ✓ given default Slider
+      ✓ it should pass axe accessibility tests   .fails → Slider/Slider.test.ts#axe
+      ✗ when disabled   ← L40 not ported
+```
+
+It also checks one thing `port:parity` structurally cannot: **`describe` blocks themselves.**
+There they are only ever compared as part of an `it`'s key path, so a suite holding no tests —
+all of them commented out, which `Slider` does twice — can vanish from a port without anything
+noticing, and an invented suite goes unnoticed until it acquires a test. Verified against a
+synthetic pair: `parity-names` reported neither the dropped empty `describe` nor the invented
+one; the checklist reported both.
+
+Same exit-code contract: missing is progress unless `--complete`, invented always fails.
+
 This is why `AGENTS.md` requires verbatim `describe`/`it` names. That rule is now
 machine-enforced, and it is the whole basis of the check.
 
@@ -126,8 +156,25 @@ GAINED — reached only by the port:
 That is the real `ResizeObserver` path. Under jsdom the stub means those lines never
 execute. One test, and the argument for the whole exercise is a number.
 
-> ⚠ **This oracle is currently half-blind** — istanbul instruments no `.vue` files in this
-> repo. See blocker **B2** under [Do this next](#do-this-next).
+#### Allowed losses — `PORT-COVERAGE-ALLOW.tsv`
+
+Occasionally a lost line is the *right* outcome, because jsdom only reached it by being jsdom.
+The first one found: `Slider/utils.ts:109`, `linearScale`'s `input[0] === input[1]`
+short-circuit. jsdom takes that branch on every pointer test, because the slider measures 0×0
+so `rect.width - thumbWidth` is 0; the browser takes L110-111, the actual interpolation. The
+jsdom suite reported that line as covered, and the arithmetic the component ships was never
+executed.
+
+"The browser covers less" is also exactly what a gutted port looks like, so the exemption works
+like `@finding` — per line, and it costs you a written finding:
+
+```
+component  file             line  finding                                          why
+Slider     Slider/utils.ts  109   Slider/Slider.test.ts#linear-scale-degenerate    jsdom-only zero-geometry branch
+```
+
+An allowance naming a key that is not in `FINDINGS.tsv` is reported as `UNRECORDED` and still
+exits 1. Never exempt a whole file.
 
 ### 2.3 Mutation — manual, T3 files only
 
@@ -136,8 +183,16 @@ the component the way the mock papered over, then confirm **the browser test fai
 jsdom test still passes**. That divergence is the finding. Don't do this for T1/T2 — it is
 expensive and there is nothing to show.
 
-The canonical example is already written up in `AGENTS.md`: `hasPointerCapture` returning
-truthy is the only reason `SliderImpl.vue`'s `pointermove` handler emits `slideMove` at all.
+**Done once, for `Slider`, and it worked.** Deleting `target.setPointerCapture(event.pointerId)`
+from `SliderImpl.vue`'s `pointerdown` handler makes the browser port's
+`should emit valueCommit on wrapper` fail and leaves the jsdom test green — its own
+`hasPointerCapture: vi.fn().mockImplementation(id => id)` answers yes for a capture that was
+never taken. The jsdom test cannot fail that mutation, in any version of the component.
+Recorded as `Slider/Slider.test.ts#mutation`.
+
+Cost: about two minutes. Edit the source, run **one** test in each project
+(`vitest run --project=browser <file> -t "<name>"`), revert with the editor — not `git checkout`
+— and confirm with `git diff --stat` that the source is clean again.
 
 ---
 
@@ -281,7 +336,8 @@ brief is *not* Bun's "does this behave like the original." It is:
 > racing Vue's flush where an awaited `expect.element` was needed.
 
 **Then the machine decides:** `port:parity <Component>` and `port:coverage <Component>` must
-both exit 0. Human judgement is for the finding, not for whether the port is sound.
+both exit 0, and `port:checklist <Component>` says how much of the original is actually there.
+Human judgement is for the finding, not for whether the port is sound.
 
 ### Rules for agents (learned the hard way, mostly by Bun)
 
@@ -374,9 +430,26 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
 - [ ] One T1 file (`shared/useForwardExpose`) — expect verdict `stay-jsdom`, with numbers.
 - [ ] One T2 file (`Checkbox` minus its ResizeObserver stub, or `Label`) — expect a clean
       mechanical port.
-- [ ] Finish `Slider` (T3) — all 39 tests, `port:parity Slider --complete` exits 0. It is
-      already the reference case and 2/39 are done.
-- [ ] Update `AGENTS.md` gotchas with whatever these three taught you.
+- [x] **Finish `Slider` (T3). DONE — 39/39.**
+      `port:parity Slider --complete` and `port:coverage Slider` both exit 0. All five jsdom
+      stubs deleted. 16 lines gained (`shared/useSize.ts` L19-48, `SliderThumbImpl.vue:40`,
+      `Slider/utils.ts` L67-70 + L110-111), 1 lost and argued
+      (`#linear-scale-degenerate`). Mutation-verified per §2.3 (`#mutation`).
+      Five rows in `FINDINGS.tsv`; two of them are structural deviations from the original
+      rather than bugs (`#form-submit-button`, `#home-end-name`).
+      What it cost beyond the test file itself: three custom mouse commands
+      (`vitest.browser.commands.ts`) so a gesture can be split across `beforeEach` hooks, and
+      the `PORT-COVERAGE-ALLOW.tsv` mechanism in §2.2. Both are reusable by the rest of T3.
+      **One rule needed relaxing.** Rule 4 says "if a name is a lie, fix the test so the name
+      becomes true." Under `when vertical > when inverted` the original has
+      `it('home should set value to 100')` asserting `0` — but the *assertion* is right (Home is
+      semantic per ARIA APG and ignores `inverted`) and only the name is wrong. Applying rule 4
+      literally would fail a correct component. Ported verbatim, recorded as `#home-end-name`.
+      Rule 4 should read: fix the test when the name describes something that does not happen;
+      when the name is simply mislabelled, port verbatim and write it down. Renaming stays
+      banned either way.
+- [ ] Update `AGENTS.md` gotchas with whatever these three taught you. *(Slider's are in:
+      atomic `dropTo`, `includeHidden`, `render` auto-unmount, inline templates compile.)*
 
 ### Phase 2 — fan out, tier by tier.
 
@@ -408,7 +481,10 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
 pnpm --filter reka-ui port:inventory              # regenerate PORT-INVENTORY.tsv + summary
 pnpm --filter reka-ui port:parity                 # structural parity, all pairs
 pnpm --filter reka-ui port:parity Slider --complete
+pnpm --filter reka-ui port:checklist Slider       # describe/it tree, ✓ / ✗ per node
+pnpm --filter reka-ui port:checklist Slider --missing-only
 pnpm --filter reka-ui port:coverage Slider        # coverage parity for one component
+                                                  # exemptions: PORT-COVERAGE-ALLOW.tsv
 
 # tests
 pnpm --filter reka-ui exec vitest run                    # both projects
@@ -417,3 +493,4 @@ pnpm --filter reka-ui exec vitest run --project=browser
 ```
 
 Baseline before this effort: **99 files / 2017 tests passing.**
+Current: **100 files / 2055 passing + 1 expected fail.**

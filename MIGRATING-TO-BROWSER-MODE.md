@@ -36,6 +36,14 @@ In a browser you delete all five lines. Concretely, on one component, deleting j
 `ResizeObserver` stub caused a real `useSize` composable to execute for the first time —
 **9 lines of a shared composable, plus a component branch, that jsdom had never once run.**
 
+And the mocks are not merely redundant, they are actively hiding breakage. We deleted
+`setPointerCapture(event.pointerId)` from the component under test — i.e. broke pointer capture
+outright — and ran both suites: **the browser test failed, the jsdom test still passed.** Its
+own `hasPointerCapture` mock answers yes for a capture that was never taken. That test could
+not have failed that mutation, in any version of the component. If you want one measurement to
+justify this work to someone else, that is the one: pick your most heavily-mocked file, break
+the thing the mock stands in for, and see which suite notices.
+
 The cost is real too, and the honest framing is: **browser mode is not a strictly better
 jsdom.** Some files get worse. A test for a pure function pays browser startup for nothing.
 Decide per file, not per suite — see [What not to migrate](#10-what-not-to-migrate).
@@ -137,6 +145,9 @@ over VTU, which is why most of this is mechanical.
 | `wrapper.emitted('e')` | `screen.emitted('e')` |
 | `el.trigger('keydown', { key })` | focus the element, then `await userEvent.keyboard('{Key}')` |
 | `el.trigger('pointerdown', { clientX })` | real input: `loc.click({ position })`, `loc.dropTo()` |
+| `wrapper.find('[type="number"]')` (hidden) | `screen.getByRole('spinbutton', { includeHidden: true })` |
+| `form.trigger('submit')` | click a real `<button type="submit">` |
+| `mount(…)` once in the `describe` body | move it into `beforeEach` — `render` auto-unmounts |
 | ResizeObserver / pointer-capture stubs | *(delete)* |
 
 `rerender` **merges** rather than replacing — confirmed in source
@@ -337,6 +348,60 @@ Raw `page.mouse` and `cdp()` take **page-level** coordinates, so you would have 
 the iframe rect yourself. Prefer locator methods. Custom commands are the escape hatch when
 you genuinely need page-level control.
 
+### Drag primitives are atomic; hooks are not
+
+`dropTo()` / `userEvent.dragAndDrop()` press, move and release in a single call. That is
+usually what you want — and it is a problem exactly once: when the original test nests its
+`describe`s around the *steps* of a gesture, with a `beforeEach` per step.
+
+```ts
+describe('after pointerdown', () => {          // beforeEach: pointerdown
+  describe('after pointermove', () => {        // beforeEach: pointermove
+    describe('after pointerup', () => {        // beforeEach: pointerup
+```
+
+You cannot split `dropTo()` across those three hooks. Collapsing the gesture into one hook
+works, but then two of those names describe nothing. Playwright's `page.mouse` *is* stateful
+across calls, so the fix is a custom command per step — and the command is also the natural
+place to do the iframe coordinate translation from the previous section, once, instead of in
+every test:
+
+```ts
+// vitest.browser.commands.ts
+export const mouseDown: BrowserCommand<[x: number, y: number]> = async (context, x, y) => {
+  const box = await context.iframe.owner().boundingBox()   // tester iframe, in page coords
+  await context.page.mouse.move(box.x + x, box.y + y)
+  await context.page.mouse.down()
+}
+// …plus mouseMove and mouseUp, registered under `browser.commands` in the config
+```
+
+Tests then pass coordinates straight out of `getBoundingClientRect()` — iframe-viewport
+coordinates — and never think about the offset. Roughly 40 lines, and it is what let the
+pointer-capture mutation above be measured at all.
+
+### Hidden elements need an explicit opt-in
+
+CSS-selector assertions have no locator equivalent, and the closest role query will not find a
+visually-hidden or `aria-hidden` element by default:
+
+```ts
+wrapper.find('[type="number"]').exists()                            // jsdom
+screen.getByRole('spinbutton', { includeHidden: true })             // browser mode
+```
+
+This is a real improvement disguised as friction: the port has to state that it is looking for
+something deliberately hidden from the accessibility tree, which the CSS selector never made
+you say.
+
+### The render helper unmounts after every test
+
+Testing-library-style `render` registers an automatic cleanup, so a component mounted once at
+`describe`-body level — a common jsdom pattern for form fixtures — is gone by the second test.
+Move it into `beforeEach`. Module-level spies are *not* reset by that, so an original that
+depends on a call count accumulating across tests (`toHaveBeenCalledTimes(1)`, then `(2)`)
+still ports unchanged.
+
 ### Form submission is a real form submission
 
 Worth checking your assumptions. Three approaches, all tested in Chromium on a slider inside
@@ -430,6 +495,29 @@ This is why the convention "**`describe`/`it` names must match the original verb
 worth enforcing: it costs nothing and it is what makes the check possible at all. If a name
 turns out to be a lie, fix the *test* so the name becomes true — do not rename it.
 
+One blind spot to know about, because the natural implementation has it: if you key each test
+by its full `describe` path — the obvious design — then **you never actually check the
+`describe`s.** They are only compared as substrings of a test's key. A suite that contains no
+tests of its own (every one commented out, which real suites do) can disappear from the port
+without the checker noticing, and an invented suite goes unnoticed until it acquires a test. We
+verified this against a synthetic pair: the parity checker reported neither the dropped empty
+`describe` nor the invented one.
+
+Cheap fix, and it doubles as the most useful view during the work: a second pass that prints
+the **original's whole tree in source order**, every `describe` and `it` marked present or
+missing.
+
+```
+✓ Slider.browser.test.ts   39/39 its, 15/15 describes
+
+    ✓ given default Slider
+      ✓ it should pass axe accessibility tests   .fails → Slider#axe
+      ✗ when disabled   ← L40 not ported
+```
+
+The flat "5 missing, … 34 more" output of a parity check tells you the number. This tells you
+where you are.
+
 ### Coverage parity
 
 Run both projects under coverage, diff the set of covered lines, and fail if the port reaches
@@ -442,6 +530,51 @@ it. That is how the `useSize` number in [section 0](#0-the-short-version) was me
 *(Both require your coverage provider to actually instrument component files — see
 [section 4](#4-coverage). We ran this oracle for a while against a provider that was silently
 skipping every `.vue` file.)*
+
+#### Lost coverage is not automatically a regression — but argue it line by line
+
+The first file we migrated completely ended with **16 lines gained and exactly 1 lost**, and
+the lost one turned out to be the best finding in the file:
+
+```ts
+export function linearScale(input, output) {
+  return (value) => {
+    if (input[0] === input[1] || output[0] === output[1])
+      return output[0]          // ← covered under jsdom, on every single test
+    const ratio = (output[1] - output[0]) / (input[1] - input[0])
+    return output[0] + ratio * (value - input[0])   // ← covered only in the browser
+  }
+}
+```
+
+The input range is `sliderWidth - thumbWidth`. Under jsdom every rect is 0×0, so the two ends
+are equal and the degenerate branch fires every time; the arithmetic the component actually
+ships never ran. A line the jsdom suite reported as covered was covered **by the absence of
+layout**.
+
+So "the browser covers less" is sometimes correct — and it is also precisely what a gutted
+port looks like. Do not soften the check. Make the exemption explicit, per line, and machine-
+checked against the same findings file the quarantine tag uses:
+
+```
+component  file             line  finding                          why
+Slider     Slider/utils.ts  109   Slider/Slider.test.ts#degenerate  jsdom-only zero-geometry branch
+```
+
+An allowance naming a key that does not exist in the findings file fails the run, same as a
+quarantine tag would. The point is that arguing your way past an oracle should cost you a
+written finding every time.
+
+### Mutation, for the files where the mocks were the whole problem
+
+Name parity and coverage parity both compare the port to the *original*. Neither can tell you
+the original was worth preserving. For the heavily-mocked files — the ones you migrated
+*because* of the mocks — spend one extra step: break the component in the way the mock papered
+over, and check that **the browser test fails while the jsdom test still passes.**
+
+That divergence is the finding. It takes about two minutes per file (edit, run one test in each
+project, revert) and it converts "browser mode should be better here" into a result. Don't
+bother for the mechanical files; there is nothing to show.
 
 ---
 

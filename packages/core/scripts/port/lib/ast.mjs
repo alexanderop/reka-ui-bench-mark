@@ -122,7 +122,13 @@ export function parseTestFile(file) {
 
       if (DESCRIBE.has(root)) {
         const next = [...stack, titleOf(node.arguments[0])]
-        suites.push({ path: next, mods })
+        suites.push({
+          path: next,
+          key: next.join(' > '),
+          mods,
+          skipped: mods.includes('skip') || mods.includes('todo'),
+          line: source.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+        })
         if (body)
           walk(body, next)
         return

@@ -105,12 +105,19 @@ root — the browser project must not inherit `vitest.setup.ts`, which loads
 `vitest-canvas-mock`, `@testing-library/jest-dom/vitest` (browser mode ships its own fork of
 those matchers), and a `getComputedStyle` patch for a jsdom bug that does not exist in Chrome.
 
+The browser project also registers three custom commands — `mouseDown` / `mouseMove` /
+`mouseUp`, from `vitest.browser.commands.ts`. They exist because the locator API's only drag
+primitive (`dropTo`) is atomic and cannot be split across `beforeEach` hooks; see the gotcha
+below.
+
 Ported so far:
 
 - `packages/core/src/smoke.browser.test.ts` — harness check, imports nothing.
 - `packages/core/src/css-shim.browser.test.ts` — harness check, guards the Tailwind pipeline.
-- `packages/core/src/Slider/Slider.browser.test.ts` — 2 of 39 tests (`should have default value`,
-  `should pass axe accessibility tests`).
+- `packages/core/src/Slider/Slider.browser.test.ts` — **complete, 39 of 39 tests.**
+  `port:parity Slider --complete` and `port:coverage Slider` both exit 0; 1 test is quarantined
+  under `it.fails` (the axe finding), 1 coverage line is allowed (the `linearScale` finding),
+  and the pointer-capture claim is mutation-verified. Five findings in `FINDINGS.tsv`.
 
 ### Commands
 
@@ -118,10 +125,18 @@ Ported so far:
 pnpm --filter reka-ui exec vitest run                    # both projects
 pnpm --filter reka-ui exec vitest run --project=browser  # browser only
 pnpm --filter reka-ui exec vitest run --project=unit     # jsdom only
+
+pnpm --filter reka-ui port:checklist Slider              # every describe/it, ✓ or ✗
+pnpm --filter reka-ui port:parity Slider --complete      # nothing renamed or weakened
+pnpm --filter reka-ui port:coverage Slider               # still reaches the same lines
 ```
 
-Baseline as of the last run: **99 files / 2017 tests passing.** Never leave the `unit` project
-broken to make progress on `browser`; the two run side by side on purpose.
+`port:checklist` is the one to run *while* porting — it prints the original's whole tree in
+source order with each node marked present or missing (`--missing-only` for just the gaps), and
+it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
+
+Baseline as of the last run: **100 files / 2055 passing + 1 expected fail.** Never leave the
+`unit` project broken to make progress on `browser`; the two run side by side on purpose.
 
 ---
 
@@ -147,6 +162,9 @@ broken to make progress on `browser`; the two run side by side on purpose.
 | `wrapper.emitted('e')` | `screen.emitted('e')` |
 | `el.trigger('keydown', { key })` | focus the element, then `await userEvent.keyboard('{Key}')` |
 | `el.trigger('pointerdown', { clientX })` | real input: `loc.click({ position })` / `loc.dropTo()` |
+| `wrapper.find('[type="number"]')` (hidden) | `screen.getByRole('spinbutton', { includeHidden: true })` |
+| `wrapper.find('form').trigger('submit')` | click a real `<button type="submit">` |
+| `mount(…)` once in the `describe` body | move into `beforeEach` — `render` auto-unmounts |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
 `vitest-browser-vue`'s `render` accepts all `@vue/test-utils` mount options, so most of this is
@@ -176,6 +194,42 @@ input — `locator.click({ position })`, `locator.dropTo(target)`. Both go throu
 and you would have to offset by the iframe rect yourself. Prefer locator methods. Custom
 commands (`docs/api/browser/commands.md`) are the escape hatch when you genuinely need
 `page.mouse`.
+
+**`dropTo` is atomic; three nested `beforeEach` hooks are not.** Several jsdom files nest their
+describes around the *steps* of a gesture — `after pointerdown` → `after pointermove` →
+`after pointerup`, one hook each. `dropTo()` / `userEvent.dragAndDrop()` press, move and release
+in a single call, so they cannot be split that way, and collapsing the gesture into one hook
+makes two of those describe names decorative.
+
+`page.mouse` *is* stateful across calls, so `vitest.browser.commands.ts` exposes `mouseDown` /
+`mouseMove` / `mouseUp` as custom commands, doing the iframe-rect translation once, server-side.
+Tests pass coordinates straight out of `getBoundingClientRect()`:
+
+```ts
+const mouse = commands as unknown as { mouseDown: (x: number, y: number) => Promise<void> /* … */ }
+const rect = (screen.container.firstElementChild as HTMLElement).getBoundingClientRect()
+await mouse.mouseDown(rect.left + 10, rect.top + rect.height / 2)
+```
+
+Prefer `locator.click({ position })` / `dropTo()` when the gesture fits in one call. Reach for
+these only when the original's hook structure demands the split.
+
+**`getByRole` skips hidden elements unless you say otherwise.** `wrapper.find('[type="number"]')`
+has no locator equivalent, and reka's `VisuallyHiddenInput` is `aria-hidden="true"` — so the
+form-value input is invisible to every default query. Use
+`getByRole('spinbutton', { includeHidden: true })`. Worth noticing rather than working around:
+the port now has to *say* it is looking for something hidden from the accessibility tree.
+
+**`render` unmounts after every test.** `vitest-browser-vue` registers cleanup, so the jsdom
+habit of mounting once in the `describe` body (the form fixtures do this) leaves every test after
+the first with nothing on screen. Move it into `beforeEach`. Module-level `vi.fn()` spies are
+*not* cleared by that, so originals that depend on a call count accumulating across tests
+(`toHaveBeenCalledTimes(1)`, then `(2)`) still port unchanged.
+
+**Inline `template:` components still compile.** Worth stating because the opposite is plausible
+— under Vite the `vue` package's browser condition resolves to the runtime-only build. Measured:
+`render({ template: '<form>…</form>', components: { Slider } })` compiles and renders in the
+browser project. No `h()` rewrite needed.
 
 **There was no CSS — now there is.** Story fixtures are styled with Tailwind classes, but Tailwind
 only ever lived in `.histoire/tailwind.config.js` and nothing compiled it for tests. Under jsdom
@@ -242,6 +296,14 @@ turns red the day someone fixes the bug, which tells you the finding is stale. T
 must name a row in `FINDINGS.tsv` or `port:parity` fails the file, so quarantine always costs you a
 written finding. **Never make one of these green by disabling a rule or softening a matcher** —
 keep the assertion exactly as strong as it was and let `it.fails` absorb the failure.
+
+**Coverage the port loses can also be a finding — one line at a time.** `port:coverage` exits 1
+when the browser reaches fewer lines than jsdom did, and that is usually right. Sometimes it is
+not: jsdom covers `Slider/utils.ts:109` (`linearScale`'s `input[0] === input[1]` short-circuit)
+on *every* test purely because the slider measures 0×0, while the browser covers L110-111, the
+real interpolation, instead. Exempt such a line in `PORT-COVERAGE-ALLOW.tsv`
+(`component / file / line / finding / why`). Same deal as `@finding`: the key must exist in
+`FINDINGS.tsv` or the run still fails. Argue per line, never per file.
 
 **pnpm hoisting is load-bearing, and it broke.** Adding `@vitest/browser-playwright` introduced
 a new vitest peer variant, which changed which vitest got hoisted into `.pnpm/node_modules/`.
