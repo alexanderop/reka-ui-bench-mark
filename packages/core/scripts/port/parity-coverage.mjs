@@ -143,20 +143,36 @@ mkdirSync(outRoot, { recursive: true })
 
 function collect(project, testFile) {
   const reportDir = join(outRoot, project)
-  const run = spawnSync('npx', [
-    'vitest',
-    'run',
-    `--project=${project === 'jsdom' ? 'unit' : 'browser'}`,
-    relative(CORE, testFile),
-    '--coverage',
-    '--coverage.provider=istanbul',
-    '--coverage.reporter=json',
-    `--coverage.reportsDirectory=${reportDir}`,
-  ], { cwd: CORE, encoding: 'utf8' })
-
   const reportPath = join(reportDir, 'coverage-final.json')
+
+  // Retried once on purpose. Concurrent agents each spawn their own vitest, and a
+  // browser-project run that loses the race for Chromium/the vite server dies without
+  // writing a report — which is indistinguishable, from here, from a port that does not
+  // compile. Measured during the first T2 batch: one run in four exited 2 while three
+  // re-runs of the identical command were clean. A false failure here is expensive,
+  // because the agent reading it goes and "fixes" a file that was never broken.
+  let run
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    rmSync(reportDir, { recursive: true, force: true })
+    run = spawnSync('npx', [
+      'vitest',
+      'run',
+      `--project=${project === 'jsdom' ? 'unit' : 'browser'}`,
+      relative(CORE, testFile),
+      '--coverage',
+      '--coverage.provider=istanbul',
+      '--coverage.reporter=json',
+      `--coverage.reportsDirectory=${reportDir}`,
+    ], { cwd: CORE, encoding: 'utf8' })
+
+    if (existsSync(reportPath))
+      break
+    if (attempt === 1)
+      process.stderr.write(`${project} run produced no coverage report — retrying once (concurrent runs can starve a browser worker)\n`)
+  }
+
   if (!existsSync(reportPath)) {
-    process.stderr.write(`\n${project} run produced no coverage report — the test file probably failed to run:\n`)
+    process.stderr.write(`\n${project} run produced no coverage report, twice — the test file probably failed to run:\n`)
     process.stderr.write(`${(run.stdout || '') + (run.stderr || '')}\n`)
     process.exit(2)
   }
