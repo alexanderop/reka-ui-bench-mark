@@ -141,6 +141,9 @@ Ported so far:
   try, and it still produced three findings — a click that cannot happen (`#empty-label-unclickable`),
   a `mousedown` handler jsdom structurally cannot reach (`#click-fires-no-mousedown`), and a
   behaviour neither suite ever asserts (`#no-positive-case`).
+- **T2 batches 1–5: 15 of 44 files complete.** The current batch adds Collapsible (11/11),
+  Presence (10/10), and Primitive (15/15). `PORT-INVENTORY.tsv` is the authoritative inventory;
+  `PORTING.md` records each batch and its evidence.
 
 ### Commands
 
@@ -159,7 +162,7 @@ pnpm --filter reka-ui port:coverage Slider               # still reaches the sam
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Baseline as of the last run: **102 files / 2072 passing + 1 expected fail.** Never leave the
+Baseline as of the last run: **116 files / 2163 passing + 6 expected fails.** Never leave the
 `unit` project broken to make progress on `browser`; the two run side by side on purpose.
 
 ---
@@ -200,7 +203,11 @@ Baseline as of the last run: **102 files / 2072 passing + 1 expected fail.** Nev
 | `getByText('x')` | `getByText('x', { exact: true })` — vitest locators default to **substring** |
 | bare `getByTestId(…)` used *as* an assertion | `await expect.element(…).toBeInTheDocument()` — a locator is lazy and throws nothing |
 | `expect(wrapper.attributes('x')).toBeUndefined()` | `await expect.element(el).not.toHaveAttribute('x')` |
-| `wrapper.findAll('button')` | `screen.getByRole('button').elements()` — **re-probe the equivalence per file**, tag↔role only coincides sometimes |
+| `wrapper.find('button')` / `findAll('button')` when the **tag** is the subject | `screen.container.querySelector('button')` / `querySelectorAll('button')` — a role-equivalent `<div>` must not pass |
+| `wrapper.findAll('button')` when the **role** is the subject | `screen.getByRole('button').elements()` |
+| `VueWrapper.find(All)(sel)` | `screen.container.querySelector(All)(sel)` — both include component root nodes; `DOMWrapper.findAll` stays `element.querySelectorAll` and excludes the wrapped element |
+| `await nextTick()` only to settle an eventual DOM outcome | delete it; make `await expect.element(locator)…` own the wait |
+| `await nextTick()` after `await locator.click()` for a synchronous Vue update | delete it; the awaited real interaction crosses the event task and Vue's microtask flush |
 | `wrapper.text()` | `screen.container.textContent` |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
@@ -216,20 +223,56 @@ to `container: document.body`.
 
 ## Known gotchas (found the hard way — add to this list)
 
-**Reading an attribute after an interaction needs a retry first.** `expect.element(…)` retries;
-`.element()` is a synchronous escape hatch that does not. When a test computes a delta, put the
-awaited `expect.element` assertion *before* reading the new value, or you race Vue's flush.
+**A retrying matcher settles its own assertion, not "Vue's flush".** Never put
+`await expect.element(X).toHaveAttribute(expected)` immediately before a synchronous read of the
+same `X` and `expected`: the retry has already guaranteed the second assertion. Mutation-verified
+in `Presence`: delaying instant unmount by 500ms made the original fail while that two-assertion
+port stayed green. If an interaction needs settling, wait on a **different precondition** in the
+hook (the open state before clicking closed), then preserve the original's instantaneous read.
+An awaited Playwright click already crosses Vue's microtask flush for synchronous state updates;
+timers, transitions, and async watchers still need an explicit, distinct synchronization point.
 
-**…but a retrying matcher is a silent weakening when the test's subject *is* timing.** The two
-rules are a pair; apply the wrong one and you gut the test. `Progress` has
-`describe('after 200ms')` asserting `expect(wrapper.html()).toContain('data-value="50"')` — one
-instantaneous read, which fails if the value is late. Translate that mechanically to
-`await expect.element(…).toHaveAttribute('data-value', '50')` and it now passes anywhere inside
-the sleep **plus the retry budget** — it would stay green if the fixture flipped at 900ms.
-Fix: assert **twice** — the retrying `expect.element` first to settle Vue's flush, then the
-original's exact synchronous read. That makes the port run more `expect`s than the original,
-which `port:parity` permits (it only fails on *fewer*). Rule of thumb: **when a `describe` name
-mentions a duration, never let a retrying matcher be the only assertion.**
+**Prefer outcome synchronization over `nextTick()`.** Auditing every completed browser port found
+14 actual calls: 2 before retrying Toolbar assertions, 5 after Teleport mounts, and 7 in Presence.
+All 14 are gone. Toolbar needed no replacement because `expect.element` already owns the wait;
+Teleport now waits for the user-visible locator before taking raw nodes for structural assertions;
+Presence keeps exact synchronous reads immediately after awaited real clicks. The exact Vitest
+4.1.10 source matters: `expect.element(locator)` is `expect.poll(...)` and re-queries the locator
+on every attempt (50ms interval, 1000ms timeout by default). `await render()` itself does **not**
+call Vue's `nextTick` — its thenable records a trace mark — while `await rerender()` delegates to
+VTU `setProps()`, which already returns `nextTick()`. Keep an explicit tick only when "after one
+Vue flush" is itself the contract, or when the state change bypasses an awaited browser action.
+Mutation check: delaying Presence's instant unmount by 500ms still made both exact browser close
+assertions fail after their ticks were removed.
+
+**A retrying matcher is a silent weakening when the subject is timing.** `Progress`'s
+`describe('after 200ms')` is one instantaneous read. A retrying matcher widens that to the sleep
+plus its retry budget; moving the fixture's flip from 200ms to 900ms made the jsdom original fail
+while the first browser port stayed green. Keep the synchronous read. Rule of thumb: **when a
+`describe` name mentions a duration, never retry the condition it asserts.**
+
+**A tag query and a role query are not interchangeable when the tag is the contract.** The
+unmutated nodes can be identical and still make the translation weaker. Serving Primitive's
+`as="button"` as `<div role="button">` made the original's `find('button')` fail while a role-only
+port passed all 15 tests. Use a container CSS query when the component chooses the element; use
+`getByRole` when accessible semantics are what the original asserts.
+
+**`VueWrapper.find(All)` includes component roots; `DOMWrapper.findAll` does not include itself.**
+`vitest-browser-vue` unwraps its internal mount div, so component roots are direct children of
+`screen.container`: a container query preserves the first behavior, while
+`element.querySelectorAll` preserves the second. Primitive uses both patterns one line apart.
+
+**DOM-property reflection can be more capable in Chromium than jsdom.** For
+`hidden="until-found"`, jsdom's boolean `hidden` setter reflects `''`; Chromium's enumerated setter
+reflects `'until-found'`, which is the platform behavior. A port that preserves an assertion for
+the jsdom artifact should quarantine it and record the browser result rather than coercing Chrome
+back to the old value.
+
+**CSS animation tests become real in Chromium.** jsdom returned an empty `animationName` for every
+Presence fixture, so its animated block exercised the same instant-unmount path as the default
+block. With local keyframes in Chromium, close starts the exit animation and the node correctly
+stays mounted until `animationend`. Use a real `AnimationEvent` instead of adding properties to a
+plain `Event`; a `getComputedStyle` spy itself can remain unchanged.
 
 **Two silent vacuities from `@testing-library` originals — the oracle cannot see either.** Both
 leave the assertion count unchanged, so `port:parity` passes while the test stops testing.
@@ -636,6 +679,13 @@ turns red the day someone fixes the bug, which tells you the finding is stale. T
 must name a row in `FINDINGS.tsv` or `port:parity` fails the file, so quarantine always costs you a
 written finding. **Never make one of these green by disabling a rule or softening a matcher** —
 keep the assertion exactly as strong as it was and let `it.fails` absorb the failure.
+
+**A quarantined test with multiple assertions needs an audit.** `it.fails` turns any thrown
+assertion, hook error, or timeout into success for that test; assertions after the first failure
+never run, and failures in siblings before it are indistinguishable. In Collapsible, one expected
+`hidden` mismatch silently disabled two other contracts. Relocate independent assertions to a
+shared hook that also runs for a non-quarantined sibling, or split them into an existing
+non-quarantined test shape. Count assertions before applying `.fails`.
 
 **Coverage the port loses can also be a finding — one line at a time.** `port:coverage` exits 1
 when the browser reaches fewer lines than jsdom did, and that is usually right. Sometimes it is

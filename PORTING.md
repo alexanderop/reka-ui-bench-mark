@@ -90,16 +90,22 @@ it.fails('should pass axe accessibility tests', async () => {
 Two rules, both machine-enforced:
 
 1. **`.fails`, not `.skip`, unless the test cannot run at all.** `.fails` asserts the test
-   fails, so the body still executes and still contributes coverage — which `.skip` throws
-   away — and it flips **red the moment someone fixes the bug**, telling you the finding is
-   stale. `.skip` is for tests that crash the runner or hang.
+   fails, so the body executes up to the first failure and contributes that coverage — which
+   `.skip` throws away — and it flips **red the moment the whole body passes**, telling you the
+   finding is stale. It also absorbs any other assertion or hook failure for that test, so never
+   leave unrelated assertions behind the expected failure. `.skip` is for tests that crash the
+   runner or hang.
 2. **`@finding <key>` is mandatory, and `<key>` must exist in the first column of
    `FINDINGS.tsv`.** Quarantine without a written finding is indistinguishable from giving
    up, so `port:parity` rejects it. This is what keeps the escape hatch honest: using it
    always costs you a finding.
 
 A quarantined test is reported under `FINDING` and does **not** fail the run. Assertions are
-still counted, so you cannot quarantine *and* gut a test.
+still counted, but that alone does not keep them live: `it.fails` flips the whole test after the
+first thrown assertion, so later assertions never run and unrelated failures are absorbed. If a
+quarantined test has more than one assertion, relocate independent contracts to a hook shared by
+at least one non-quarantined sibling (or an existing non-quarantined test shape). Count them before
+quarantining; see the Collapsible finding.
 
 Tests *missing* from the port are reported as **progress, not failure** — the port is
 incremental by design. `--complete` flips that, and is how you certify a file as fully
@@ -601,7 +607,7 @@ the corrections to `AGENTS.md` and to the reviewer prompt.
 
 Order matters: T2 builds confidence in the loop cheaply, T3 is where the value is.
 
-- [ ] **T2** (44 files, 12 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
+- [ ] **T2** (44 files, 15 done — count from `PORT-INVENTORY.tsv`, which supersedes the earlier 49) — batches of ~8, run as **3 concurrent agents at a time**, not 8.
       Every browser worker spawns a Chromium and they starve each other; see the `port:coverage`
       retry note in §2.2. After each batch: `port:inventory`, `port:parity` across all pairs,
       spot-read two files yourself.
@@ -694,6 +700,22 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       guard, so `<Toggle as="div" disabled>` toggles freely, and the hidden form input is rendered
       without `:checked`, so a `Toggle` in a form **never submits a value** (`FormData.get` is `null`
       before and after toggling on, measured).
+      **Batch 5 — `Collapsible`, `Presence`, `Primitive` — DONE, 36 tests, 33 passing + 3
+      expected failures; checklist, parity, focused runtime, and coverage gates all clean.**
+      Coverage is Collapsible `+9/-0`, Presence `+6/-0`, Primitive `+0/-0`. Presence proves that
+      jsdom's empty `animationName` turns an animation component into an instant-unmount component;
+      Chromium reaches the real exit-animation path. Collapsible finds the platform-correct
+      `hidden="until-found"` reflection and the more dangerous quarantine rule: one expected failure
+      in a multi-assertion `it.fails` silently absorbs every unrelated failure in that test.
+      Primitive catches a translation that looked equivalent on the live DOM but was weaker under
+      mutation — a tag assertion cannot become a role assertion when the component chooses its own
+      tag. The batch also invalidated the old retry recipe: retrying the condition immediately
+      before a synchronous read pre-settles that very assertion. `Progress.browser.test.ts` and the
+      shared guidance were corrected in this batch. A follow-up source audit removed all 14 actual
+      `nextTick()` calls from completed browser ports: 2 were redundant before `expect.element`, 5
+      became locator-existence waits, and 7 followed awaited real clicks. Presence's 500ms delayed-
+      unmount mutation still fails both exact assertions, so the cleanup did not trade one-flush
+      semantics for eventual success.
 - [ ] **T3** (23 files) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`

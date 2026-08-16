@@ -40,17 +40,11 @@ describe('given a default Progress', () => {
     expect(await axe(rootOf(screen))).toHaveNoViolations()
   })
 
-  // Both value tests assert twice where the original asserts once, and the
-  // extra assertion is the point rather than padding. `expect.element` retries
-  // and so cannot race Vue's flush (AGENTS.md gotcha #1); the `outerHTML`
-  // `toContain` that follows it is the original's assertion, character for
-  // character, and reads synchronously once the retrying one has settled.
-  // Keeping only the retrying form would silently widen "after 200ms" into
-  // "within 200ms + the 1s retry budget".
-  it('should contain correct value', async () => {
-    await expect
-      .element(screen.getByRole('progressbar'))
-      .toHaveAttribute('data-value', '0')
+  // Keep the original's instantaneous reads. A retrying matcher on the value
+  // under test would pre-settle its own condition and silently widen the
+  // timing contract; see `Progress.test.ts#retry-widens-timing` and
+  // `Presence.test.ts#retry-presettles-its-own-condition`.
+  it('should contain correct value', () => {
     expect(rootOf(screen).outerHTML).toContain('data-value="0"')
   })
 
@@ -63,10 +57,7 @@ describe('given a default Progress', () => {
       await sleep(200)
     })
 
-    it('should contain correct value', async () => {
-      await expect
-        .element(screen.getByRole('progressbar'))
-        .toHaveAttribute('data-value', '50')
+    it('should contain correct value', () => {
       expect(rootOf(screen).outerHTML).toContain('data-value="50"')
     })
   })

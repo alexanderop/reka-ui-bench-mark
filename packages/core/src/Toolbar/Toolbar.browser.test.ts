@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { defineComponent, nextTick, ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 import Toolbar from './story/_Toolbar.vue'
 import ToolbarRoot from './ToolbarRoot.vue'
 import ToolbarToggleGroup from './ToolbarToggleGroup.vue'
@@ -19,7 +19,8 @@ import ToolbarToggleItem from './ToolbarToggleItem.vue'
 //    `ToolbarLink` is an `<a>` and is role `link`, not `button`).
 //  - `wrapper.find('[role="toolbar"]').attributes('tabindex')` →
 //    `expect.element(screen.getByRole('toolbar')).toHaveAttribute(...)`, which
-//    retries rather than reading synchronously.
+//    retries rather than reading synchronously. The original's `nextTick()` is
+//    deliberately absent: the assertion owns the wait for its DOM outcome.
 
 describe('given default Toolbar', () => {
   let screen: Awaited<ReturnType<typeof render<typeof Toolbar>>>
@@ -66,7 +67,6 @@ describe('given Toolbar with all ToolbarToggleItem disabled', () => {
     })
 
     const screen = await render(TestComponent)
-    await nextTick()
 
     // The ToolbarRoot should have tabindex="-1" since all items are disabled
     await expect.element(screen.getByRole('toolbar')).toHaveAttribute('tabindex', '-1')
@@ -95,7 +95,6 @@ describe('given Toolbar with all ToolbarToggleItem disabled', () => {
     })
 
     const screen = await render(TestComponent)
-    await nextTick()
 
     // The ToolbarRoot should have tabindex="0" since there are focusable items
     await expect.element(screen.getByRole('toolbar')).toHaveAttribute('tabindex', '0')

@@ -699,9 +699,9 @@ it.fails('should pass axe accessibility tests', async () => {
 
 **Use `.fails`, not `.skip`.** `it.fails` asserts that the test fails, so:
 
-- the body still **runs**, and still contributes coverage — `.skip` throws that away
+- the body still **runs up to its first failure**, and contributes that coverage — `.skip` throws that away
   (measured: 257 → 260 covered lines in our case, purely from choosing `.fails`);
-- it turns **red the moment someone fixes the bug**, telling you the note is stale.
+- it turns **red the moment the whole body passes**, telling you the note is stale.
 
 Reserve `.skip` for tests that crash or hang the runner.
 
@@ -713,6 +713,86 @@ a written finding.
 
 Keep the assertion **exactly as strong as it was**. `it.fails` is what makes the suite green,
 never a softer expectation.
+
+There is a sharp limit: `.fails` marks the **whole test**, not one expected assertion. Any thrown
+assertion, hook error, or timeout satisfies it; assertions after the first throw do not execute.
+We measured this with a three-assertion test whose middle browser-only mismatch made regressions in
+the first and third assertions invisible. Reordering, soft assertions, `afterEach`, and
+`onTestFinished` did not help. Move independent contracts to setup shared with at least one
+non-quarantined sibling, or to an existing non-quarantined test. Before quarantining, count the
+assertions and ask which one is expected to fail.
+
+### Preserve what a query means, not just what it matches today
+
+A tag selector and a role locator can return the same node in the current fixture without being
+equivalent assertions. We mutated a rendering primitive to serve `as="button"` as
+`<div role="button">`: the original tag query failed, while the role-only browser port passed all
+15 tests. When the component chooses the element and the tag is the contract, preserve the CSS tag
+query with the render container. Use a role locator when accessible semantics are the subject.
+
+Wrapper scope matters too. Vue Test Utils' component-wrapper `find`/`findAll` includes component
+root nodes, while a DOM-wrapper `findAll` excludes the wrapped node itself. In the browser render
+helper, roots are direct children of the container, so a container query preserves the first
+semantics and `element.querySelectorAll` preserves the second. Translating both to one locator can
+produce the same count on today's fixture while testing a different tree.
+
+### Synchronize on outcomes, not framework ticks
+
+Framework flush helpers are usually an implementation detail in a browser test. In Vitest 4.1.10,
+`expect.element(locator)` is implemented as `expect.poll(...)`: it re-queries the locator and
+re-runs the matcher every 50ms for up to 1000ms by default. The official component examples pair
+an awaited real interaction directly with a retrying DOM assertion:
+
+```ts
+await button.click()
+await expect.element(screen.getByText('Saved')).toBeInTheDocument()
+```
+
+An audit of 14 `nextTick()` calls across completed Vue browser ports produced three translations:
+
+- **A tick immediately before `expect.element`: delete the tick.** The assertion already owns the
+  wait for the condition it names.
+- **A tick after mount, used only before locating eventual content: wait on the locator instead.**
+  Once it exists, take a raw node only if a structural API such as `Node.contains` requires one.
+- **A tick after an awaited real click whose handler performs a synchronous Vue update: delete the
+  tick and keep the immediate assertion.** The browser command returns after the event task and its
+  microtask checkpoint. We measured this first on an attribute toggle and then mutation-verified it
+  on an unmount path: delaying unmount by 500ms still made both exact assertions fail.
+
+Two source details prevent this from becoming a slogan. `await render()` does not itself call the
+framework's tick; in `vitest-browser-vue` its thenable records a trace mark around a synchronous VTU
+mount. `await rerender(props)` does await VTU `setProps()`, and that method already returns Vue's
+`nextTick()`. Do not add another tick after rerender.
+
+Keep a framework tick when the contract really is "after exactly one render flush", when a test
+mutates reactive state without an awaited browser interaction, or when a low-level lifecycle test
+needs that boundary. Timers, animations, network work, and async watchers need synchronization on
+their own observable outcome; a tick cannot make them complete.
+
+### Do not use a retry to pre-settle the assertion under test
+
+A retrying matcher waits for its own condition, not for a generic framework flush. We verified the
+failure mode by delaying an instant-unmount path by 500ms: the original synchronous tests failed,
+while a browser port that first retried the same condition and then read it synchronously stayed
+green. Synchronize on a distinct precondition before the interaction, then retain the original's
+instantaneous assertion. For duration-named tests, never retry the timed condition itself; moving a
+200ms fixture update to 900ms made the original fail and the retrying port pass within its budget.
+
+### Expect the real platform to invalidate DOM-emulator assertions
+
+Property reflection is one source. We bound `hidden="until-found"` through Vue in both
+environments: jsdom modeled `hidden` as boolean and reflected the content attribute as `''`, while
+Chromium modeled the enumerated platform value and reflected `'until-found'`. The browser matched
+the component's comment and intended behavior; the preserved original assertion had to be
+quarantined as a jsdom artifact. When an attribute assertion diverges, inspect the DOM property and
+the framework's prop-vs-attribute patch path before changing the browser test.
+
+CSS lifecycle is another. A Presence suite injected real keyframes, but jsdom returned an empty
+`animationName` for every element and therefore exercised only instant unmount. Chromium reported
+the real name, started the exit path, kept the node mounted, and covered six animation-specific
+lines that jsdom never reached. The faithful browser test contradicted the old assertion because
+the old assertion described the emulator. Keep the mismatch as a finding, and replace synthetic
+event-property patches with the browser's real `AnimationEvent` where possible.
 
 ---
 
