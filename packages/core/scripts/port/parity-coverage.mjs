@@ -23,7 +23,7 @@
 // script fails loudly rather than silently under-reporting.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -90,13 +90,42 @@ if (positional.length !== 1) {
   process.exit(2)
 }
 
+/**
+ * Find `<name>.browser.test.ts` anywhere under src/.
+ *
+ * The common case is `src/<Component>/<Component>.browser.test.ts`, but the
+ * composables do not follow it — `shared/useForwardExpose.test.ts` lives
+ * directly in `src/shared/`, with no directory of its own. That is 13 of the
+ * 13 T1 files plus four of T4, so the fallback is not an edge case.
+ */
+function findBrowserTest(base) {
+  const direct = join(SRC, base, `${base}.browser.test.ts`)
+  if (existsSync(direct))
+    return direct
+  const stack = [SRC]
+  while (stack.length) {
+    const dirPath = stack.pop()
+    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+      const full = join(dirPath, entry.name)
+      if (entry.isDirectory())
+        stack.push(full)
+      else if (entry.name === `${base}.browser.test.ts`)
+        return full
+    }
+  }
+  return direct // report the conventional path in the "not found" error
+}
+
 // Either a component name (the common case) or an explicit browser file, for
 // comparing a port against an original that is not its exact name-sibling.
 const target = positional[0]
 const isPath = target.includes('.browser.test.ts')
-const name = isPath ? target.split('/').filter(Boolean).at(-2) : target
-const dir = join(SRC, name)
-const browserTest = isPath ? resolve(CORE, target) : join(dir, `${name}.browser.test.ts`)
+// Derive the name from the file itself, not its parent directory: `shared/`
+// holds many unrelated ports, so the directory is not an identity.
+const name = isPath
+  ? target.split('/').at(-1).replace(RE_BROWSER_TEST, '')
+  : target
+const browserTest = isPath ? resolve(CORE, target) : findBrowserTest(name)
 const jsdomTest = jsdomOverride
   ? resolve(CORE, jsdomOverride)
   : browserTest.replace(RE_BROWSER_TEST, '.test.ts')

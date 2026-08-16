@@ -86,7 +86,7 @@ shared/getActiveElement.test.ts	T1-pure	2	2	49	none	-	focusApi	-	-	no
 shared/useArrowNavigation.test.ts	T1-pure	12	13	147	none	-	-	-	keyboardEvents	no
 shared/useBodyScrollLock.test.ts	T4-hostile	7	17	126	none	-	rects	moduleMock	-	no
 shared/useComposing.test.ts	T1-pure	8	18	133	none	-	-	-	-	no
-shared/useForwardExpose.test.ts	T1-pure	10	18	326	none	-	-	-	-	no
+shared/useForwardExpose.test.ts	T1-pure	10	18	326	none	-	-	-	-	yes
 shared/useForwardProps.test.ts	T1-pure	7	10	81	none	-	-	-	-	no
 shared/useForwardScopeId.test.ts	T1-pure	4	7	71	none	-	-	-	-	no
 shared/useGraceArea.test.ts	T4-hostile	6	13	181	none	getBoundingClientRect	rects,coords	fakeTimers	pointerEvents	no
