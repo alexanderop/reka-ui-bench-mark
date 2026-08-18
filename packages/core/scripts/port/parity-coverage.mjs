@@ -187,6 +187,11 @@ function collect(project, testFile) {
       continue
     if (RE_ANY_TEST.test(rel))
       continue
+    // The compatibility wrapper is test harness, not component production
+    // coverage. Counting it would make every adapter-using browser port look
+    // stronger simply because the jsdom original never imports this file.
+    if (rel === 'test/browser.ts')
+      continue
     if (scope && !rel.includes(scope))
       continue
     if (rel.endsWith('.vue'))

@@ -1,12 +1,13 @@
 # Migrating a component test suite from jsdom to Vitest Browser Mode
 
-A field guide, written while moving a real Vue component library's 97-file / 2,015-test suite
-off jsdom. Everything here was hit in practice and verified in a browser — no advice from
-first principles, no "should work".
+A field guide, written while giving every test in a real Vue component library's 97-file /
+2,015-test suite a non-jsdom destination. Everything here was hit in practice and verified in
+a browser — no advice from first principles, no "should work". This project retained the original
+jsdom files as a runnable comparison corpus after all browser and node destinations were complete.
 
-**Status:** living document. It grows as the migration does; see
-[Adding to this guide](#adding-to-this-guide). Items still unproven are marked
-**[unverified]** rather than quietly asserted.
+**Status:** migration complete; the guide remains open to corrections. See
+[Adding to this guide](#adding-to-this-guide). Items still unproven are marked **[unverified]**
+rather than quietly asserted.
 
 **Applies to:** Vitest **4.1.x**, `@vitest/browser-playwright` 4.1.x, Playwright 1.62,
 `vitest-browser-vue` 2.1, Vue 3.5. Vitest 4 moved several things that blog posts and older
@@ -50,7 +51,10 @@ jsdom.** Some files get worse. A test for a pure function pays browser startup f
 So decide up front which migration you are running, because it changes almost every later
 call: browser mode **alongside** jsdom for the files that need it, or browser mode
 **instead of** jsdom, with the environment deleted at the end. This guide was written during
-the first and finished during the second. Two things carry over regardless:
+the first, ported every DOM-dependent file under the discipline of the second, and ultimately
+retained the originals as a runnable comparison corpus. That third operational outcome still
+uses browser-counterpart inventory—not jsdom deletion—as its completion measure. Two things
+carry over regardless:
 
 - **Find your DOM-free files first and move them to a plain `node` project.** Not to a
   browser, and not left on jsdom either. 10 of our 97 files — 28% of all tests — needed no DOM
@@ -451,6 +455,15 @@ keyup**, so the jsdom original left that flag stuck `true` for the rest of the f
 handler had a hit count of zero across the entire suite. And it is the *realistic* one, because a
 human always wins this race.
 
+### A held modifier survives the test unless you release it
+
+Keyboard descriptors such as `{Shift>}{Tab}` intentionally leave Shift pressed. Browser keyboard
+state is shared beyond the current component render, so later files can inherit it. This can hide
+for many green focused runs and surface only under a different full-suite order. Measured example:
+a date-field loop left Shift down, then six unrelated ToggleGroup ArrowLeft/ArrowRight focus tests
+failed; ToggleGroup alone stayed 15/15 green. End every chord with its release token—e.g.
+`{Shift>}{Tab}{/Shift}`—unless persistent modifier state is the contract.
+
 ### You cannot fake a `pointerId`
 
 This looks like a faithful port and is not:
@@ -831,6 +844,22 @@ files the node under `incomplete`. `toHaveNoViolations` reads only `violations`,
 test had been green over a real WAI-ARIA violation the whole time. When you port an axe test,
 diff the `incomplete` bucket between environments, not just the violations.
 
+### Valid is not the same as correct
+
+Even a complete, real-browser axe audit cannot know your product's intended state. We measured a
+deliberately broken tab widget in Chromium: it displayed Password content, but Account retained
+`aria-selected="true"` and the visible panel's `aria-labelledby` still referenced the Account tab.
+axe-core 4.9.1 ran its relevant ARIA relationship, value, role and naming rules and returned
+**zero component violations**. The browser exposed exactly what the attributes said: Account was
+selected and the panel's accessible name was Account.
+
+That is not an axe false negative. Each attribute is valid and each reference resolves; only the
+application knows that the user just selected Password. Test that second layer with an accessibility-
+tree assertion such as Vitest Browser Mode's `toMatchAriaInlineSnapshot`: assert the tab list, the
+selected Password tab and the panel named Password as one semantic state. Keep the axe test beside
+it. The two assertions answer different questions: **axe checks general accessibility rules; an
+ARIA snapshot checks product-specific meaning.**
+
 ### The handler your click tests never call
 
 Here is one that *is* the environment's doing, and it is worth checking for before you write off
@@ -973,6 +1002,15 @@ Slider     Slider/utils.ts  109   Slider/Slider.test.ts#degenerate  jsdom-only z
 An allowance naming a key that does not exist in the findings file fails the run, same as a
 quarantine tag would. The point is that arguing your way past an oracle should cost you a
 written finding every time.
+
+#### Exclude compatibility adapters from the coverage comparison
+
+A migration may introduce a small browser-only wrapper that preserves convenient test APIs while
+delegating to the browser renderer. If that helper lives under the instrumented source tree, every
+port that imports it appears to gain the helper's lines. That is harness coverage, not product
+coverage. Exclude the exact adapter path in the coverage collector (as you already exclude test
+files), then rerun the comparison. In one measured batch this changed an apparent +49 to +25 and
+an apparent +29 to +1 without changing any product test.
 
 The second legitimate class of lost line, and the harder one to spot: **coverage produced by
 zombie instances.** A jsdom suite that never unmounts (and few do — `mount()` without an
@@ -1267,10 +1305,11 @@ Note that `vi.spyOn` is **not** hostile — it works unchanged.
 
 Honest gaps. Do not read past silence here as endorsement.
 
-- **Performance. [unverified]** Deliberately deferred until the migration is complete —
-  measuring one ported file tells you about browser startup, not about a suite. The question we
-  intend to answer: is browser mode fast enough to be the default, or does it stay a second
-  tier for the components that genuinely need layout and real input?
+- **Performance. Answered.** On the completed suite, Chromium ran 89 files / 1446 runtime tests
+  in **12.62s wall clock**; the retained jsdom project ran 87 files / 1444 tests in **11.16s**
+  on the same machine. The suite-scale cost was therefore about **1.13×**, substantially below
+  the 1.5× measured on one boring composable. Measure your own suite, but browser startup did
+  not require sharding here.
 - ~~**Is "pure logic stays in jsdom" actually true? [unverified]**~~ **Answered — see
   [section 10](#10-what-not-to-migrate).** Measured on one composable file: the port is clean
   and gains nothing, at 1.5× the wall clock. The verdict held, but the *reason* it held was
@@ -1283,6 +1322,75 @@ Honest gaps. Do not read past silence here as endorsement.
   component library with no styling of its own, the thing under test would be the CSS shim
   written for the tests rather than the library. Probably not worth it; revisit if a styled
   fixture tree appears.
+
+---
+
+## 12. Accessibility: three layers, and the one your suite is probably missing
+
+Most component suites have exactly one accessibility test per component — an `axe()` audit — and
+believe they are covered. Browser mode makes a second layer cheap, and it is the layer where the
+interesting bugs live.
+
+| Layer | Question it answers | Tool |
+|---|---|---|
+| **Rules** | Does this markup break a general accessibility rule? | `axe` |
+| **Meaning** | Does the exposed state match what the product intended? | ARIA snapshots + role state filters |
+| **Behaviour** | Can a keyboard or screen-reader user operate it? | real input, focus assertions |
+
+A rules engine cannot know which tab your app meant to select, which panel that content belongs
+to, or which option the user just chose. Every one of those can be wrong while every attribute
+involved is legal — and legal-but-wrong is precisely what `axe` is designed to pass.
+
+**`toMatchAriaSnapshot` / `toMatchAriaInlineSnapshot` (Vitest 4.1.4, experimental)** snapshot the
+accessibility tree instead of the DOM: roles, computed accessible names, active states,
+hierarchy. Unlike a DOM snapshot they carry no class names, generated ids or font metrics, so
+they survive refactors and travel across machines.
+
+Three things worth knowing before you write one:
+
+1. **A template asserts only the states it lists.** *Measured:* a tabs template written as
+   `- tab "Account" [selected]` / `- tab "Password"`, with `/children: equal` on the tablist,
+   stayed green after the component was mutated to mark **every** tab selected. There is no
+   `[selected=false]`, and `/children: equal` constrains child count and order, not attributes.
+   The fix is not a better template — it is a second assertion using the **role state filter**,
+   which most suites never touch:
+
+   ```ts
+   // the snapshot proves the state is on the right node…
+   await expect.element(tablist).toMatchAriaInlineSnapshot(`…`)
+   // …this proves it is on no other node
+   expect(page.getByRole('tab', { selected: true }).elements()).toHaveLength(1)
+   ```
+
+   `getByRole` accepts `selected`, `checked`, `expanded`, `pressed`, `level`, `disabled` and
+   `includeHidden`. They are the cheapest accessibility oracles available and they read like the
+   contract: *exactly one expanded trigger*, *no option selected yet*, *`mixed` is neither
+   checked nor unchecked*.
+
+2. **Prefer computed matchers to wiring assertions.** `toHaveAccessibleName('Edit profile')`
+   fails when `aria-labelledby` stops resolving; `toHaveAttribute('aria-labelledby', id)` passes
+   over a dangling reference happily. *Measured, on a real library:* a popup's option group
+   pointed `aria-labelledby` at an id that no element carried, because the label component only
+   receives the group's id when nested inside it — and the library's own documentation example
+   places it as a sibling. The group was unnamed and the label was announced as loose text.
+   `axe` filed it under **`incomplete`**, which `toHaveNoViolations()` counts as a pass, so the
+   conventional audit was green. The accessibility tree showed it on the first snapshot.
+
+3. **In browser mode the matcher retries until the tree is stable**, so it inherits every rule
+   about retrying matchers: do not use it to settle a condition whose timing is the subject, and
+   budget the full locator timeout (~15s here) for a genuine failure.
+
+One implementation note that explains both the strengths and the limits: in Vitest the tree, the
+accessible-name computation and `getByRole` all come from **`ivya`** (Playwright's aria engine)
+running as JS in the page — not from the browser's native accessibility tree. So results are
+deterministic and consistent across the three APIs, but a snapshot shows what an AT *should* be
+told from the DOM, not what a particular browser's AX tree ended up containing after its own
+repairs.
+
+Finally: **keep the axe audit.** Snapshots see no contrast ratios, no focusable-but-hidden
+content, no invalid ARIA combinations. And read axe's `incomplete` bucket, not just
+`violations` — a node-bearing `incomplete` means the rule ran and abstained, which your assertion
+is probably scoring as a pass.
 
 ---
 

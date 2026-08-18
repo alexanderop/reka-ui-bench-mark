@@ -242,6 +242,7 @@ describe('dateField', async () => {
         expect(seg).toHaveFocus()
       }
     }
+    await user.keyboard('{/Shift}')
   })
 
   it('binds to the value', async () => {

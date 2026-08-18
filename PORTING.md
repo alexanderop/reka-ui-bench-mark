@@ -1,10 +1,10 @@
 # PORTING.md — how the jsdom → browser-mode port actually runs
 
-This is the operating manual for **removing jsdom from this repo**. All 97 jsdom test files
-move: the 87 that touch the DOM go to Vitest Browser Mode, and the 10 that do not go to a
-plain `node` project, which is the only exemption and is defined by a property of the file
-rather than a judgement about value. The migration is finished when the `unit` project's
-include list matches nothing.
+This is the operating manual for **giving every test a non-jsdom destination**. All 97 original
+test files now have one: the 87 that touch the DOM have Vitest Browser Mode counterparts, and
+the 10 that do not run in a plain `node` project. By explicit project-owner decision, the 87
+original jsdom files remain runnable as a comparison corpus; completion means no contract lacks
+a browser or node destination, not that the `unit` project is empty.
 `AGENTS.md` says *what this fork is for* and holds the translation table and the gotchas.
 This document says *how the work is sequenced, what proves it worked, and what you do next*.
 
@@ -209,6 +209,12 @@ So before writing a gained line into a finding, ask **whether the harness or the
 earned it.** If `mount()` + `unmount()` under jsdom reproduces it, it is a gap in the original
 suite, not a point for browser mode. Both are worth recording — but not as the same thing.
 
+The final batch exposed a second harness trap: `src/test/browser.ts`, the small VTU-compatible
+adapter used by five large ports, was itself being counted as browser-only coverage. The oracle
+now excludes that exact file, just as it excludes test files. Otherwise Autocomplete appeared to
+gain 49 lines when only 25 belonged to production code, and TagsInput appeared to gain 29 when
+the production gain was one.
+
 #### Files outside `src/<Component>/`
 
 `port:coverage` used to resolve `src/<name>/<name>.browser.test.ts` and nothing else, so it
@@ -262,22 +268,24 @@ Regenerate it after every batch; the `ported` column is the progress bar.
 ```
 tier             files  tests  off jsdom
 T0-node             10    144    10
-T1-pure              9     63     1
-T2-mechanical       44    767     1
-T3-payoff           23    448     1
-T4-hostile          11    146     0
-TOTAL               97   1568    13
+T1-pure              9     63     9
+T2-mechanical       44    767    44
+T3-payoff           23    448    23
+T4-hostile          11    146    11
+TOTAL               97   1568    97
 
-still on jsdom: 84 files / 1368 tests
+still on jsdom: 0 files / 0 tests
 ```
 
 (1568 counts `it` call-sites; `it.each` expands to more at runtime, which is why the suite
 reports ~2017 and why T0's 144 call-sites are the 571 tests quoted everywhere else.)
 
-**The last line is the progress bar, and it is the only number that measures the goal.** The
-column is `off jsdom`, not `ported`: a T0 file got there without a port, and the migration ends
-when the `unit` project matches nothing — not when every file has a `.browser.test.ts`. `T0-node`
-is read out of `NODE_TESTS` in `vite.config.ts` rather than re-derived, because the config is the
+**The last line was the progress bar, and it reached zero.** The column is `off jsdom`, not
+`ported`: a T0 file got there without a port, and the migration ends
+when every DOM-dependent file has a browser counterpart. By explicit project-owner decision,
+the original jsdom files remain runnable after the migration so both approaches can still be
+diffed. `T0-node` is read out of `NODE_TESTS` in `vite.config.ts` rather than re-derived, because
+the config is the
 only thing that decides which environment a file actually runs in; a stale path there prints a
 warning instead of quietly shrinking the tier.
 
@@ -319,7 +327,7 @@ retargeting loop that jsdom turns out to walk exactly as Chromium does. The meas
 T1 port is ~1.5× wall clock for no new coverage. That is the honest price of deleting jsdom,
 not an argument against doing it.
 
-**T2-mechanical (49 files, 811 tests)** — attribute and role assertions, no stubs, no
+**T2-mechanical (44 files, 767 call-sites) — DONE.** Attribute and role assertions, no stubs, no
 geometry. The translation table in `AGENTS.md` handles these almost literally. Highest agent
 leverage; this is the bulk of the work and the least interesting part of it.
 
@@ -328,7 +336,7 @@ geometry: `Slider`, `ColorArea`, `ColorSlider`, `Combobox`, `Autocomplete`, `Sel
 `Listbox`, `Drawer`, `Checkbox`, … **This is where the thesis lives.** Mutation-verify these.
 Every one of them should produce a finding.
 
-**T4-hostile (12 files, 148 tests)** — these are rewrites, not ports:
+**T4-hostile (11 files, 146 call-sites) — DONE.** These were rewrites, not ports:
 - snapshots (5): `AspectRatio`, `Avatar`, `Popper`, `ScrollArea`, `Tree`
 - `vi.mock` (4): `ConfigProvider`, `NavigationMenu`, `shared/useBodyScrollLock`, `shared/useNonce`
 - fake timers (4): `Select`, `NavigationMenu`, `shared/useGraceArea`, `shared/useTypeahead`
@@ -352,10 +360,10 @@ vitest fight over CPU and produce flake that looks exactly like porting bugs. **
 large shards.** One agent per file, a handful at a time.
 
 **Big-bang.** Bun ported everything at once because incremental means bridge code you hope
-to delete later. We have a milder version of the same situation: jsdom goes away in the end,
-but nothing has to be deleted to get there — the `unit` project simply shrinks until its
-include list matches nothing. The three projects run side by side meanwhile, and the only
-scaffolding is that shrinking exclude list. Incremental by tier is free, so take it.
+to delete later. We had a milder version: browser counterparts could land incrementally while
+all three projects stayed green. The owner ultimately chose to retain the original jsdom files
+as a runnable comparison corpus, so browser-counterpart inventory—not deletion—became the
+completion measure. Incremental by tier was still free, so taking it was the right call.
 
 **What we keep:** the prep documents, the trial run before the fan-out, split-context
 adversarial review, failures-as-a-work-queue, and — the most transferable lesson in the whole
@@ -401,8 +409,8 @@ Slider/Slider.test.ts	ported	ResizeObserver,pointerCapture,scrollIntoView	-	+9/-
 
 > **`stay-jsdom` is retired.** It was the right verdict while browser mode was a
 > second tier being evaluated on its merits. It is not reachable now: the goal is to
-> remove jsdom from the repo, so "the port gains nothing" is a note about *value*, not
-> a reason to leave a file behind. Every DOM-touching file goes to `browser`; every
+> give every test a non-jsdom destination, so "the port gains nothing" is a note about
+> *value*, not a reason to omit its browser counterpart. Every DOM-touching file goes to `browser`; every
 > DOM-free file goes to `node`. Rows written before this change have been re-verdicted,
 > with the original reasoning kept in `notes` — the cost measurements are still true and
 > still worth reading, they just no longer decide anything.
@@ -456,7 +464,8 @@ Human judgement is for the finding, not for whether the port is sound.
    file.** Concurrent agents will destroy each other's work.
 2. **Never leave the `unit` project broken.** The two projects run side by side on purpose.
    `pnpm --filter reka-ui exec vitest run --project=unit` must stay green at all times.
-3. **Keep the original file.** Deletion is a per-component decision for later.
+3. **Keep the original file.** The project owner chose to retain all 87 jsdom originals as a
+   runnable comparison corpus.
 4. **Verbatim `describe`/`it` names.** If a name turns out to be a lie, fix the *test* so
    the name becomes true — do not rename. `port:parity` enforces this.
 5. **If a ported test needs a new mock to pass, it belongs in `FINDINGS.tsv`, not in the
@@ -798,7 +807,7 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       fixed 1ms sleep with a named Vue/task boundary and now distinguishes deferred touch pointerdown
       from click using exact event identity. Accordion proved SSR hydration in-browser and cleans its
       manual container. The inventory now reports 68/97 files off jsdom, leaving only T3/T4.
-- [ ] **T3** (7/23 files complete) — one at a time, mutation-verified. Every file gets a
+- [x] **T3** (23/23 files complete) — one at a time, mutation-verified. Every file gets a
       `FINDINGS.tsv` row with a real observation, not "ported cleanly."
   - [x] **First payoff slice: `Slider`, `Combobox`, `useSize`, `Popover`, `Splitter`,
         `ContextMenu`, `Checkbox`.** `useSize` removes the observer replacement and mutation-proves both its
@@ -812,6 +821,14 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
         browser port. Checkbox deletes a stale, unreachable ResizeObserver replacement and records
         the honest zero-payoff result; real submits and isolated form state replace its synthetic,
         order-dependent setup. All five new ports have clean focused oracles and independent review.
+  - [x] **Final payoff slice — DONE.** `Autocomplete`, `ColorArea`, `ColorSlider`,
+        `Drawer.snap`, `useSwipeDismiss`, `DropdownMenu`, `DropdownMenuFilter`, `FocusScope`,
+        `HoverCard`, `Listbox`, `Menu`, `Menubar`, `NumberField`, `PinInput`, `TagsInput` and
+        `Tooltip` close the tier. The ports delete the remaining compensating observer,
+        pointer-capture, scrolling, layout and computed-style replacements. Trusted input
+        exposed nine browser-only failing tests across eight findings covering contrast, pending
+        hover focus and PinInput placeholder state; every faithful failure is quarantined with a
+        live finding key.
 - [x] **T0** (10 files, 571 tests) — **DONE.** The DOM-free files now run in the `node`
       project. Identified by scanning all 97 for DOM signals, then verified by running them
       with `environment: 'node'` and no setup file. See `node-project#dom-free-files`.
@@ -824,7 +841,7 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
       wrong-node assertions, and independent review found masked guards in
       `useSelectionBehavior` and `getActiveElement`. All eight focused browser/unit runs and all
       three per-file oracles are clean. The inventory now reports all 9 T1 files off jsdom.
-- [ ] **T4** (12 files) — by hand, last. Decide per file whether a rewrite is worth it.
+- [x] **T4** (11/11 files) — completed by hand after the four frontiers established the patterns.
       **Reordered: the four pattern-frontier files run first** — `Select` (fake timers × real
       input), `NavigationMenu` (`vi.mock` in the browser), `Combobox` (expectations derived from
       stubbed geometry; T3 but frontier), `ScrollArea` (snapshots of a really-positioned DOM) —
@@ -872,22 +889,33 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
 
   **The frontier is closed.** All four pattern classes — fake timers × real input, `vi.mock`,
   stub-derived geometry/virtualization, and DOM snapshots — now have a completed, oracle-clean
-  precedent, and every sharp edge found on the way is in `AGENTS.md`'s gotcha list. The
-  remaining T2/T3/T4 files can be delegated as mechanical work against those documents.
+  precedent, and every sharp edge found on the way is in `AGENTS.md`'s gotcha list. Those
+  precedents carried through the remaining files in the final batch.
 
-### Phase 3 — the write-up.
+  **The tier is complete.** `AspectRatio`, `Avatar`, `ConfigProvider`, `Popper`, `Tree`,
+  `useBodyScrollLock`, `useGraceArea` and `useTypeahead` joined the four frontier files. Snapshot,
+  module-mock and fake-timer behavior all run in Chromium; all 87 DOM-dependent pairs now pass
+  checklist, name/assertion parity and coverage parity.
 
-- [ ] Answer the deferred performance question from `AGENTS.md` — reframed, since browser mode
-      is now the destination rather than a candidate: **what does an all-browser suite cost?**
-      Measure the whole thing, not one file. The per-file numbers so far (~1.5× wall clock,
-      ~0.6s cold Chromium) say it is affordable; the suite-level number is the one that decides
-      whether CI needs sharding.
-- [ ] **Delete the `unit` project and jsdom itself** — the point of the exercise. That means
-      dropping `environment: 'jsdom'`, `vitest.setup.ts` (canvas mock, jest-dom matchers, the
-      `getComputedStyle` patch) and the `jsdom` dependency, then confirming nothing else in the
-      repo reaches for them.
-- [ ] Per-component deletion decisions: which jsdom test files are now redundant.
-- [ ] Roll `FINDINGS.tsv` up into prose. That is the artifact this fork exists to produce.
+### Phase 3 — the write-up. DONE.
+
+- [x] **Measure the whole suite.** On this machine, Chromium runs 89 files / 1446 runtime tests
+      (1426 passing + 20 expected failures) in **12.62s wall clock**. The retained jsdom project
+      runs 87 files / 1444 tests in **11.16s**. Browser mode therefore costs about **1.13×** at
+      suite scale, far below the 1.5× boring-file observation. All three projects together run
+      186 files / 3461 tests in **25.80s**.
+- [x] **Resolve jsdom retention.** The project owner explicitly chose to keep every original
+      jsdom test. The `unit` project, `vitest.setup.ts` and jsdom dependency therefore remain;
+      this is an intentional comparison corpus, not unfinished migration work.
+- [x] **Resolve per-component deletion.** Retain all 87 originals beside their browser ports.
+      `port:inventory` reports 97/97 files off jsdom because each DOM-dependent contract now has
+      a browser destination, while the originals remain available for direct comparison.
+- [x] **Roll findings into prose.** The completed record shows the recurring payoff: native
+      layout/observer/pointer/focus paths replace compensating stubs; trusted gestures remove
+      synthetic compatibility rituals and incidental zombie coverage; Chromium axe converts
+      jsdom `incomplete` or blind color checks into actionable failures. The honest counterweight
+      is equally clear: pure composables, fake-timer utilities and some snapshot ports gain no
+      coverage and cost modestly more, but remain affordable at suite scale.
 
 ---
 
@@ -906,7 +934,7 @@ pnpm --filter reka-ui port:coverage Slider        # coverage parity for one comp
 # tests
 pnpm --filter reka-ui exec vitest run                    # all three projects
 pnpm --filter reka-ui exec vitest run --project=node     # no DOM at all — the exempt files
-pnpm --filter reka-ui exec vitest run --project=unit     # jsdom — shrinking; must never break
+pnpm --filter reka-ui exec vitest run --project=unit     # retained jsdom comparison suite
 pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 ```
 
@@ -914,15 +942,12 @@ pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 |---|---|---|
 | `node` | 10 | 571 |
 | `unit` (jsdom) | 87 | 1444 |
-| `browser` | 22 | 184 + 6 expected fail |
+| `browser` | 89 | 1426 + 20 expected fail |
 
 Baseline before this effort: **99 files / 2017 tests passing.**
-Current: **119 files / 2199 passing + 6 expected fail**, 15.7s for all three projects.
+Current: **186 files / 3441 passing + 20 expected fail**, 25.80s wall clock for all three projects.
 
-**Read `unit` carefully — it is not the progress bar yet.** It dropped 10 files to `node` and
-will not drop another one until Phase 3, because ports keep their original alongside them on
-purpose. Until those per-component deletion decisions, progress is the `still on jsdom` line
-from `port:inventory`: files that are neither in the `node` project nor have a
-`.browser.test.ts` next to them. That number is **67 files / 1240 `it` call-sites** as of the end
-of T2 batch 6 (30 of 97 files off jsdom). `unit`'s file count becomes the real measure only once deletions start, and it
-has to reach zero either way.
+**Read `unit` carefully — it is the retained comparison corpus, not the progress bar.** The
+project owner chose to keep all 87 originals runnable. Progress is the `still on jsdom` line from
+`port:inventory`: files that are neither in `node` nor have a browser counterpart. It is now
+**0 files / 0 call-sites**, and all 87 browser/jsdom pairs are structurally and coverage clean.

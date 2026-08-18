@@ -1,0 +1,253 @@
+# Improving the ported tests with Vitest 5
+
+Companion to `IMPROVING-PORTED-TESTS.md` (the Vitest 4.1 backlog, actionable
+today). This document covers **Vitest 5**, currently at `v5.0.0-rc.1`: what
+its new defaults and APIs do for this suite, and the exact sweeps the upgrade
+will force.
+
+**How this was surveyed:** the reference clone at `~/Projects/opensource/vitest`
+was fetched and everything below was read from the `v5.0.0-rc.1` tag via
+`git show` — the working tree stays on `pinned/4.1.10`, so 4.1 line-number
+citations elsewhere remain valid. The RC's migration guide still carries a
+"work in progress" warning; re-verify this document against the final release
+notes before upgrading. Anything checked against this repo's code is marked
+*measured*; predictions are marked *[unverified]*.
+
+**Prerequisites — met.** v5 requires Vite ≥ 6.4 and Node ≥ 22.12; this repo
+runs Vite 8 and Node 24 (measured). The config uses none of the removed
+options (`test.sequential`, `browser.isolate`, deprecated entrypoints —
+grepped, zero hits).
+
+---
+
+## Part 1 — Defaults that delete our gotcha list
+
+The single most valuable thing in v5 for this repo is not an API. It is that
+the **substring family** — three separately-documented silent-vacuity hazards
+in AGENTS.md — stops being per-test discipline and becomes the default.
+
+### Locators match exactly by default
+
+New config `browser.locators.exact`, **default `true`**: `getByText`, role
+`name` filters and friends require a full, case-sensitive match unless a call
+opts out with `exact: false`. Concretely, against our recorded traps:
+
+| AGENTS.md hazard | v4 behavior | v5 behavior |
+|---|---|---|
+| `getByText('checked')` vs a Switch rendering `unchecked` | matches — both toggle tests pass against a switch that never toggles | no match |
+| `getByRole('option', { name: 'Apple' })` vs *Pineapple* | matches → strict-mode violation (loud) or silent widening (quiet) | no match |
+| every defensive `{ exact: true }` added during the migration | required | redundant, eventually removable |
+
+Upgrade cost: any port that *accidentally relies* on substring matching now
+fails. The AGENTS.md audit found four non-`exact` `getByText` calls that
+resolve correctly today — those are the first suspects when the upgrade run
+goes red. The escape hatch (`browser.locators.exact: false`) restores old
+behavior globally, but for this suite the new default is exactly what the
+gotcha list has been asking for.
+
+### `toHaveTextContent` becomes strict equality
+
+The matcher no longer does partial matching and no longer accepts a RegExp;
+both behaviors move to the **new `toMatchTextContent`**:
+
+```ts
+// v4 semantics, now spelled honestly:
+await expect.element(banner).toMatchTextContent('Error') // substring
+await expect.element(banner).toMatchTextContent(/error/i) // regex
+
+// v5 toHaveTextContent is whole-string:
+await expect.element(segment).toHaveTextContent('01') // no longer matches "2001"
+```
+
+This kills the DateField/TimeField trap (`'1'` passing against `1980`,
+`'5'` accepting a broken `20245`). Ports that switched to trimmed exact
+`textContent` comparisons *because* the matcher was substring-based can
+migrate back to the matcher. Before upgrading, grep every `toHaveTextContent`
+with a short literal — each is either already exact (fine) or a deliberate
+substring (convert to `toMatchTextContent`).
+
+---
+
+## Part 2 — New APIs worth adopting here
+
+### `browser.locators.errorFormat` — diagnostic locator failures
+
+`'html' | 'aria' | 'all'` (default `'all'`): a failed locator prints an ARIA
+snapshot and/or `prettyDOM` HTML of the subtree it searched. This directly
+softens the AGENTS.md finding that a failing retrying matcher costs ~15s and
+says nothing — the timeout still costs, but the output finally shows what the
+DOM held. Nothing to adopt in test code; consider `'aria'` if `'all'` proves
+noisy for our large fixtures.
+
+### Trace View — provider-independent replay, plus `mark()`
+
+`browser.traceView: true` (experimental) records every action, assertion and
+lifecycle step with DOM snapshots, replayable from the browser UI, Vitest UI,
+or the HTML reporter — headless CI failures included. This is Vitest-native
+and separate from 4.1's Playwright `browser.trace` (whose guide moved to
+`playwright-traces.md`; both coexist).
+
+Two annotation hooks make it ours:
+
+- `page.mark(name, options?)` from tests — also a callback form that opens a
+  trace *group* around a body.
+- `context.mark(name, { kind })` inside **custom commands** — which means the
+  `mouseDown` / `mouseMove` / `mouseUp` commands in
+  `packages/core/vitest.browser.commands.ts` can annotate each gesture step:
+
+```ts
+export const mouseDown: BrowserCommand<[x: number, y: number]> = async (context, x, y) => {
+  await context.mark(`mouseDown @ ${x},${y}`, { kind: 'action' })
+  const { page, x: px, y: py } = await toPageCoordinates(context, x, y)
+  await page.mouse.move(px, py)
+  await page.mouse.down()
+}
+```
+
+The split-drag `beforeEach` chains (Slider, Splitter) become self-documenting
+in a replay. `context.mark` is a no-op when tracing is off, so the annotation
+can land unconditionally.
+
+### `utils.aria` — the ARIA tree as a queryable value (experimental)
+
+```ts
+import { utils } from 'vitest/browser'
+
+const tree = utils.aria.generateAriaTree(document.body)
+const yaml = utils.aria.renderAriaNode(tree)
+```
+
+The machinery under ARIA snapshots, exposed programmatically. Candidate uses
+here: census-style assertions that *diff* the accessibility tree between
+states (menu closed vs open) without one snapshot per state, and probe output
+that is semantically meaningful instead of `outerHTML` dumps. Experimental —
+pin expectations to behavior we verify, not to the docs.
+
+### `vi.when` + `toHaveBeenExhausted`
+
+Declarative per-argument mock behaviors with consumable budgets:
+
+```ts
+vi.when(spy)
+  .calledWith('theme')
+  .thenReturn('light') // indefinite fallback
+  .thenReturn('dark', { times: 2 }) // consumed first, LIFO
+
+expect(spy).toHaveBeenExhausted() // all limited behaviors consumed
+```
+
+NavigationMenu's hoisted `@vueuse/core` factory with per-test
+`vi.mocked(useDebounceFn).mockImplementation(...)` swaps is the natural
+beneficiary — argument-matched behaviors replace hand-rolled dispatch, and
+`toHaveBeenExhausted` asserts a choreographed mock was fully consumed rather
+than merely called. DX, not new coverage; adopt opportunistically.
+
+### Shared Vite server for inline projects
+
+v5 makes inline projects share the root Vite server by default. Our
+three-project split (`node` / `unit` / `browser`) currently pays per-project
+startup. *[unverified: whether the browser project participates and what it
+saves — measure suite wall-clock before/after at upgrade time; the baseline
+today is 25.80s total.]*
+
+---
+
+## Part 3 — Breaking sweeps, with measured blast radius
+
+### 1. `clearMocks: true` becomes the default
+
+`vi.clearAllMocks()` now runs before every test: call history
+(`mock.calls`, `mock.results`) is wiped, **implementations are kept**. That
+second half matters: NavigationMenu's `mockImplementation` swaps survive
+unchanged. What breaks is the cross-test accumulation pattern AGENTS.md
+explicitly blessed ("`toHaveBeenCalledTimes(1)`, then `(2)` still port
+unchanged").
+
+**Measured blast radius — 8 browser files**, all the same shared-`handleSubmit`
+form pattern (first describe submits and asserts `times(1)` +
+`mock.results[0]`; sibling describe submits again and asserts `times(2)` +
+`mock.results[1]`, counting on history from the *previous test*):
+
+```
+Checkbox, Combobox, Listbox, NumberField, RadioGroup, Select, Slider, Switch
+  — each at its `toHaveBeenCalledTimes(2)` form-submit assertion
+```
+
+The jsdom originals share the pattern verbatim, so both suites break
+identically. Two options:
+
+- `clearMocks: false` in the root config — preserves comparison-suite
+  fidelity with zero test edits; or
+- rewrite the 8 × 2 describes so each test owns its own count
+  (`times(1)` + `mock.results[0]` in both) — the better tests, and the
+  verbatim-name rule permits it since only bodies change.
+
+Recommendation: flip the config off at upgrade time to keep the suite green,
+then do the rewrite as its own reviewed pass and remove the override.
+
+### 2. `render` becomes async in `vitest-browser-vue`
+
+Every one of the 90 browser files calls `render()` synchronously — in
+`setup()` helpers, `beforeEach` hooks, and the shared `src/test/browser.ts`
+adapter used by the five largest ports. The change is mechanical
+(`await render(...)`, helpers become async, callers await them) and
+codemod-able; the adapter concentrates the change for its five consumers.
+Note our own AGENTS.md finding that 4.1's `render` thenable does **not** call
+`nextTick` — re-verify what awaiting v5's promise actually settles, and
+whether any port's carefully-preserved synchronous read after `render`
+changes meaning. *[unverified until the upgrade branch runs]*
+
+### 3. `expect.poll` rejects on timeout; unawaited async assertions fail
+
+Both are hardening we want, and both can flush latent flakiness out of the
+ported wait loops:
+
+- a poll that only passed on a late attempt now fails with
+  `didn't resolve in time` — any `expect.poll` calibrated tight (virtualizer
+  settling in Combobox, the render-ladder waits) may need explicit `timeout`
+  raises rather than silent late passes;
+- a forgotten `await` on `expect.element(...)` / `toMatchFileSnapshot`
+  becomes a test failure instead of a warning. The ports were audited for
+  this during migration, but the guarantee becomes mechanical.
+
+### 4. Small print
+
+- **`testNamePattern` joins with `' > '`** — affects `-t` invocations that
+  span suite/test boundaries; our port scripts match names structurally, but
+  any documented `vitest -t 'suite test'` recipes need the new separator.
+- **Reports/artifacts move to a `.vitest` directory**; `toMatchScreenshot`
+  gets `browser.expect.toMatchScreenshot.screenshotDirectory` (n/a — no
+  screenshots here). Check nothing hardcodes old output paths.
+- **Locators passed to custom commands are serialized as objects** — our
+  mouse commands take plain numbers, unaffected (measured: signature check).
+- **Fake timers now mock `Temporal`**, automock behavior in the browser
+  changed, benchmarking API rewritten — none used here.
+
+---
+
+## Upgrade plan, in order
+
+1. Branch, bump `vitest`/`@vitest/browser-playwright` to the v5 RC, and set
+   `clearMocks: false` up front.
+2. Run the **async-`render` codemod** (adapter first, then the 90 files).
+3. Full three-project run. Triage failures into: substring-reliant locators
+   (fix the query), substring-reliant `toHaveTextContent` (decide exact vs
+   `toMatchTextContent` per site), tight `expect.poll` timeouts (raise
+   explicitly).
+4. Re-pin the reference clone (`pinned/5.x`) and update AGENTS.md: the
+   substring-family gotchas become historical notes, the `clearMocks`
+   translation-table entry gets inverted, and the retrying-matcher timing
+   rules get re-verified against v5's `expect.element` source.
+5. As follow-up passes: rewrite the 8 form-submit files per-test and drop
+   `clearMocks: false`; enable `traceView` locally; adopt `mark()` in the
+   mouse commands.
+
+## Verdict
+
+v5 unlocks no test we cannot write today — the 4.1 backlog in
+`IMPROVING-PORTED-TESTS.md` stays the priority for *new* value. What v5
+changes is the defaults: exact locators and strict `toHaveTextContent` turn
+this repo's two most-documented silent-vacuity hazards into non-issues, and
+`errorFormat` + Trace View fix the debugging story. Upgrade **before** the
+4.1 improvement backlog gets large: every improved test written against
+exact-by-default locators is one less to re-audit afterwards.

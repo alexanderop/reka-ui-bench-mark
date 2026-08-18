@@ -5,9 +5,10 @@ ship a feature. It exists for two reasons, in order:
 
 1. **Learn Vitest Browser Mode properly** — by using it on a real, non-trivial component
    library rather than a toy app.
-2. **Get rid of jsdom entirely.** All 97 test files move: the 87 that touch the DOM go to
-   Vitest Browser Mode, and the 10 that touch none go to a plain `node` project. Nothing
-   stays on jsdom. Started with `Slider`.
+2. **Give all 97 test files a non-jsdom destination.** The 87 that touch the DOM move to
+   Vitest Browser Mode, and the 10 that touch none move to a plain `node` project. By explicit
+   project-owner decision after completion, the 87 original jsdom files remain runnable as a
+   comparison corpus; they are no longer the destination or the migration progress measure.
 
 > **The second goal changed mid-effort.** It used to read "port the testing strategy from
 > jsdom to browser mode", with browser mode as a second tier and `stay-jsdom` a legitimate
@@ -102,8 +103,8 @@ tree:
   files to leave it. 571 tests, 28% of the suite. `vitest.setup.ts` is deliberately not
   loaded — it exists entirely to paper over jsdom.
 - **`unit`** — jsdom, `./**/*.test.{ts,js}`, excluding `**/*.browser.test.ts` *and* the
-  `NODE_TESTS` list, setup file `vitest.setup.ts`. **This is the project being deleted.** It
-  only ever shrinks; the migration is done when its include list matches nothing.
+  `NODE_TESTS` list, setup file `vitest.setup.ts`. This is the retained comparison suite:
+  87 files / 1444 runtime tests. It stays green but does not measure migration progress.
 - **`browser`** — Playwright/Chromium headless, `./**/*.browser.test.ts`, setup file
   `vitest.browser.setup.ts`. That is a *separate* file, not the jsdom one: it loads the CSS shim
   and the axe matchers and nothing else. The project also carries its own `resolve.alias` (the
@@ -151,12 +152,12 @@ Ported so far:
   date/range identity, made disabled gestures prove delivery and prevention, isolated exact Dialog
   warnings, and removed DismissableLayer's arbitrary sleeps. Batch 8 added the ColorSwatch/ColorField,
   Rating and picker families.
-- **T3 is 7/23 complete.** The current payoff slice adds `useSize`, `Popover`, `Splitter`,
-  `ContextMenu`, and `Checkbox` to the earlier `Slider` and `Combobox` frontiers. Native-observer
-  and coordinate mutations distinguish the first four where the browser adds evidence; Checkbox
-  deletes a stale unreachable observer stub and records the honest zero-payoff result. The
-  authoritative inventory now reports **73/97 files off jsdom**, leaving 24 files / 422 tests;
-  `PORTING.md` records every batch and its evidence.
+- **T3 is complete: 23/23 files.** The final slice added Autocomplete, both color controls,
+  Drawer snap/swipe, DropdownMenu and its filter, FocusScope, HoverCard, Listbox, Menu, Menubar,
+  NumberField, PinInput, TagsInput and Tooltip. Native input exposed nine faithful browser-only
+  failing tests across eight findings, all quarantined against live keys. The authoritative
+  inventory reports **97/97 files off jsdom**, leaving 0 files / 0 call-sites without a non-jsdom
+  destination.
 - `packages/core/src/Select/Select.browser.test.ts` — **complete, 29 of 29. First T4 file, and
   the pattern-frontier port for fake timers and modal hit-testing.** All three stubs deleted; the
   double-pointerup selection ritual evaporated (`#pointerup-guard-consumed-by-real-click`);
@@ -194,17 +195,16 @@ Ported so far:
   it, replaced by 10px of real CSS (`#scrollbar-thickness-was-stubbed`). Fourth bisected
   zombie-coverage instance. Coverage +1/−0 with 4 argued lines.
 
-**All four pattern-frontier files (Select, NavigationMenu, Combobox, ScrollArea) are complete** —
-fake timers, `vi.mock`, stub-derived geometry, and DOM snapshots each have a worked precedent.
-The remaining files are mechanical against this document; the sharp edges they can still hit are
-all in the gotcha list below.
+**The migration is complete.** All four pattern-frontier files (Select, NavigationMenu, Combobox,
+ScrollArea) and every remaining T3/T4 file are oracle-clean. Fake timers, `vi.mock`, stub-derived
+geometry, and DOM snapshots each have worked Chromium coverage; all sharp edges are recorded below.
 
 ### Commands
 
 ```bash
 pnpm --filter reka-ui exec vitest run                    # all three projects
 pnpm --filter reka-ui exec vitest run --project=browser  # the destination
-pnpm --filter reka-ui exec vitest run --project=unit     # jsdom — shrinking
+pnpm --filter reka-ui exec vitest run --project=unit     # retained jsdom comparison suite
 pnpm --filter reka-ui exec vitest run --project=node     # no DOM at all
 
 pnpm --filter reka-ui port:checklist Slider              # every describe/it, ✓ or ✗
@@ -216,8 +216,9 @@ pnpm --filter reka-ui port:coverage Slider               # still reaches the sam
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Baseline as of the last run: **123 files / 2293 passing + 8 expected fails.** Never leave the
-`unit` project broken to make progress on `browser`; the two run side by side on purpose.
+Final retained-comparison baseline: **186 files / 3441 passing + 20 expected fails** across all
+three projects, 25.80s wall clock. Browser alone is 1426 passing + 20 expected fails in 12.62s;
+jsdom is 1444 passing in 11.16s. Keep both green; they run side by side on purpose.
 
 ---
 
@@ -315,8 +316,10 @@ the rest of it.
 **A held modifier persists until explicitly released.** `useTestKbd().SHIFT_TAB` expands to
 `{Shift>}{Tab}` and contains no `{/Shift}`. Measured in `TimeRangeField`: Chromium carried Shift
 from the right-to-left navigation test into a later label click, suppressing native label
-activation; the label test passed alone and the exact pair reproduced the failure. Append the
-release token to every chord unless continued modifier state is the contract.
+activation; the label test passed alone and the exact pair reproduced the failure. Final-suite
+confirmation: an unreleased DateRangeField Shift made six later ToggleGroup arrow-focus tests fail,
+while ToggleGroup alone stayed 15/15 green. Append the release token to every chord unless continued
+modifier state is the contract.
 
 **Force-clicking a disabled element delivers only `pointerdown` — and then focuses an ancestor.**
 Confirming that `force: true` skips the wait rather than the gesture. Chromium then focuses the
@@ -453,6 +456,13 @@ port stayed green. If an interaction needs settling, wait on a **different preco
 hook (the open state before clicking closed), then preserve the original's instantaneous read.
 An awaited Playwright click already crosses Vue's microtask flush for synchronous state updates;
 timers, transitions, and async watchers still need an explicit, distinct synchronization point.
+
+**Do not count a browser-only test adapter as gained product coverage.** The final batch added
+`src/test/browser.ts`, a small VTU-compatible wrapper used by five large ports. Istanbul initially
+reported every adapter line as browser-only because the jsdom originals never import it: apparent
+gains included +49 for Autocomplete and +29 for TagsInput. `parity-coverage.mjs` now excludes that
+exact harness path; the production gains are +25 and +1. Apply the same rule to any future helper
+under the instrumented source tree.
 
 **Prefer outcome synchronization over `nextTick()`.** Auditing every completed browser port found
 14 actual calls: 2 before retrying Toolbar assertions, 5 after Teleport mounts, and 7 in Presence.
@@ -986,6 +996,38 @@ entirely yields zero violations *and* zero passes** — the component's whole co
 and the test stays green. Same shape in `Progress`: `aria-progressbar-name` passes only because
 reka names the bar with its own *value* ("0%"), a name that describes nothing and changes as it
 fills. axe green means "no violation found", never "the component is correct".
+
+**Valid ARIA can still describe the wrong product state; use an ARIA snapshot for that contract.**
+Measured in Chromium with the Tabs shape: Password content was visible while Account retained
+`aria-selected="true"` and the panel referenced `account-tab` through `aria-labelledby`. axe-core
+4.9.1 returned **zero component violations**; the browser consequently exposed Account as the
+selected tab and Account as the panel's accessible name. Every attribute was legal, but their
+combined meaning was wrong. `toMatchAriaInlineSnapshot` can assert the intended selected tab and
+named panel together. Keep axe too: snapshots do not replace its rules, contrast, or hidden-focus
+checks. The full measured example is in `VITEST-AXE-VS-ARIA-SNAPSHOTS.md`.
+
+**…but an ARIA snapshot only asserts the states it *lists*, so it cannot catch a state appearing
+on the wrong node.** There is no `[selected=false]`, and `/children: equal` constrains child
+count and order, not attributes. Measured on `Tabs`: four snapshot-only tests — including a
+`/children: equal` tablist template — all stayed green while `TabsTrigger.vue` was mutated to
+`:aria-selected="'true'"`, i.e. with *every* tab permanently selected. The oracle for the absence
+half is the role **state filter**, which no ported file uses:
+`expect(screen.getByRole('tab', { selected: true }).elements()).toHaveLength(1)` turns the same
+mutation red. `getByRole` takes `selected`, `checked`, `expanded`, `pressed`, `level`, `disabled`
+and `includeHidden` (`docs/api/browser/locators.md:105-212`). Rule: the snapshot proves the state
+is on the right node, the filter proves it is on no other. Write both. Full survey of the
+accessibility API surface, plus the five `*.improved.browser.test.ts` files written against it,
+in `IMPROVING-A11Y-TESTS.md`.
+
+**The whole browser-mode a11y family is backed by `ivya`, not by Chromium's AX tree.**
+`toMatchAriaSnapshot` builds its tree with `generateAriaTree` from `ivya/aria`
+(`packages/browser/src/client/tester/aria.ts`), `toHaveAccessibleName` calls
+`getElementAccessibleName` from `ivya/utils`, and `getByRole` is the same engine — one
+implementation across queries, matchers and snapshots, where the jsdom stack computes names with
+`dom-accessibility-api` instead. Practical consequences: the tree is deterministic and carries no
+font metrics (unlike the DOM snapshots in `ScrollArea`), and it is a *model* of what an AT would
+be told, so it will not show Chromium's own repairs of broken relations — the divergence already
+recorded for `combobox-stale-activedescendant`.
 
 **axe in a real browser is much less forgiving, and that is the point.** `Slider.test.ts:27-33`
 calls `axe(wrapper.element)` *synchronously* after `mount()`. Vue has not flushed yet, so the thumb
