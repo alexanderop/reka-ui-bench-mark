@@ -145,14 +145,14 @@ describe('dateField', async () => {
     expect(start.year).toHaveTextContent(String(calendarDateTime.start.year))
     expect(getByTestId('start-hour')).toHaveTextContent(String(calendarDateTime.start.hour))
     expect(getByTestId('start-minute')).toHaveTextContent(String(calendarDateTime.start.minute))
-    expect(getByTestId('start-second')).toHaveTextContent(String(calendarDateTime.start.second))
+    expect(getByTestId('start-second')).toHaveTextContent(String(calendarDateTime.start.second).padStart(2, '0'))
 
     expect(end.month).toHaveTextContent(String(calendarDateTime.end.month))
     expect(end.day).toHaveTextContent(String(calendarDateTime.end.day))
     expect(end.year).toHaveTextContent(String(calendarDateTime.end.year))
     expect(getByTestId('end-hour')).toHaveTextContent(String(calendarDateTime.end.hour))
     expect(getByTestId('end-minute')).toHaveTextContent(String(calendarDateTime.end.minute))
-    expect(getByTestId('end-second')).toHaveTextContent(String(calendarDateTime.end.second))
+    expect(getByTestId('end-second')).toHaveTextContent(String(calendarDateTime.end.second).padStart(2, '0'))
   })
 
   it('populates segment with value - `ZonedDateTime`', async () => {
@@ -168,14 +168,14 @@ describe('dateField', async () => {
     expect(start.year).toHaveTextContent(String(calendarDateTime.start.year))
     expect(getByTestId('start-hour')).toHaveTextContent(String(calendarDateTime.start.hour))
     expect(getByTestId('start-minute')).toHaveTextContent(String(calendarDateTime.start.minute))
-    expect(getByTestId('start-second')).toHaveTextContent(String(calendarDateTime.start.second))
+    expect(getByTestId('start-second')).toHaveTextContent(String(calendarDateTime.start.second).padStart(2, '0'))
 
     expect(end.month).toHaveTextContent(String(calendarDateTime.end.month))
     expect(end.day).toHaveTextContent(String(calendarDateTime.end.day))
     expect(end.year).toHaveTextContent(String(calendarDateTime.end.year))
     expect(getByTestId('end-hour')).toHaveTextContent(String(calendarDateTime.end.hour))
     expect(getByTestId('end-minute')).toHaveTextContent(String(calendarDateTime.end.minute))
-    expect(getByTestId('end-second')).toHaveTextContent(String(calendarDateTime.end.second))
+    expect(getByTestId('end-second')).toHaveTextContent(String(calendarDateTime.end.second).padStart(2, '0'))
   })
 
   it('navigates between the fields', async () => {

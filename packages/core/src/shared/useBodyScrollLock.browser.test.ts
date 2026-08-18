@@ -3,6 +3,14 @@ import { render } from 'vitest-browser-vue'
 import { nextTick, ref } from 'vue'
 import { useBodyScrollLock } from './useBodyScrollLock'
 
+// Hoisted to the top level on purpose: `vi.mock` executes before anything else
+// in the file regardless of where it is written, so nesting it in the
+// `describe` misrepresented the order. Vitest 4.1 warns about this; Vitest 5
+// makes it an error.
+vi.mock('@/ConfigProvider/ConfigProvider.vue', async () => ({
+  injectConfigProviderContext: () => ({ dir: ref('ltr'), scrollBody: ref(true) }),
+}))
+
 function createWrapper(initialState: boolean) {
   return render({
     template: '<p>Hello, world</p>',
@@ -13,10 +21,6 @@ function createWrapper(initialState: boolean) {
 }
 
 describe('useBodyScrollLock', () => {
-  vi.mock('@/ConfigProvider/ConfigProvider.vue', async () => ({
-    injectConfigProviderContext: () => ({ dir: ref('ltr'), scrollBody: ref(true) }),
-  }))
-
   Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 200 })
   Object.defineProperty(document.documentElement, 'clientWidth', { writable: true, configurable: true, value: 190 })
 

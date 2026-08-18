@@ -78,7 +78,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: calendarDateTime, locale: 'en-GB' },
     })
 
-    expect(start.hour).toHaveTextContent(String(calendarDateTime.start.hour))
+    expect(start.hour).toHaveTextContent(String(calendarDateTime.start.hour).padStart(2, '0'))
     expect(start.minute).toHaveTextContent(String(calendarDateTime.start.minute))
     expect(end.hour).toHaveTextContent(String(calendarDateTime.end.hour).padStart(2, '0'))
     expect(end.minute).toHaveTextContent(String(calendarDateTime.end.minute))
@@ -169,12 +169,12 @@ describe('timeField', () => {
     const { start, end, user } = await setup({
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
-    expect(start.hour).toHaveTextContent(String(time.start.hour))
+    expect(start.hour).toHaveTextContent(String(time.start.hour).padStart(2, '0'))
     expect(end.hour).toHaveTextContent(String(time.end.hour))
 
     await user.click(start.minute)
     await user.keyboard('2')
-    expect(start.minute).toHaveTextContent('2')
+    expect(start.minute).toHaveTextContent('02')
     expect(end.minute).toHaveTextContent(String(time.end.minute))
   })
 

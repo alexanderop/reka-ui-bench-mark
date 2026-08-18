@@ -394,12 +394,18 @@ describe('given Select in a form', async () => {
   let screen: Awaited<ReturnType<typeof render>>
 
   // Rendered per test rather than once in the describe body: `render` unmounts
-  // after every test. `handleSubmit` is a module-level `vi.fn()` and is *not*
-  // reset, so the call-count ladder the original depends on (1, then 2) still
-  // works — but the selected value does not carry over, so the second submit
-  // block selects its own option on a fresh instance, which is also what the
-  // original did (it picked a different option each time).
+  // after every test, and the selected value does not carry over, so the second
+  // submit block selects its own option on a fresh instance — which is also
+  // what the original did (it picked a different option each time).
+  //
+  // `handleSubmit` is a module-level `vi.fn()` shared across files, so it is
+  // cleared per test and each block asserts its *own* single submit. The
+  // original's (1, then 2) ladder made the second test pass only because a
+  // sibling ran first — order-coupling that Vitest 5's `clearMocks: true`
+  // default turns red (measured: 7 files). Owning the count also makes the
+  // test name true.
   beforeEach(async () => {
+    handleSubmit.mockClear()
     screen = await render({
       props: ['handleSubmit'],
       components: { Select },
@@ -450,8 +456,8 @@ describe('given Select in a form', async () => {
     })
 
     it('should trigger submit once', () => {
-      expect(handleSubmit).toHaveBeenCalledTimes(2)
-      expect(handleSubmit.mock.results[1].value).toStrictEqual({ test: 'Pineapple' })
+      expect(handleSubmit).toHaveBeenCalledTimes(1)
+      expect(handleSubmit.mock.results[0].value).toStrictEqual({ test: 'Pineapple' })
     })
   })
 })

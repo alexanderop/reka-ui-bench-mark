@@ -889,6 +889,44 @@ green; the behaviour it guards is still tested by nobody, in either environment.
 is not a tested behaviour, and a migration that reports gained lines will happily let you
 believe otherwise.
 
+### The test that only passes because its sibling ran first
+
+Port a suite mechanically and you inherit its **execution-order coupling** along with everything
+else. The shape to look for is a shared module-level spy asserted cumulatively:
+
+```ts
+// block 1
+it('should trigger submit once', () => {
+  expect(handleSubmit).toHaveBeenCalledTimes(1)
+  expect(handleSubmit.mock.results[0].value).toStrictEqual({ test: 'true' })
+})
+
+// block 2 — submits once more, and counts on block 1's history
+it('should trigger submit once', () => {
+  expect(handleSubmit).toHaveBeenCalledTimes(2)   // ← passes only in order
+  expect(handleSubmit.mock.results[1].value).toStrictEqual({ })
+})
+```
+
+Both blocks are named *"should trigger submit once"* and the second one asserts two. Run it
+alone, or with `--shard`, or after a `.only` upstream, and it fails. Nothing in a port flags
+this: the names match the original verbatim, the assertion count is unchanged, and both suites
+are green — so a name-and-count parity oracle passes it.
+
+We had eight such files and assumed all eight were coupled. **Seven were.** The eighth performed
+both submits inside its own hook and was already self-contained — which is also the fix for the
+other seven: clear the shared spy in the block's `beforeEach`, and let each test assert its own
+`times(1)` + `results[0]`. Same number of assertions, no coupling, and the test names stop being
+false.
+
+Two things make this worth doing during a migration rather than after. Per-test unmounting
+already forces you to rebuild *component* state in each block, so you are editing these hooks
+anyway — rebuilding the *spy* state is the same thought, one line away, and easy to miss because
+the tests stay green when you don't. And a cheap oracle exists: **set `clearMocks: true` and run
+the suite.** Every order-coupled cumulative assertion turns red at once, and you get the exact
+list instead of a guess. (Vitest 5 makes `clearMocks: true` the default, so this stops being
+optional. Its clear runs *before* `beforeEach`, so a hook that records its own calls is safe.)
+
 ---
 
 ## 8. Proving the port didn't lose anything

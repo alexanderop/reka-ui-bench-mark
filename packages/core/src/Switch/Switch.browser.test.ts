@@ -142,6 +142,7 @@ describe('given switch in a form', () => {
   let screen: Awaited<ReturnType<typeof render>>
 
   beforeEach(async () => {
+    handleSubmit.mockClear()
     screen = await render({
       props: ['handleSubmit'],
       components: { Switch },
@@ -208,8 +209,8 @@ describe('given switch in a form', () => {
     })
 
     it('should trigger submit once', () => {
-      expect(handleSubmit).toHaveBeenCalledTimes(2)
-      expect(handleSubmit.mock.results[1].value).toStrictEqual({ })
+      expect(handleSubmit).toHaveBeenCalledTimes(1)
+      expect(handleSubmit.mock.results[0].value).toStrictEqual({ })
     })
   })
 })

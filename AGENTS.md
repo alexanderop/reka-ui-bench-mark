@@ -847,7 +847,17 @@ the port now has to *say* it is looking for something hidden from the accessibil
 habit of mounting once in the `describe` body (the form fixtures do this) leaves every test after
 the first with nothing on screen. Move it into `beforeEach`. Module-level `vi.fn()` spies are
 *not* cleared by that, so originals that depend on a call count accumulating across tests
-(`toHaveBeenCalledTimes(1)`, then `(2)`) still port unchanged.
+(`toHaveBeenCalledTimes(1)`, then `(2)`) port unchanged — **but do not leave them that way.**
+
+**A cumulative mock count is an order-coupled test wearing an honest name's clothes.** The eight
+form files inherited the original's ladder: the first block submits and asserts `times(1)`, the
+sibling block submits *once more* and asserts `times(2)` + `mock.results[1]` — passing only
+because a sibling ran first. Both blocks are named `'should trigger submit once'`, and in seven of
+them that name was false. Measured by enabling `clearMocks: true` (Vitest 5's default) on 4.1.10:
+**7 files fail, not 8** — `Checkbox` survives because its hook performs both submits itself.
+Fixed by clearing the shared spy in the form block's `beforeEach` and having each test assert its
+own `times(1)` + `results[0]`; the assertion count is unchanged, so `port:parity` stays clean, and
+the test names became true. `Checkbox/Checkbox.browser.test.ts:231` was the in-repo precedent.
 
 **…which means ports cover teardown, and the jsdom suite never did.** `cleanup()` calls
 `wrapper.unmount()` (`vitest-browser-vue/dist/index.js` registers it in a `beforeEach`), so

@@ -477,6 +477,7 @@ describe('given slider in a form', () => {
   let screen: Awaited<ReturnType<typeof render>>
 
   beforeEach(async () => {
+    handleSubmit.mockClear()
     screen = await render({
       props: ['handleSubmit'],
       components: { Slider },
@@ -515,8 +516,8 @@ describe('given slider in a form', () => {
     })
 
     it('should trigger submit once', () => {
-      expect(handleSubmit).toHaveBeenCalledTimes(2)
-      expect(handleSubmit.mock.results[1].value).toStrictEqual({ 'slider[0]': '51' })
+      expect(handleSubmit).toHaveBeenCalledTimes(1)
+      expect(handleSubmit.mock.results[0].value).toStrictEqual({ 'slider[0]': '51' })
     })
   })
 })

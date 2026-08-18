@@ -62,9 +62,34 @@ await expect.element(segment).toHaveTextContent('01') // no longer matches "2001
 This kills the DateField/TimeField trap (`'1'` passing against `1980`,
 `'5'` accepting a broken `20245`). Ports that switched to trimmed exact
 `textContent` comparisons *because* the matcher was substring-based can
-migrate back to the matcher. Before upgrading, grep every `toHaveTextContent`
-with a short literal — each is either already exact (fine) or a deliberate
-substring (convert to `toMatchTextContent`).
+migrate back to the matcher.
+
+**Measured, not grepped — and now FIXED.** v5's matcher
+(`packages/browser/src/client/tester/expect/toHaveTextContent.ts` @
+`v5.0.0-rc.1`, exact equality after `text.replace(/\s+/g, ' ').trim()`) was
+ported into `vitest.browser.setup.ts` via `expect.extend` and the browser
+suite run against it. Of **291** call sites, **7** were substring-reliant —
+all of them zero-padding, in 2 files:
+
+```
+TimeRangeField:81,172   expected "9",  rendered "09"   (en-GB, 24h)
+TimeRangeField:177      expected "2",  rendered "02"
+DateRangeField:148,171  expected "0",  rendered "00"   (start-second)
+DateRangeField:155,178  expected "0",  rendered "00"   (end-second)
+```
+
+Two things worth keeping from that run. **The failures surfaced in waves** —
+the first pass reported 4, and fixing those exposed 3 more, because an
+assertion after a failing one in the same `it` never ran. Re-run the preview
+to convergence rather than trusting the first count. And **padding is
+locale-dependent**: the same fixture hour renders `09` under en-GB 24-hour and
+`9` under en-US 12-hour, so blanket-padding every site would have been wrong;
+only the measured sites were changed.
+
+All 7 now carry `.padStart(2, '0')` (or the literal `'02'`). The suite is
+green under the strict matcher *and* under `clearMocks: true`, simultaneously.
+Fixing them under 4.1 costs nothing: an exact string still satisfies a
+substring match.
 
 ---
 
@@ -163,29 +188,46 @@ unchanged. What breaks is the cross-test accumulation pattern AGENTS.md
 explicitly blessed ("`toHaveBeenCalledTimes(1)`, then `(2)` still port
 unchanged").
 
-**Measured blast radius — 8 browser files**, all the same shared-`handleSubmit`
-form pattern (first describe submits and asserts `times(1)` +
-`mock.results[0]`; sibling describe submits again and asserts `times(2)` +
-`mock.results[1]`, counting on history from the *previous test*):
+**Measured blast radius — 7 browser files, and this is now FIXED.** An earlier
+draft of this section predicted 8 from a grep. Setting `clearMocks: true` on
+the browser project under 4.1.10 and running the suite gave the real number:
 
 ```
-Checkbox, Combobox, Listbox, NumberField, RadioGroup, Select, Slider, Switch
-  — each at its `toHaveBeenCalledTimes(2)` form-submit assertion
+Combobox, Listbox, NumberField, RadioGroup, Select, Slider, Switch
+  — 7 files, 7 tests, each at its `toHaveBeenCalledTimes(2)` assertion
 ```
 
-The jsdom originals share the pattern verbatim, so both suites break
-identically. Two options:
+**`Checkbox` is not affected**, because its second hook performs *both*
+submits itself and clears the spy at `Checkbox.browser.test.ts:231`. It was
+already the self-contained pattern the other seven needed. (Mechanism, read
+from v5 source: `clearModuleMocks` is called from `onBeforeTryTask`
+(`runtime/runners/test.ts:177`), which `runtime/runner/run.ts:628` invokes
+*before* the `beforeEach` chain at `:635` — so a hook that records its own
+calls is safe; only history carried from a *previous test* is wiped.)
 
-- `clearMocks: false` in the root config — preserves comparison-suite
-  fidelity with zero test edits; or
-- rewrite the 8 × 2 describes so each test owns its own count
-  (`times(1)` + `mock.results[0]` in both) — the better tests, and the
-  verbatim-name rule permits it since only bodies change.
+Resolved by taking the second option below rather than the recommended first:
 
-Recommendation: flip the config off at upgrade time to keep the suite green,
-then do the rewrite as its own reviewed pass and remove the override.
+- ~~`clearMocks: false` in the root config~~ — no longer needed; and
+- **each test now owns its count** (`times(1)` + `mock.results[0]`), with
+  `handleSubmit.mockClear()` in the form block's `beforeEach`. The assertion
+  count per test is unchanged, so `port:parity` stays clean (87/87), and the
+  block name `'should trigger submit once'` — false in all seven — became
+  true. Verified green both with and without `clearMocks: true`.
+
+The jsdom originals still carry the ladder. They are the retained comparison
+suite, so that is left alone deliberately.
 
 ### 2. `render` becomes async in `vitest-browser-vue`
+
+**Blocked on an unpublished package.** `vitest-browser-vue` has no v5 release:
+latest is **2.1.0**, peering `vitest: ^4.0.0-0`, and all 89 browser files
+import its `render`. The upgrade cannot be done supported until a v5-compatible
+release ships. It will *probably* work under a peer override — the package
+consumes only `page`, `server` and `utils` from `vitest/browser` plus
+`beforeEach` from `vitest`, and all four survive in v5 (checked against
+`packages/browser/context.d.ts` @ `v5.0.0-rc.1`, where `utils` also gains an
+experimental `aria` namespace) — but that is an override, not support.
+*[the override itself is unverified — not attempted]*
 
 Every one of the 90 browser files calls `render()` synchronously — in
 `setup()` helpers, `beforeEach` hooks, and the shared `src/test/browser.ts`
@@ -227,20 +269,34 @@ ported wait loops:
 
 ## Upgrade plan, in order
 
-1. Branch, bump `vitest`/`@vitest/browser-playwright` to the v5 RC, and set
-   `clearMocks: false` up front.
-2. Run the **async-`render` codemod** (adapter first, then the 90 files).
-3. Full three-project run. Triage failures into: substring-reliant locators
-   (fix the query), substring-reliant `toHaveTextContent` (decide exact vs
-   `toMatchTextContent` per site), tight `expect.poll` timeouts (raise
-   explicitly).
+**Steps 0a–0c are done** — landed on 4.1.10, suite green, all three oracles
+clean (186 files / 3441 passing + 20 expected fails; `port:parity` 87/87).
+They were the parts of the upgrade that could be paid for in advance, and each
+is an improvement on its own terms:
+
+- **0a. The 7 order-coupled form tests own their counts.** Green with *and*
+  without `clearMocks: true`, so the v5 default needs no override.
+- **0b. The 7 zero-padding assertions are exact.** Green under a faithful
+  port of v5's strict `toHaveTextContent`.
+- **0c. `useBodyScrollLock`'s `vi.mock` is hoisted to the top level.** This
+  was already printing a deprecation warning on every 4.1 run; it is an error
+  in v5.
+
+What remains, once `vitest-browser-vue` ships a v5-compatible release (see
+Part 3 §2 — this is the blocker, not the codemod):
+
+1. Branch, bump `vitest`/`@vitest/browser-playwright` to the v5 RC
+   (npm is at `5.0.0-rc.2`; the reference clone is pinned at `rc.1`).
+   `clearMocks: false` is **not** needed.
+2. Run the **async-`render` codemod** (adapter first, then the 89 files).
+3. Full three-project run. Triage what is left: substring-reliant locators
+   (fix the query), tight `expect.poll` timeouts (raise explicitly).
 4. Re-pin the reference clone (`pinned/5.x`) and update AGENTS.md: the
-   substring-family gotchas become historical notes, the `clearMocks`
-   translation-table entry gets inverted, and the retrying-matcher timing
-   rules get re-verified against v5's `expect.element` source.
-5. As follow-up passes: rewrite the 8 form-submit files per-test and drop
-   `clearMocks: false`; enable `traceView` locally; adopt `mark()` in the
-   mouse commands.
+   substring-family gotchas become historical notes, and the retrying-matcher
+   timing rules get re-verified against v5's `expect.element` source.
+5. As follow-up passes: enable `traceView` locally; adopt `mark()` in the
+   mouse commands; try `repeats` in place of the hand-rolled
+   "N isolated runs" determinism checks.
 
 ## Verdict
 
