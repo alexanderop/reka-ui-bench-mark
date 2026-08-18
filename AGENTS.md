@@ -22,13 +22,14 @@ ship a feature. It exists for two reasons, in order:
 thing. Repo mechanics are at the bottom under [Repo reference](#repo-reference); everything
 before it is the browser-mode effort.
 
-## The three documents
+## The four documents
 
 | Document | Audience | Holds |
 |---|---|---|
 | **`AGENTS.md`** (this file) | agents working in this repo | what the fork is for, the translation table, the gotchas, conventions for ported tests |
 | **`PORTING.md`** | whoever is running the migration | how the work is sequenced, the oracles, the tiers, the per-file loop |
 | **`MIGRATING-TO-BROWSER-MODE.md`** | **the public** | the generalised field guide, written to be shared outside this repo |
+| **`PERFORMANCE.md`** | anyone deciding whether browser mode is affordable | what it costs and where — per suite, per file, per operation, with the method for each number |
 
 **When you learn something non-obvious, it goes in two places**: the specific note here (or in
 `PORTING.md`), *and* the generalised version in `MIGRATING-TO-BROWSER-MODE.md`. That last file
@@ -674,12 +675,22 @@ registration is deferred by `setTimeout(0)` (`utils.ts:126`), and one jsdom test
 microtask-only, so **the listener only ever attaches between tests** — on instances that are
 already zombies. jsdom "covering" a line can mean a dead component processed a live test's event.
 
-**A failing retrying matcher costs the full locator timeout.** Pairs with the `Progress` entry:
-`expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms.
-Fine on the happy path, but it makes a mutation loop on a focus-heavy file ~2000× slower to answer.
-Budget for it, or mutate against a cheaper assertion. Second data point, from `Tabs`: a failing
-`expect.element(…).not.toHaveAttribute` cost **14990ms** against 7ms in jsdom — so the ~15s figure is
-the matcher's timeout, not something specific to focus.
+**A failing retrying matcher inherits the *test* timeout — which browser mode defaults to 15s.**
+`expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms;
+a failing `expect.element(…).not.toHaveAttribute` in `Tabs` cost **14990ms** against 7ms. *(This
+entry previously concluded "the ~15s figure is the matcher's timeout". It is not — `expect.poll`'s
+own default is 1000ms.)* From source: `processTimeoutOptions`
+(`browser/src/client/tester/tester-utils.ts:193-223`) hands a locator action or an `expect.element`
+**the remaining test timeout minus 100ms**, unless an explicit `timeout` is passed or
+`browser.providerOptions.actionTimeout` is set — and `testTimeout ??= browser.enabled ? 15_000 :
+5_000` (`node/config/resolveConfig.ts:935`).
+
+**So it is fixable, and the config now fixes it:** `playwright({ actionTimeout: 2000 })` makes that
+function return early, capping a failing action at 2s and letting a failing `expect.element` fall
+back to `expect.poll`'s 1000ms (measured 14918ms → 1025ms, with the green suite unchanged). The
+suite is green at 1000ms, 1 file fails at 500 and 12 at 300, so 2000 is ~2-4× headroom over the
+slowest legitimate wait. Full ladder and the other six levers tried — `isolate: false` (breaks 400+
+tests), `maxWorkers`, viewport, frame-rate launch flags — in `PERFORMANCE.md` §8.
 
 **`checkVisibility()` is not an oracle for "hidden".** It returns **`true`** for a correctly
 visually-hidden element — Chromium ignores `clip-path` and 1px geometry. Use
@@ -1120,12 +1131,19 @@ labelled by its trigger, and Chromium passes that rule once the positioned state
 
 ## Open questions
 
-- **Performance — deliberately deferred until the migration is done.** Measuring one ported file
-  tells you about browser startup, not about the suite. The question is no longer *whether*
-  browser mode is fast enough to be the default — it is the default by decision — but **what an
-  all-browser suite costs**, and whether CI needs sharding to absorb it. Per-file evidence so far
-  says it is affordable: ~1.5× wall clock on the worst case (a composable that gains nothing) and
-  ~0.6s for a cold Chromium. Measure the whole suite before trusting that.
+- **Performance — answered; the numbers and their method are in `PERFORMANCE.md`.** The whole
+  suite costs **1.13×** jsdom wall clock (12.10s vs 10.75s), so **CI does not need sharding**. The
+  cost is not per test — a trivial test is 0.03ms in both, `render()` 0.31ms vs `mount()` 0.22ms —
+  it is per **real pointer action**: `locator.click()` is **26ms** against `el.click()`'s 0.03ms,
+  and **18ms of that is Playwright's stability check waiting two animation frames** (measured
+  16.65ms), which `click({ force: true })` skips at 8ms. Real-input call count predicts per-file
+  slowdown at **r = 0.95**; 744 pointer actions are **46%** of the total delta; and the 28 files
+  making no real input are **faster** in Chromium (mean −37ms), because Chromium's DOM is native and
+  jsdom's is JavaScript. Two numbers still to respect: the inner loop is **~1.9×** (single-file cold
+  start, ~0.6s of unamortized Chromium launch), and a **failing** retrying matcher costs **~15s**
+  against jsdom's 8ms.
+  What remains open is CI-hardware behaviour, headed/multi-browser runs, and whether the 1000ms
+  locator timeout can be safely lowered — all marked `[unverified]` there.
 - Worth adding `toMatchScreenshot` visual regression once a CSS shim exists? Probably **not yet**,
   and possibly never in this fork. `docs/guide/browser/visual-regression-testing.md:31-49` is blunt
   that screenshots are unstable across environments — font rendering, GPU drivers, headless vs

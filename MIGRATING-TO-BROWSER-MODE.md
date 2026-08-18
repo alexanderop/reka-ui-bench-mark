@@ -1305,11 +1305,61 @@ Note that `vi.spyOn` is **not** hostile — it works unchanged.
 
 Honest gaps. Do not read past silence here as endorsement.
 
-- **Performance. Answered.** On the completed suite, Chromium ran 89 files / 1446 runtime tests
-  in **12.62s wall clock**; the retained jsdom project ran 87 files / 1444 tests in **11.16s**
-  on the same machine. The suite-scale cost was therefore about **1.13×**, substantially below
-  the 1.5× measured on one boring composable. Measure your own suite, but browser startup did
-  not require sharding here.
+- **Performance. Answered, and the aggregate number is the least useful one.** On the completed
+  suite, Chromium ran 89 files / 1446 runtime tests in **12.10s** wall clock against the retained
+  jsdom project's 87 files / 1444 tests in **10.75s** — about **1.13×**, no sharding required.
+  But three different numbers are all true at once, and quoting the wrong one leads to the wrong
+  decision:
+
+  | question | number |
+  |---|---|
+  | what does the full suite cost? | **1.13×** |
+  | what does *one file* cost, watch-mode style? | **~1.9×** (single-file cold start; ~0.6s of it is an unamortized Chromium launch) |
+  | what does one mouse click cost? | **26ms vs 0.03ms — ~800×** |
+
+  The mechanism, measured: **there is no per-test tax.** A trivial test is 0.03ms in both
+  environments; `render()` is 0.31ms against `mount()`'s 0.22ms; a locator query is 0.02ms and a
+  *passing* `expect.element` is 0.08ms. The entire regression lives in real input, and mostly in
+  one check — `locator.click()` costs 26ms, `click({ force: true })` costs 8ms, and the 18ms
+  difference is Playwright's **stability** actionability requirement waiting two animation frames
+  (measured at 16.65ms in headless Chromium). `fill` does *not* require stability and costs 2ms,
+  which is the control. So the count of real-input calls in a file predicts that file's slowdown
+  with **r = 0.95**, and across 87 file pairs 744 pointer actions accounted for **46%** of the
+  total regression.
+
+  The corollary is the part worth carrying away: **28 of our files make no real input at all, and
+  26 of those are *faster* in Chromium** (mean −37ms), because a native DOM beats a JavaScript one
+  and browser mode pays nothing for jsdom's per-file environment construction, transform step, or
+  mock-heavy setup file. Browser mode is not slow. *Acting like a user* is slow, and it is slow
+  because a user is slow.
+
+  One asymmetry to budget for regardless of suite size — and **the one config change actually
+  worth making**: a **failing** retrying matcher costs **~15s** against jsdom's ~8ms, measured
+  twice on different matchers. That is not the matcher's own timeout (`expect.poll` defaults to
+  1000ms). `processTimeoutOptions` hands a failing locator action or `expect.element` **the
+  remaining test timeout minus 100ms**, and `testTimeout` defaults to **15000ms in browser mode**
+  against 5000 elsewhere. Setting a provider action timeout makes that path return early:
+
+  ```ts
+  provider: playwright({ actionTimeout: 2000 })
+  ```
+
+  Measured: a failing assertion **14918ms → 1025ms** (it falls back to `expect.poll`'s own 1000ms,
+  so that half is capped at 1s whatever you set), a failing action → ~2s, and the green suite
+  unchanged. Pick your own number by walking it down until the suite breaks — ours failed 12 files
+  at 300ms and 1 at 500ms, so 2000 leaves real headroom for slower CI. A red suite is otherwise
+  much more expensive than a green one, and mutation-testing a focus-heavy file gets ~2000× slower
+  per assertion.
+
+  **What did *not* work, measured on the same suite**, so you can skip re-testing it: `isolate:
+  false` (the obvious "reuse the iframe" win) turned a green suite into **400-600 non-deterministic
+  failures** *and* got slower — module-level state and document-level listeners survive between
+  files, which is precisely the cross-file bleed isolation exists to prevent; a raised or lowered
+  worker count was worse in both directions than the default; a bigger viewport changed nothing and
+  broke a pointer-leave test; `expect.poll`'s interval is irrelevant because assertions overwhelmingly
+  pass first try; and Chromium frame-rate launch flags (`--disable-frame-rate-limit`,
+  `--disable-gpu-vsync`) made a click **2× slower**. The stability wait itself is not configurable —
+  it lives in Playwright's injected script, and `force: true` is the only per-call escape.
 - ~~**Is "pure logic stays in jsdom" actually true? [unverified]**~~ **Answered — see
   [section 10](#10-what-not-to-migrate).** Measured on one composable file: the port is clean
   and gains nothing, at 1.5× the wall clock. The verdict held, but the *reason* it held was
