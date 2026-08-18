@@ -129,7 +129,21 @@ export default defineConfig({
           setupFiles: './vitest.browser.setup.ts',
           browser: {
             enabled: true,
-            provider: playwright(),
+            // `actionTimeout` is a *failure*-cost lever, not a speed one; the
+            // green suite runs the same with or without it. Without it,
+            // `processTimeoutOptions` (vitest 4.1.10,
+            // browser/src/client/tester/tester-utils.ts:193-223) hands a
+            // failing locator action or `expect.element` the *remaining test
+            // timeout* — which browser mode defaults to 15000ms, not 5000
+            // (resolveConfig.ts:935). Measured: a failing assertion cost
+            // 14918ms. Setting this makes that path return early, so a failing
+            // action costs 2s and a failing `expect.element` falls back to
+            // expect.poll's own 1000ms default (measured 1025ms).
+            //
+            // 2000 rather than 1000 for headroom: the suite is green at 1000,
+            // 1 file fails at 500 and 12 fail at 300, so the slowest legitimate
+            // wait here is ~500-1000ms and CI hardware is slower than this.
+            provider: playwright({ actionTimeout: 2000 }),
             headless: true,
             instances: [{ browser: 'chromium' }],
             // `page.mouse` is stateful and page-level; the locator API's only
