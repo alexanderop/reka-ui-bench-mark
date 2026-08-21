@@ -1343,6 +1343,10 @@ Note that `vi.spyOn` is **not** hostile — it works unchanged.
 
 Honest gaps. Do not read past silence here as endorsement.
 
+- **Other engines — answered, see [section 13](#13-other-engines-a-chromium-green-suite-is-a-chromium-suite).**
+  Firefox and WebKit run the whole corpus with 18 and 12 engine-specific failures, all recorded;
+  headed mode is still unmeasured `[unverified]`.
+
 - **Performance. Answered, and the aggregate number is the least useful one.** On the completed
   suite, Chromium ran 89 files / 1446 runtime tests in **12.10s** wall clock against the retained
   jsdom project's 87 files / 1444 tests in **10.75s** — about **1.13×**, no sharding required.
@@ -1404,12 +1408,106 @@ Honest gaps. Do not read past silence here as endorsement.
   not the predicted one — browser startup turned out to be cheap (~0.6s), so "too slow" is the
   wrong argument against porting pure logic. "Buys nothing" is the right one. Still
   `[unverified]` for date/colour utilities specifically; only the composable case was measured.
-- **Visual regression.** `toMatchScreenshot` exists, but the Vitest docs are blunt that
-  screenshots are unstable across environments (font rendering, GPU drivers, headless vs
-  headed) and recommend Docker or a cloud service for stable baselines. For a *headless*
-  component library with no styling of its own, the thing under test would be the CSS shim
-  written for the tests rather than the library. Probably not worth it; revisit if a styled
-  fixture tree appears.
+- **Visual regression.** A bounded pilot showed the useful shape: define stable variants as data,
+  render them together below one neutral Vue host, retain exact geometry/state assertions, and
+  capture the whole story sheet once with `toMatchScreenshot`. Do not manually call
+  `page.screenshot`, encode base64, or reparent several independent `render()` containers; the
+  native matcher owns stabilization, reference creation and diffs. The neutral host can also be
+  semantically necessary: a component that forwards its public `$el` to an inner node may confuse
+  a renderer that unwraps the wrapper's parent, removing a load-bearing outer element while DOM
+  assertions still pass. Assert that wrapper's box before accepting the image. Keep visual files
+  in an isolated fixed-viewport project and explicitly track only their references; ordinary
+  browser failures may write diagnostic PNGs into the same `__screenshots__` convention. Verify
+  the first PNG's pixel dimensions too: in Vitest 4.1.10 with browser UI disabled, an instance
+  viewport can size the tester iframe without sizing Playwright's outer page, so the orchestrator
+  CSS-scales the iframe and silently downsamples element screenshots. Set the same viewport in the
+  Playwright provider's `contextOptions` to keep the scale at 1.
+  References are still browser/platform-specific, and for a headless library the sheet should
+  expose geometry and state with minimal deterministic CSS, not freeze a consumer skin. Pin the
+  full Playwright container version for Linux comparison, commit its Linux reference, and put
+  updates behind a manual, non-default-branch workflow; a plain `ubuntu-latest` label does not pin
+  fonts and system libraries. Keep local-platform references for local review, but do not expect
+  one platform's image to compare on another.
+
+  When a generic story helper derives props from the component, remember that TypeScript's excess
+  property check applies to fresh literals, not necessarily objects returned from `Array.map`.
+  Validate inferred prop keys against `ComponentProps<C>` (extra keys can be intersected with
+  `never`) and include visual test files in an explicit type-check project. Otherwise a typo can
+  render as a harmless HTML attribute and become part of the approved image.
+
+  Once there are more than a couple of sheets, move the repetition into the helper rather than
+  the files. Measured across eight sheets here, every file was re-declaring the same six things:
+  a `defineComponent({ props, setup })` wrapper whose only job was typed props for a composite
+  scenario; `render` → `getByTestId` → `toBeVisible`; `querySelectorAll('[data-variant]')` plus
+  a length check; `cells[index]` bookkeeping next to a parallel `variants` array; a hand-chosen
+  screenshot name; and `TOLERANCE = 1.5` with a `Math.abs(a - b)` poll. A helper that accepts
+  `render: (props: P) => VNode` as an alternative to `component:`, returns typed cells carrying
+  the variant's own expectation data, derives the reference name from the title, and takes the
+  screenshot *after* the callback removed ~30% of each file and changed no reference image —
+  because the derived names matched the hand-written ones, which is the check to run first. Keep
+  the typo check in both modes (the `never` intersection still applies, against the annotated
+  render parameter instead of the component's props), and keep a plain `mount()` escape hatch
+  for the one file that must install a spy before rendering. Two things not to hide in the
+  helper: the per-variant *expected* values (literal, in the variant) and any tolerance wider
+  than the default (explicit at the call site). Finally, narrow the tracked-reference ignore
+  rule to the reference naming pattern (`*-<browser>-<platform>.png`): a failing visual test
+  writes `<test name>-1.png` into the same folder, and an unignore on `*.png` commits captures
+  as baselines — two were found here before the rule was tightened.
+
+  **Reusing the stories you already have.** If the project runs Storybook, `composeStory` and the
+  Vitest addon make a story a renderable and the visual sheet falls out. If it runs Histoire,
+  there is no portable-stories API — measured on 0.17.17: the runtime `<Story>` only works inside
+  Histoire's own mount, and `<Variant>` renders `null` with the slot mounted later by a separate
+  sub-app — and the official visual path (`@histoire/plugin-screenshot`, or Lost Pixel over
+  `histoire build`) is a second browser pipeline with no assertions beside the image. The
+  workable route is that `.story.vue` files reference `Story`/`Variant` as *global components*:
+  register stand-ins through `global.components` (a `Story` that renders your sheet host, a
+  `Variant` that renders one cell, both declaring every prop the real components take so nothing
+  leaks onto the DOM) and the story's own markup renders under your host unchanged. Check first
+  whether any story uses `initState`/`{ state }` — here none of 176 did, so the stand-ins stay
+  trivial. Mask what a story author never meant to be deterministic (a remote `<img>`) via
+  `screenshotOptions.mask`, only where the layout is stable without it. The trade: cells are
+  named by the story (`cell('Uncontrolled (RTL) ')`, trailing space and all) and carry no typed
+  expectation data, so literal expected values move into the test body. Ten such sheets were added
+  here in one pass; the ones that failed first time all failed on ResizeObserver settling (a thumb
+  offset measured from the thumb's own size, `type="auto"` scrollbars), which `expect.poll` fixed.
+  Having both kinds of sheet for the same component turned out not to be worth keeping: the
+  hand-built sheets were removed afterwards and only the story sheets remain, on the grounds that
+  the story files are fixtures the project already maintains, while a second, test-only set of
+  variants is one more thing to keep in step with them. The helper that derived and type-checked
+  variants from data (`render:`/`component:` modes, the `never`-intersection key check) is
+  therefore historical here; the paragraphs above describe what it did and why, not a live API.
+  The cost of that trade is coverage, not machinery: a component with no story file — `Popper`
+  here — gets no visual test until someone writes the story.
+
+  **Scaling the story sheets up found three more sources of non-determinism, none of them in the
+  component.** Measured while adding fifteen more story sheets here. (1) *Icon libraries that
+  fetch*: `@iconify/vue` renders an empty placeholder until the icon's data is in its storage, and
+  by default fills that storage from the network after mount — so whether the reference has icons
+  in it depends on a round trip. Preload the icon set (`addCollection`) in the visual setup and
+  point the API at a dead host; then assert the icon count so a missing preload fails loudly
+  rather than silently rendering blanks. (2) *Today*: a calendar with no value opens on the
+  current month and dots the current day; a `now()` placeholder carries the current time. Fake
+  **only `Date`** (`vi.useFakeTimers({ toFake: ['Date'], now, shouldAdvanceTime: true })`) — the
+  default set freezes rAF and starves layout pipelines — and pick noon UTC so every zone agrees on
+  the date; mask anything that still shows the host *hour*. (3) *Your host is narrower than the
+  playground*: a two-column 760px sheet gives each variant ~356px where Histoire's `width: '50%'`
+  gives far more, so wide controls clip at the sheet edge or wrap onto themselves, and an element
+  mask sized to the cell misses the overflow. Give the helper a `columns` option and use one
+  column for wide stories. A fourth lesson is about what the sheet is for: rendering the real
+  story at rest surfaced `aria-controls=""` on every accordion trigger — the content fills in a
+  non-reactive id after the trigger's first render — which axe passes (an empty idref list is
+  valid) and no functional test asserts. The screenshot itself could never show it; the sheet's
+  second, screenshot-less `it` can.
+
+  **A sheet taller than the tester iframe screenshots as a full-height PNG that is white below the
+  fold — no error.** Playwright can extend the outer page for an element capture but cannot paint
+  iframe content below the iframe's box, and the first run accepts the half-blank image as the
+  baseline. Measured: six of ten Histoire demo sheets (1224–1624px) at a 1000px viewport. Size
+  the tester viewport *and* the Playwright context to the tallest sheet (height does not move a
+  fixed-width sheet's layout; the existing references stayed byte-identical), and make the helper
+  refuse to capture a sheet whose bottom edge is below `window.innerHeight`. Review every new
+  reference by eye, including its bottom half.
 
 ---
 
@@ -1475,12 +1573,129 @@ deterministic and consistent across the three APIs, but a snapshot shows what an
 told from the DOM, not what a particular browser's AX tree ended up containing after its own
 repairs.
 
+And the tree models **nodes, not relations**. A node carries its role, its computed name and the
+active states (`checked`, `disabled`, `expanded`, `level`, `pressed`, `selected`, `active`) plus
+`/url` and `/placeholder`; it does not carry `aria-controls`, `aria-describedby`, `aria-owns` or
+`aria-activedescendant`. *Measured, on a real library:* a disclosure trigger that renders
+`aria-controls=""` until its first toggle (a non-reactive id written by the content *after* the
+trigger's first render) produced a **byte-identical** ARIA snapshot before and after the click
+repaired it — `- button "Trigger" [expanded]` / `- text: Content` both times. A relation that
+feeds the accessible name, such as `aria-labelledby`, shows up as the *name*; a relation that is
+pure wiring shows up nowhere. Assert those with `toHaveAttribute` next to the snapshot, and when
+you pin a snapshot over a relation bug, keep a second test that proves the snapshot is blind to it
+— so the day the tree starts carrying relations, something tells you.
+
+### Aiming the snapshot: a census, transition pairs, family templates
+
+The tree is only as useful as the states you point it at. Three shapes, ranked by what they found
+on a real library in one afternoon:
+
+1. **A census** — one `toMatchAriaSnapshot()` of `document.body` per at-rest fixture, over the
+   whole fixture directory (`import.meta.glob`), with `Date` pinned so calendars stop drifting and
+   anything network-dependent skipped. It is not a contract, it is an audit you can diff: 65
+   trees, ~6s, and the smells are mechanical enough to grep — an interactive role with no name,
+   a loose `- text: Label` beside an unnamed `group:`, a name that is really a placeholder
+   (`textbox "#000000"`) or the control's own value (`progressbar "50%"`), the same name on every
+   sibling, an unnamed `img` in an overlay. *Measured:* the first read found five product findings
+   and four fixture bugs, every one ARIA-legal and axe-green. The best of them is the class the
+   previous subsection said the tree *cannot* see — a relation — caught through the name it fails
+   to produce: a date field whose `<label for>` reaches only a hidden `<input tabindex=-1>` reads
+   `- text: Label` / `- group:` / `- spinbutton "month,": mm` (the segment's hardcoded label, a
+   trailing comma left over from a convention that concatenates the field name — which this
+   implementation does not); a calendar whose `role="application"` is on the `<table>` while the
+   label is bound to a role-less root `<div>` reads `- application: - rowgroup: …`, an unnamed
+   landmark, next to a sibling month picker that reads `- application "2026"`; a tags input whose
+   delete button is `aria-labelledby` the tag text reads `- text: Test` / `- button "Test"`.
+   Reading rule: **loose text immediately beside an unnamed role is a label that reaches nothing.**
+2. **Transition pairs on overlays** — rest → open → Escape, an inline snapshot per state plus the
+   role-state filter for every state the snapshot lists (`expanded: true` → 1, then 0). At rest an
+   overlay is `- button "X"`; everything interesting exists only open. *Measured:* a select's open
+   tree read `- listbox: - text: Fruits - group: - option "Apple"` — label loose, group unnamed —
+   because the library's `Group` sets `aria-labelledby` to its own id and its `Label` takes that id
+   only when nested inside the group, and the fixture (and **the docs demo**, so every consumer
+   copying it) places the label as a sibling: `aria-labelledby="reka-select-group-v-26"` resolved to
+   no element. The dropdown menu had the identical defect, and a trailing unnamed `- img` besides —
+   the popper arrow `<svg>` with no `aria-hidden`. The combobox, whose fixture nests its label, read
+   `- group "Fruits": - text: Fruits …` and is the shape the other two should have.
+3. **Family conformance** — one template with regex for the data, applied to every sibling that
+   should expose the same structure (here: six calendar variants). Not written yet; it would have
+   flagged the unnamed `application` without anyone reading a tree.
+
+Two mechanics that made the census cheap: `expect.element(document.body)` is accepted and the
+matcher's stability polling replaces every sleep; and an `it.fails` per finding with a single
+assertion is the quarantine — the green round trip pins today's tree, the red-when-fixed test holds
+the intended relation via a name query (`getByRole('group', { name: 'People', exact: true })`).
+
 Finally: **keep the axe audit.** Snapshots see no contrast ratios, no focusable-but-hidden
 content, no invalid ARIA combinations. And read axe's `incomplete` bucket, not just
 `violations` — a node-bearing `incomplete` means the rule ran and abstained, which your assertion
 is probably scoring as a pass.
 
 ---
+
+## 13. Other engines: a Chromium-green suite is a Chromium suite
+
+Everything above was measured on headless Chromium, and so is almost every browser-mode suite in
+the wild — `instances: [{ browser: 'chromium' }]` is the line every setup guide gives you. Vitest
+makes the other two engines one config line away, and running the finished corpus on them is the
+cheapest honest audit of the work. Here is what the 97 files said.
+
+**The numbers.** One engine per process, whole corpus, same machine. Chromium: 97/97, 16.3s.
+Firefox: **18** failures, 87s. WebKit: **12** failures, 81s — and one `it.fails` quarantine that
+*passes*. In the pinned Playwright Linux container: 16 and 9. Not one of the 30 is a flake once
+the run is set up correctly, and not one is a Chromium bug. They sort into five piles, and the
+piles are the lesson.
+
+1. **Configuration you did not know was inheritance.** Our date fixtures depend on `process.env.TZ`
+   set in a global setup; Chromium and Firefox inherit it from the Vitest process, WebKit does not
+   and reports the host zone. One `contextOptions.timezoneId` fixed three files. If your suite
+   passes on one engine because of something the engine *happens* to inherit, the second engine
+   is where you find out.
+2. **Platform truths that look like bugs.** On macOS, WebKit does not focus a clicked `<button>` or
+   `<a>`, and Tab skips both (Full Keyboard Access off); on Linux it does both, like everyone else.
+   Four tests — "ArrowDown after clicking the trigger focuses the first item", "Tab lands on the
+   trigger" — fail on darwin WebKit and pass in the container. These are the browser implementing
+   the OS convention. They need a *platform* column in whatever records them, not an engine one.
+3. **Synthetic input that is real on one engine by accident.** Firefox numbers the mouse pointer
+   `0`; Chromium and WebKit number it `1`. A test that dispatches `new PointerEvent('pointerdown',
+   { pointerId: 1 })` is therefore faking *the real mouse* on two engines and a nonexistent pointer
+   on the third, where `setPointerCapture(1)` throws. Likewise a script-built `DataTransfer` inside a
+   synthetic `ClipboardEvent` carries its text on Chromium and WebKit and arrives empty on Firefox —
+   eight paste tests became tests of an empty paste. Neither is an engine bug; both are reminders
+   that a synthetic event is a claim about one engine's implementation details.
+4. **Assertions that encode an engine's tables.** `locale: 'en-UK'` is not a valid tag (GB is); V8
+   and SpiderMonkey alias it, JavaScriptCore resolves it to plain `en` and renders month-first with a
+   day period. Three locale tests had asserted V8's alias table since the jsdom days. Same family:
+   `innerHTML` attribute order — Chromium writes `tabindex="0" style="…"`, Firefox `style="…"
+   tabindex="0"`, and every DOM snapshot that contains a CSSOM-written `style` is a Chromium-only
+   baseline with zero differing attributes.
+5. **The tests that are actually interesting.** One quarantined bug (HoverCard's pending-focus
+   reopen) does not reproduce on WebKit. One timing file (Drawer snap offsets) is red on WebKit and
+   Firefox in a run-to-run-varying subset, green on Chromium, and green on all three when its
+   sequence runs in a fresh page — the only pile that might be hiding a real regression, and the
+   one that would never have surfaced without the other engines.
+
+**Three setup facts, each measured the hard way.** (a) **Do not put three engines in one
+`instances` array.** chromium + firefox + webkit in one process: 97s and 86 failures, 11 of them in
+Chromium files that are 97/97 alone — CPU contention against the action timeout, not engine
+differences. One engine per process; in CI, one engine per job. (b) **Firefox and WebKit need
+`fileParallelism: false`.** They route keyboard and focus to the active tab, and Vitest runs files in
+parallel tabs; Firefox went from 30 failures to 18 and WebKit from 13 to 12 serially, and every
+failure that vanished was a focus or keyboard assertion that passed in isolation. Budget ~2.5× wall
+clock for it. (c) **Measure the Linux column.** Pile 2 would have been recorded as engine rules had
+we not repeated the run in the pinned Playwright container (`docker run … sleep infinity`, copy the
+tree without `node_modules`, `pnpm i --frozen-lockfile`, same commands).
+
+**Recording the verdicts without touching the tests.** The ports stay exactly as written for
+Chromium. A table — `(engine, platform?, file, test name, fails | passes | skip, finding)` — is
+applied from the cross-browser project's setup file: a `beforeEach` flips `task.fails` (the runner
+reads it *after* the body, so this inverts the verdict exactly like `it.fails`, or un-inverts a
+source-level `it.fails` for `passes`), `ctx.skip()` handles the measured-nondeterministic rows, every
+finding key is validated against the raw-imported findings file, and an `afterAll` fails the file
+if a row matched nothing — so a renamed test or a fixed bug shows up as a stale row rather than
+silence. Net: the default project stays green on Chromium in 16s; the cross-browser job stays green
+on Firefox and WebKit with the differences written down, and any *new* difference is a red test
+with no row, which is exactly what you want from a second engine.
 
 ## Adding to this guide
 

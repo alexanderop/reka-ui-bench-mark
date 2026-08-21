@@ -30,6 +30,7 @@ before it is the browser-mode effort.
 | **`PORTING.md`** | whoever is running the migration | how the work is sequenced, the oracles, the tiers, the per-file loop |
 | **`MIGRATING-TO-BROWSER-MODE.md`** | **the public** | the generalised field guide, written to be shared outside this repo |
 | **`PERFORMANCE.md`** | anyone deciding whether browser mode is affordable | what it costs and where — per suite, per file, per operation, with the method for each number |
+| **`A11Y-FINDINGS.md`** | anyone triaging accessibility bugs in reka-ui | the product and fixture issues the ARIA census found, with evidence, severity and the `it.fails` that pins each |
 
 **When you learn something non-obvious, it goes in two places**: the specific note here (or in
 `PORTING.md`), *and* the generalised version in `MIGRATING-TO-BROWSER-MODE.md`. That last file
@@ -195,10 +196,76 @@ Ported so far:
   scrollbar has no intrinsic thickness; jsdom's `offsetWidth = 10` stub was silently fabricating
   it, replaced by 10px of real CSS (`#scrollbar-thickness-was-stubbed`). Fourth bisected
   zombie-coverage instance. Coverage +1/−0 with 4 argued lines.
+- **Visual story sheets — 22 files, `*.visual.browser.test.ts`, 25 sheets, one helper.**
+  Every component with a static Chromatic story has one — Accordion, Calendar, DateField,
+  DatePicker, DateRangeField, DateRangePicker, Editable, Listbox, NavigationMenu, NumberField,
+  RangeCalendar, Rating, ScrollArea (four stories), Slider, Splitter, Stepper, TimeField,
+  TimeRangeField — plus the static Demo stories of AspectRatio, ColorArea, ColorSlider and
+  ColorSwatch. Each renders the existing `*.story.vue` through `defineHistoireStory`, which
+  registers stand-in `<Story>`/`<Variant>` components under one neutral Vue host and takes one
+  `toMatchScreenshot` reference per story. Exact attribute, text and `getBoundingClientRect()`
+  assertions in the test body remain the diagnostic oracle (a per-variant literal for every value
+  the story sets: `2/28/2024`, `EUR\u00A05.00`, `Esfand 1402 AP`, `33.3`); the image is the
+  integration oracle. Three things made the second batch deterministic, all in the helper or the
+  setup rather than in the stories: the `radix-icons` set is **preloaded** into `@iconify/vue` so
+  every story icon renders synchronously and offline; `pinClock(PINNED_TODAY)` fakes **only
+  `Date`** for the calendars and `now()` placeholders; and `columns: 1` widens a sheet whose
+  variants overflow a half-sheet cell. The Accordion sheet also found a real bug
+  (`#aria-controls-empty-at-rest`, quarantined `it.fails` in that file). **The story files
+  are the only sheet source, by project-owner decision** — the earlier hand-declared
+  `defineVisualStory` sheets (variants as data, `*-all-variants` references, eight files including
+  a Popper sheet) were removed after the Histoire route proved to cover the same components
+  through fixtures that already exist; Popper has no story file and so no visual test. The neutral
+  host is load-bearing: rendering `AspectRatio` directly through `vitest-browser-vue` lets its
+  forwarded `$el` make the library's `unwrapNode(wrapper.parentElement)` remove the real ratio
+  wrapper, leaving a 414×0 false-green mount. The stand-in `<Story>` host keeps that wrapper
+  present and mutation-visible.
+  Visual tests use `vite.config.visual.ts`, an explicit 900×3600 instance **and Playwright context**
+  viewport (tall enough for the 3399px Accordion sheet — a taller sheet is clipped, see the
+  gotcha), `env.visual.d.ts` + `tsconfig.visual.json` for a type-check that reaches the story
+  SFCs, and reviewed Darwin/Linux references; they are excluded from the 89-file
+  browser/coverage project. The Linux reference is owned by an exact
+  `mcr.microsoft.com/playwright:v1.62.1-noble` CI image and a branch-only manual update workflow.
+  How to write one is under [Visual story sheets](#visual-story-sheets).
+- **ARIA census + transition tests — `src/a11y-census.browser.test.ts` and six
+  `<Component>.aria.browser.test.ts` files (Select, DropdownMenu, Combobox, DateField, Calendar,
+  TagsInput).** The census takes one `toMatchAriaSnapshot` of every at-rest story fixture (65 of
+  97, `Date` pinned) into `src/__snapshots__/a11y-census.browser.test.ts.snap`; the `.aria` files
+  hold rest → open → Escape tree round trips with role-state filters, and an `it.fails` per finding.
+  First read of the census found five product findings, all ARIA-legal and axe-green: `SelectLabel`
+  / `DropdownMenuLabel` placed beside their group (as the docs demos do) leave the group unnamed
+  with a **dangling `aria-labelledby`** (`#label-outside-group-dangling-labelledby`, and the
+  DropdownMenu twin); the DateField `<Label for>` reaches only the hidden `<input tabindex=-1>`, so
+  the group is unnamed and segments are named `"month,"` with no field name
+  (`#label-reaches-only-hidden-input`); Calendar's `application` grid is unnamed because the label
+  sits on a role-less div (`#application-unnamed`); TagsInput's delete button is named by the tag
+  text (`#delete-button-named-by-tag-text`); PopperArrow's `<svg>` is an unnamed `img` inside the
+  open menu (`#popper-arrow-svg-exposed-as-img`). Plus four fixture bugs, in the `#census` row. How
+  to write one is under [ARIA census and transition tests](#aria-census-and-transition-tests).
 
 **The migration is complete.** All four pattern-frontier files (Select, NavigationMenu, Combobox,
 ScrollArea) and every remaining T3/T4 file are oracle-clean. Fake timers, `vi.mock`, stub-derived
 geometry, and DOM snapshots each have worked Chromium coverage; all sharp edges are recorded below.
+
+- **Cross-browser — the same 97 files on Firefox and WebKit, `vite.config.cross-browser.ts`.**
+  Same setup files, CSS shim, axe shims and custom commands as the `browser` project; one engine per
+  run (`CROSS_BROWSERS=firefox|webkit`, default both), `fileParallelism: false`, and
+  `contextOptions.timezoneId` set explicitly. Chromium is the engine the ports are written against
+  and stays the only one in the default `browser` project; this config is where the *differences*
+  are recorded. Every engine-specific verdict lives in `cross-browser.expectations.ts` — one row per
+  (engine, test) with `fails` / `passes` (an `it.fails` that does not reproduce there) / `skip`
+  (measured nondeterministic), each naming a `FINDINGS.tsv` key; `vitest.cross-browser.setup.ts`
+  flips `task.fails` from a `beforeEach`, validates every key against the raw-imported TSV, and
+  fails a file whose row matched nothing (a stale row is a renamed test or a fixed bug). Measured
+  on the serial whole corpus: Firefox 18 engine-specific failures (87s), WebKit 12 (81s) on macOS;
+  16 and 9 in the pinned Playwright `v1.62.1-noble` Linux container, which is what the
+  `Cross-Browser` workflow runs (one engine per job). What the run found is in the
+  `cross-browser#…` rows — WebKit ignores `process.env.TZ`, the date fixtures' `en-UK` is an invalid
+  tag that only JavaScriptCore refuses to alias, Firefox empties a script-built `DataTransfer`
+  inside a `ClipboardEvent` and numbers the mouse pointer 0 (so ColorArea's `pointerId: 1` is the
+  real mouse on two engines by coincidence), `innerHTML` attribute order is engine-specific, macOS
+  WebKit neither focuses a clicked button nor tabs to links/buttons, and one `it.fails` quarantine
+  (HoverCard) does not reproduce on WebKit. The gotchas are below under "Cross-browser".
 
 ### Commands
 
@@ -207,19 +274,29 @@ pnpm --filter reka-ui exec vitest run                    # all three projects
 pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 pnpm --filter reka-ui exec vitest run --project=unit     # retained jsdom comparison suite
 pnpm --filter reka-ui exec vitest run --project=node     # no DOM at all
+pnpm --filter reka-ui test:visual                        # isolated reviewed PNG references
+pnpm --filter reka-ui test:visual:update                 # intentionally refresh this OS baseline
+pnpm --filter reka-ui test:cross-browser                 # the 97 files on firefox + webkit, serial, expectations applied
+CROSS_BROWSERS=webkit pnpm --filter reka-ui test:cross-browser   # one engine (what each CI job runs)
 
 pnpm --filter reka-ui port:checklist Slider              # every describe/it, ✓ or ✗
 pnpm --filter reka-ui port:parity Slider --complete      # nothing renamed or weakened
 pnpm --filter reka-ui port:coverage Slider               # still reaches the same lines
+
+pnpm --filter reka-ui exec vitest run --project=browser src/a11y-census.browser.test.ts  # ARIA tree of every fixture
+pnpm --filter reka-ui exec vitest run --project=browser src/a11y-census.browser.test.ts -u  # after an intended a11y change — then READ the diff
 ```
 
 `port:checklist` is the one to run *while* porting — it prints the original's whole tree in
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Final retained-comparison baseline: **186 files / 3441 passing + 20 expected fails** across all
-three projects, 25.80s wall clock. Browser alone is 1426 passing + 20 expected fails in 12.62s;
-jsdom is 1444 passing in 11.16s. Keep both green; they run side by side on purpose.
+Final retained-comparison baseline: **194 files / 3513 passing + 28 expected fails** across all
+three projects, 32.1s wall clock (one run). Browser alone is 97 files / 1498 passing + 28 expected
+fails in 16.0s; jsdom is 1444 passing in 11.16s. The 8 browser files beyond the 89 ports are the
+unpaired accessibility files — the census, its six `*.aria` siblings and
+`Collapsible.aria-controls` — which add 72 tests and 8 of the expected fails. Keep both green;
+they run side by side on purpose.
 
 ---
 
@@ -238,6 +315,140 @@ jsdom is 1444 passing in 11.16s. Keep both green; they run side by side on purpo
   counts are the subject* — ports with the test, scoped and restored. Ask of every stub: is it
   faking what the browser would do (delete), or is it the test's input (keep, and record it as
   a kept stub in `FINDINGS.tsv`)? First applied in `Combobox/Combobox.test.ts#popper-ro-mock-kept`.
+
+### Visual story sheets
+
+A visual sheet renders an existing Histoire `*.story.vue` — nothing else. `src/test/visual`
+(`defineHistoireStory`, `toBeNear`, `centerOf`) owns everything a sheet used to repeat by hand:
+the neutral host, mounting, waiting, collecting cells, and the screenshot. A sheet file names the
+story and the assertions, nothing else:
+
+```ts
+import SliderChromatic from './story/SliderChromatic.story.vue'
+
+const histoire = defineHistoireStory(SliderChromatic)       // → screenshot `slider-chromatic-story`
+
+describe('slider histoire story', () => {
+  histoire.it('renders every chromatic variant with thumbs at their values', async ({ title, cells, cell }) => {
+    expect(title).toBe('Slider/Chromatic')                  // the <Story title>
+    expect(cells).toHaveLength(13)                           // one cell per <Variant>, in story order
+    const ltr = cell('Uncontrolled (LTR)')                   // by <Variant title>, verbatim
+    await expect.poll(() => centerOf(ltr.get('[role="slider"]')).x).toBeNear(…)
+  }) // ← mounts, runs this, then takes the screenshot
+})
+```
+
+`defineHistoireStory(StoryComponent, { screenshot?, mask?, columns? })` renders the story file with stand-in
+`Story`/`Variant` components registered through `global.components`: `Story` renders the 760px
+neutral host, `Variant` renders one `<section data-variant>` cell, and the story's own markup
+inside each variant is untouched. Histoire has no portable-stories API (its `<Variant>` renders
+`null`; see the gotcha), so this is the only way to reuse a story file in Vitest, and it is
+enough: 0 of the 176 stories use `initState` or the `{ state }` slot prop.
+
+- **Cells are named by the story, not typed by you.** `cell(name)` takes the `<Variant title>`
+  verbatim — trailing spaces included (`'Uncontrolled (RTL) '` in `SliderChromatic`). A
+  variant-less story renders one cell named `default`; a bare `<Variant />` is `untitled`, both
+  as Histoire names them. `cell.variant` is `{ name }` only: there is no expectation data, so
+  literal expected values live in the test body — and keep them literal, never derived from the
+  helper the component itself uses.
+- **`cell.get(sel)` throws naming the cell; `getAll`, `rect` scope to the cell.** Selectors are
+  CSS; the story's own `data-*` / `role` attributes are the stable markers to query.
+- **The screenshot name is `<kebab story title>-story`** (`Scroll Area/Chromatic/Both` →
+  `scroll-area-chromatic-both-story`), derived from the rendered title, so it is only known after
+  `mount()`. Override with `screenshot:`.
+- **`histoire.it` takes the screenshot after your callback.** Use `it` + `await histoire.mount()`
+  + `await screenshot()` only when something has to exist *before* the render — `ColorSwatch`'s
+  `console.warn` spy is the one case.
+- **`mask: ['img']`** masks matching elements inside the sheet (`screenshotOptions.mask`). Use it
+  for content a story author never meant to be deterministic — `AspectRatio.story.vue` loads a
+  remote Unsplash photo — and only when the layout is stable without it (that `<img>` is
+  absolutely positioned inside the ratio wrapper, so the wrapper's geometry is still asserted).
+- **`columns: 1`** when the variants are wider than a 356px half-sheet cell. Histoire's
+  `width: '50%'` grid is a much wider column; a date-time range field or a five-step horizontal
+  stepper clipped at the sheet edge (or wrapped under itself) is not a reviewable reference.
+  Measured before the option existed: `DateRangeField` cut off at `12 : 0` with the mask missing
+  the overflow, `Stepper`'s fifth step drawn over its first. Used by the four range sheets and
+  Stepper.
+- **Icons are preloaded, never fetched.** Every story icon is `radix-icons:*` through
+  `@iconify/vue`, which otherwise loads icon data from api.iconify.design *after mount* — a
+  network round trip deciding whether the PNG has icons in it. `vitest.visual.setup.ts` calls
+  `addCollection(@iconify-json/radix-icons)` and points the API at a dead host, so an icon
+  outside the set renders empty rather than quietly depending on the network. Sheets assert
+  `svg.iconify--radix-icons` counts so a missing preload is loud.
+- **`pinClock(PINNED_TODAY)`** (module level, next to `defineHistoireStory`) for any story whose
+  output depends on *today*: a calendar with no value opens on the current month, `data-today`
+  dots the current day, `now()` placeholders carry the current time. It fakes **only `Date`**
+  (`toFake: ['Date']`, advancing), so rAF, timers and ResizeObserver stay real; see the
+  fake-timers gotcha for why the default set would break the sheet. `PINNED_TODAY` is noon UTC
+  on 2024-02-14, inside the date stories' own February 2024 fixture and distinct from the
+  selected 20th. Hour and zone name still follow the host timezone, so a zoned placeholder
+  (`DateRangeField`'s "Locale timezone") is pinned *and* masked.
+- **Story fixtures settle on ResizeObserver.** The Chromatic slider's thumb lands 6px later than
+  first paint (`useSize` measuring the thumb), and `type="auto"` scrollbars appear a frame after
+  mount; read those through `expect.poll`, including the *empty* case, or a late bar slips past.
+  Splitter panel sizes (`data-panel-size`) are the same shape — poll them.
+- **A second `it` in a sheet file is allowed for a relation the image cannot show**, mounting
+  through `histoire.mount()` without a screenshot. `Accordion`'s `it.fails` for
+  `#aria-controls-empty-at-rest` is the precedent; it follows the same `@finding` rule as a
+  functional port.
+- **`toBeNear(expected, tolerance = 1.5)`** works synchronously and under `expect.poll`; its
+  failure names the delta (`expected 141 to be within ±1.5 of 151.22 (off by 10.222)`). Pass a
+  looser tolerance explicitly when the subject is.
+- **Test-name convention**: `describe('<camelTitle> histoire story')`, one `it` per story file.
+- Prefer Chromatic stories; a Demo story is acceptable when it is the only one and static (the
+  four color/swatch demos are). Interactive `*Demo` stories with open overlays or animations are
+  not sheet material — stable variants only. A component with no story file gets no visual test;
+  write the story first if it needs one.
+- Only `*-chromium-*.png` under a `*.visual.browser.test.ts/` folder is tracked. A failing visual
+  test writes `<test name>-1.png` into the same folder — a capture, not a baseline; `.gitignore`
+  keeps it out.
+- **The sheet must fit the tester viewport.** The helper throws before capturing if the sheet's
+  bottom edge is below `window.innerHeight`, naming the two fixes (raise `VIEWPORT_HEIGHT` in
+  `vite.config.visual.ts`, or shrink the story). Without that guard the reference is silently
+  blank below the fold — see the gotcha. The guard fired for real on the 3399px Accordion sheet
+  at 3200; the viewport is 3600 now, and the 24 other references stayed byte-identical.
+- **`type-check:visual` reaches the story SFCs.** `tsconfig.visual.json` includes
+  `env.visual.d.ts` instead of `env.d.ts`, which types `Story`/`Variant` as the stand-ins
+  (`StoryStandIn`/`VariantStandIn`) rather than through Histoire's `components.d.ts` — because
+  three upstream grid stories (Editable, Listbox, Splitter) pass `iframe` where Histoire's
+  `StoryLayout` forbids it, Histoire ignores it, and upstream's `tsconfig.check.json` excludes
+  stories entirely. The stand-in's `layout` type is widened to accept it; the stories are
+  otherwise type-checked in full.
+
+### ARIA census and transition tests
+
+Two file shapes, both unpaired (no jsdom original; `port:parity` prints "not a port" and skips
+them, `port:coverage` is per-file so they do not skew gains), both in the normal `browser` project
+— an ARIA tree carries no geometry or font metrics, so unlike the PNG sheets the `.snap` is the
+same on every OS.
+
+- **`src/a11y-census.browser.test.ts`** — one `it` per `story/_*.vue` (glob), `await render(...)`
+  then `await expect.element(document.body).toMatchAriaSnapshot()`. `pinClock(PINNED_TODAY)` at
+  module level (the calendar fixtures open on *today*); Avatar skipped (remote image flips its tree
+  on load); partials and sub-variants skipped by the `SKIP` regex with the reason in the comment.
+  It is a **census, not a contract**: run it after an accessibility change, `-u`, and *read the
+  diff* — the smells are mechanical (unnamed role, loose `text:` beside a control, placeholder or
+  value as name, duplicate sibling names, unnamed `img` in an overlay). A tree it cannot show:
+  relations, states that are false (`[expanded]` appears only when true, so a closed overlay is
+  just `- button "X"`), anything `aria-hidden`. Do not add open states here.
+- **`<Component>.aria.browser.test.ts`** — the open states. One `it` that round-trips **rest →
+  open → Escape** with an inline snapshot per state *and* the role-state filter for each state the
+  snapshot lists (`getByRole('combobox', { expanded: true }).elements()` → 1 then 0; `option
+  selected`, `menuitemradio checked`, …), because a snapshot proves the state is on the right node
+  and only the filter proves it is on no other. Then one `it.fails` per finding, **single
+  assertion each** (so the quarantine cannot hide a sibling failure), tagged `@finding` with a
+  `FINDINGS.tsv` key, asserting the *intended* relation with a name-based query
+  (`getByRole('group', { name: 'People', exact: true })` → 1). The green round trip pins today's
+  tree — when the `it.fails` goes red, the snapshot changes with it; update both. Synchronize the
+  open state on a visible locator (`await expect.element(page.getByRole('listbox')).toBeVisible()`)
+  before snapshotting, not on a sleep; the matcher's own stability polling does the rest. Pass
+  `exact: true` to every name that is data.
+- Three ways to aim the feature, in order of payoff measured here: (1) the census, for "what does
+  an AT get" across the whole library at once; (2) transition pairs on overlays, where the
+  structure only exists when open; (3) **family conformance** — one regex template shared by
+  siblings that should expose the same shape (the six calendars), which would have flagged the
+  unnamed Calendar `application` against the named MonthPicker one without anyone reading a tree.
+  (3) is not written yet.
 
 ### Translation table
 
@@ -289,6 +500,91 @@ to `container: document.body`.
 ---
 
 ## Known gotchas (found the hard way — add to this list)
+
+### Cross-browser
+
+**Firefox and WebKit route focus and keyboard to the active tab, and Vitest runs files in parallel
+tabs.** Whole corpus, one engine, default parallelism: Firefox 30 failures, WebKit 13; with
+`--no-file-parallelism`: 18 and 12 — and every failure that vanished was a focus or keyboard-routing
+assertion (DateField/TimeField `stepSnapping`, whose typed value is snapped on `focusout`; Calendar's
+next-button clicks; NavigationMenu Tab; Menu sub-trigger hover; Combobox addOnBlur; ColorArea thumb
+focus), each green in an isolated rerun (DateField 62/62, Calendar 54/54). Chromium is immune
+(97/97 parallel). `vite.config.cross-browser.ts` therefore sets `fileParallelism: false` and pays
+~2.5× wall clock (Firefox 35s → 87s, WebKit 21s → 81s). Read a non-Chromium failure list only after
+a serial or isolated rerun. *[mechanism inferred from which tests flip, not from engine source]*
+
+**Three `browser.instances` in one process fail Chromium tests that are green alone.** chromium +
+firefox + webkit over the 97 files: 97s and 86 failures, **11 of them Chromium** (Select, DateField,
+Toast, MonthRangePicker, DropdownMenu, DismissableLayer…) in files that are 97/97 when Chromium runs
+by itself. CPU contention against the 2000ms `actionTimeout` and the timing-shaped tests, not an
+engine difference. One engine per process; the CI matrix is one engine per job.
+
+**A test can depend on an engine's locale-alias table.** `DateField`/`TimeField` pass
+`locale: 'en-UK'` — not a valid BCP 47 tag (the region is GB). V8 and SpiderMonkey alias UK→GB and
+render `dd/mm/yyyy` with no day period; JavaScriptCore resolves it to `en` (measured:
+`Intl.DateTimeFormat('en-UK').resolvedOptions().locale` → `en`, `hour12: true`, month-first), so
+three locale tests fail on WebKit on both OSes. The tests have asserted V8's alias since jsdom.
+Fix is `en-GB`; recorded, not patched (`cross-browser#webkit-en-uk-not-aliased`).
+
+**A script-built `DataTransfer` is empty inside a `ClipboardEvent` in Firefox.** Chromium and WebKit
+deliver it (`getData('text/plain') === 'test'`); Firefox gives a non-null `clipboardData` whose
+`getData` returns `''` (measured, macOS and Linux). The six PinInput paste tests and two TagsInput
+delimiter-paste tests therefore exercise an *empty* paste on Firefox and fail — nothing in the
+component is wrong, the synthetic paste is Chromium/WebKit-only
+(`cross-browser#firefox-clipboardevent-empty-datatransfer`).
+
+**`innerHTML` attribute order is engine-specific when `style` is written through the CSSOM.**
+ScrollArea's five DOM snapshots fail on Firefox and Tree's on Firefox *and* WebKit with **zero
+differing attributes** — only order: Chromium serializes `tabindex="0" style="…"`, Firefox
+`style="…" tabindex="0"`; Tree's `<ul>` is `role="tree" style="outline: none;"` in Chromium and
+`style role` elsewhere. The `.snap` files are Chromium baselines, as non-portable across engines as
+across fonts (`#snapshots-real-geometry`). Expected-fail on the other engines rather than sorting
+attributes in a serializer (`cross-browser#dom-snapshot-attribute-order`).
+
+**macOS WebKit neither focuses a clicked button nor tabs to links and buttons.** Measured:
+`activeElement` stays `BODY` after `locator.click()` on a `<button>` or `<a href>`; the Tab path from
+a button is `BUTTON → INPUT → BODY` on darwin and `BUTTON → A → BUTTON → INPUT` on Linux (Firefox
+tabs to both on both OSes). So NavigationMenu's "after pressing down key" pair (ArrowDown goes to
+BODY because the opening click never focused the trigger), its "after pressing tab", and DatePicker's
+"navigates the segments using tab" fail on darwin WebKit and pass in the Linux container. These are
+`platform: 'darwin'` rows — the browser implementing the OS convention, not a bug anywhere
+(`cross-browser#webkit-darwin-click-does-not-focus`, `#webkit-darwin-tab-skips-links-and-buttons`).
+
+**WebKit moves focus off the DatePicker trigger on ArrowRight.** Path on every engine:
+`… dayPeriod → timeZoneName → trigger`; one more ArrowRight keeps the trigger on Chromium and
+Firefox and returns to `timeZoneName` on WebKit, both OSes. "navigates segments using the arrow
+keys" fails there. Mechanism not traced (`cross-browser#webkit-arrowright-leaves-trigger`)
+`[unverified]`.
+
+**A quarantined bug can be engine-specific.** `HoverCard#pending-focus-reopens` (`it.fails`) passes
+on WebKit, which `it.fails` reports as "Expect test to fail". The expectations table has a `passes`
+kind for exactly this: the WebKit run now *requires* it green, and the row goes stale the day it
+fails there too (`cross-browser#hovercard-pending-focus-not-in-webkit`).
+
+**`Drawer.snap` is nondeterministic on Firefox and WebKit.** Synchronous reads of
+`--drawer-snap-point-offset` after `click` + three `nextTick`s come back `0px` instead of `448px`:
+on WebKit the same three tests in every isolated run and a fourth once under load, on Firefox two
+of them per run but *which* two varies (5 runs, 4 distinct pairs; the Linux container failed the
+fourth instead). The identical open/close/reopen sequence probed in a fresh page writes `448px`
+synchronously on all three engines, so it is order/state-dependent; root cause `[unverified]`. Both
+engines' rows are `skip` — a flaky test cannot be pinned to `fails` without turning the table itself
+flaky (`cross-browser#drawer-snap-offset-nondeterministic`).
+
+**`task.fails` can be flipped from a `beforeEach`.** The runner reads it after the test body
+(`runner/src/run.ts:765`), so a setup-file hook that sets `ctx.task.fails = true` inverts the
+verdict exactly like `it.fails`, and `= false` un-inverts a source-level `it.fails`. That is how the
+expectations table works without touching a single ported file. `ctx.skip(reason)` from the same
+hook is the `skip` kind. `afterAll` in a setup file cannot take the suite as its first argument
+in 4.1 (`FixtureParseError`: the first parameter must destructure); track the current file from
+`beforeEach` instead.
+
+**Measure the Linux column.** The macOS focus rules above would have been recorded as engine rules
+had the run not been repeated in the pinned `mcr.microsoft.com/playwright:v1.62.1-noble` image
+(`docker run … sleep infinity`, copy the tree without `node_modules`, `pnpm i --frozen-lockfile`,
+same serial commands). Engine-level rows held on both platforms; the two macOS rows did not
+(`cross-browser#linux-verdicts`).
+
+### Everything else
 
 **A braced key that is not a real key name is not a keystroke.** `userEvent.keyboard('{19}')` looks
 like "type 19" and is not: vitest's Playwright provider checks the parsed key against a `VALID_KEYS`
@@ -442,12 +738,17 @@ the same test to browser mode.** Dialog's hide-others hook returns before applyi
 both projects, and the old test also inspected `body` instead of a concrete outside sibling. Record
 the gap; meaningful coverage needs a production-mode seam/build and an observable outside element.
 
-**`process.env.TZ` from `globalSetup` reaches Chromium by env inheritance.** `vitest.global.ts` sets
-`US/Eastern`, and the tester iframe reports `America/New_York` on a host whose `/etc/localtime` is
-`Europe/Berlin` — measured. So `@internationalized/date` fixtures, including `ZonedDateTime`, port
-unchanged, and `navigator.language` is `en-US` in both. But nothing sets `browser.timezoneId`, so this
-is inheritance rather than configuration: a single silent point of failure for 12 date files.
-*[mechanism inferred from the host/runner divergence, not read out of Playwright's launch code]*
+**`process.env.TZ` from `globalSetup` reaches Chromium by env inheritance — and WebKit ignores it.**
+`vitest.global.ts` sets `US/Eastern`, and the Chromium tester iframe reports `America/New_York` on a
+host whose `/etc/localtime` is `Europe/Berlin` — measured. So `@internationalized/date` fixtures,
+including `ZonedDateTime`, port unchanged, and `navigator.language` is `en-US` in both. *(This entry
+previously ended "nothing sets `browser.timezoneId`, a single silent point of failure for 12 date
+files".)* The cross-browser run cashed that warning: Firefox inherits the env var too, **WebKit does
+not** — every `ZonedDateTime` assertion in DatePicker, RangeCalendar and TimeRangeField reported
+`Europe/Berlin` there. Both the `browser` and `cross-browser` projects now pass
+`playwright({ contextOptions: { timezoneId: 'America/New_York' } })`, which fixed all three files on
+WebKit with no other change (`cross-browser#webkit-timezone-not-inherited`); the env var stays for
+the node/jsdom projects.
 
 **A retrying matcher settles its own assertion, not "Vue's flush".** Never put
 `await expect.element(X).toHaveAttribute(expected)` immediately before a synchronous read of the
@@ -602,6 +903,118 @@ OS/font image, the same way screenshots don't. A `.browser.test.ts` file writes 
 so the jsdom baselines stay untouched for diffing — and the diff is the payoff: jsdom's
 prototype-stubbed geometry made every thumb ratio the same fiction. If cross-machine CI ever
 matters, normalize computed values with a snapshot serializer rather than re-stubbing geometry.
+
+**A visual story sheet should be one Vue tree, not a pile of reparented `render()` containers.**
+The `AspectRatio` pilot rendered its variants below one neutral host, proved each exact ratio
+numerically, then captured the complete sheet once; `defineHistoireStory`'s stand-in `<Story>`
+is that same host, now with the story file supplying the variants. This matters beyond tidiness: `vitest-browser-vue` unwraps `wrapper.parentElement`, while reka's
+`useForwardExpose` can make the wrapper's public `$el` point at an inner primitive. A directly
+rendered component with a load-bearing outer wrapper can therefore lose that wrapper in the test
+harness; `AspectRatio` measured 414×0 while its browser DOM snapshot passed. A neutral story host
+keeps the production wrapper intact. Keep raw failure screenshots ignored, explicitly unignore
+only `*.visual.browser.test.ts` references, and run them under the fixed visual config rather than
+the functional/coverage project.
+
+**Histoire has no portable stories — but its `<Story>`/`<Variant>` are global components, and that
+is enough.** Storybook's Vitest addon works through `composeStory` (a CSF export becomes a plain
+renderable) plus a Vite plugin that rewrites `*.stories.*` into tests. Histoire 0.17.17 has
+neither: `@histoire/plugin-vue`'s runtime `<Story>` reads the story object only its own
+`MountStory` sub-app supplies, and `<Variant>` **renders `null`** — the slot is pulled out later
+via `variant.slots()` and mounted by `RenderStory` in a separate `createApp` (read from
+`src/client/app/{Story,Variant,RenderStory}.ts`). Its official visual path is build-time
+(`@histoire/plugin-screenshot` over `histoire build`, or Lost Pixel/Percy on the built site) — a
+second browser pipeline with no numeric assertions beside the image. What *does* work, measured:
+the SFCs resolve `Story`/`Variant` as **global components**, so
+`render(StoryFile, { global: { components: { Story: StandIn, Variant: StandIn } } })` renders the
+story's own markup under the visual host — 13 variants, 20 real sliders, 228ms, for
+`SliderChromatic`. It holds for the whole tree because **0 of the 176 stories use `initState` or
+the `{ state }` slot prop** (grepped); `defineHistoireStory` still supports the sync form, and
+declares every prop Histoire's `components.d.ts` lists so none of them leaks onto the DOM.
+
+**`@iconify/vue` renders nothing until its data arrives — and by default that data comes from the
+network.** `Icon.render()` returns an empty placeholder until `iconMounted` flips in `mounted()`,
+then calls `getIconData(name)`: if the icon is in storage it renders synchronously on that
+re-render; if not, `loadIcons()` fetches from api.iconify.design and re-renders whenever the
+response lands. Calendar/DatePicker nav chevrons, Rating's stars, Stepper's indicators and
+NumberField's ±buttons are all `radix-icons:*` — 30 distinct names across the story tree
+(grepped). A reference PNG taken before the fetch resolves has no icons; one taken after does;
+nothing tells you which you got. `vitest.visual.setup.ts` preloads `@iconify-json/radix-icons`
+(devDependency, 1.2.6) with `addCollection` and points the API provider at `127.0.0.1:9`, and the
+sheets assert `svg.iconify--radix-icons` counts. Measured: all icon sheets render identically on
+consecutive runs with no network request made.
+
+**A calendar with no value opens on today — pin `Date`, and only `Date`.** `CalendarChromatic`'s
+"Empty default"/"Disabled" and `RangeCalendarChromatic`'s likewise have no value or placeholder,
+so their month is `today()`; `DateRangeFieldChromatic` builds a placeholder from
+`now(getLocalTimeZone())`. `vi.useFakeTimers({ toFake: ['Date'], now, shouldAdvanceTime: true })`
+fixes the date without freezing rAF/`performance` (the full default set starves floating-ui and
+the RO→CSS-var pipeline, see the fake-timers entries), and `expect.poll`/Playwright keep real
+time. Measured: with `PINNED_TODAY` = 2024-02-14T12:00Z the empty calendars heading reads
+`February 2024` and every February grid dots the 14th, on consecutive runs. Pick noon UTC so every
+zone from UTC−11 to UTC+11 agrees on the date; the *hour* still follows the host zone, which is
+why the one zoned placeholder is masked as well.
+
+**The two-column sheet is narrower than Histoire's `width: '50%'` grid.** A 760px sheet gives a
+cell ~356px; Histoire's 50% is whatever half the playground is, usually far more. Measured
+before `columns: 1` existed: the `DateRangeField` fields ran past the sheet edge (`12 : 0`
+visible, the rest gone) and the "Locale timezone" mask covered the frame but not the overflow;
+`StepperChromatic`'s five `basis-1/5` steps wrapped so "Checkout" was drawn over "Address". Both
+are layout facts about a too-narrow container, not component bugs, and both vanished at one
+column. When a story's variant is a wide control, pass `columns: 1` and look at the PNG.
+
+**An open Accordion/Collapsible region has no `data-state` at initial mount, and the closed
+"State attributes" boxes are 24px tall on purpose.** `CollapsibleContent.vue:110` binds
+`data-state` to `undefined` while `skipAnimation` holds, so at first render the open region has
+no `data-state` at all while closed ones carry `data-state="closed"` + `hidden`. Discriminate on
+`hidden`, not on `data-state="open"`. And `AccordionChromatic`'s scoped `.content-attr { display:
+block }` overrides the UA `hidden` rule, so its closed regions paint as 2px-bordered, 10px-padded
+empty boxes — the story's way of showing the closed-state border colour, not a leak.
+
+**…and every Accordion trigger has `aria-controls=""` until something re-renders it.** The
+Histoire sheet's one real bug (`#aria-controls-empty-at-rest`): `CollapsibleRoot` hands the
+trigger a plain non-reactive `contentId: ''`, `CollapsibleContent` fills it with `||= useId()` on
+*its* mount, and the trigger never re-reads it. Probe: four triggers `["", "", "", ""]` at rest
+while the four regions already have ids; one click on any trigger repopulates all four. Valid
+ARIA (an empty idref list), so axe is green; no functional test in either runner asserts
+`aria-controls` on Accordion or Collapsible. Quarantined with `it.fails` in
+`Accordion.visual.browser.test.ts`. **Not a browser-mode win** — jsdom renders the same empty
+attribute (measured, same fixture, VTU `mount`); it was found because the sheet workflow inspects
+the at-rest state *before* the click that repairs it, and asserts the relations a PNG cannot show.
+Upstream knew: maintainer PR #2522 (the `ref` fix) was closed unmerged when issue #2521's VoiceOver
+symptom turned out to be user settings.
+
+**An element screenshot of a sheet taller than the tester iframe is silently clipped — and the
+PNG does not look clipped.** Playwright can expand the outer page for an element capture, but it
+cannot paint iframe content below the iframe's own box. The result is a reference with the
+element's full height and **pure white below the fold** — no error, no warning, and the first
+run "creates" it as the baseline. Measured on the Histoire demo sheets at the original 900×1000
+viewport: ColorArea (1368px), ColorSlider (1624px), NavigationMenu (1451px) and three ScrollArea
+sheets (1224px) all came back blank from y≈1000 down; the 985px Slider sheet was the tallest to
+survive. Two fixes, both applied: `VIEWPORT_HEIGHT = 2000` for the instance **and** the
+Playwright `contextOptions` (height does not change the 760px sheet's layout — all 8 existing
+references stayed pixel-identical with no `--update`), and `assertSheetFitsViewport()` in the
+helper, which throws with the sheet's bottom edge and the viewport height before any capture.
+**Review the first PNG of every new sheet by eye, bottom half included.**
+
+**In Vitest 4.1.10, an instance viewport alone can still produce a scaled element screenshot.**
+With browser UI disabled, the Playwright provider does not copy `browser.instances[].viewport` to
+the outer browser context (`browser-playwright/src/playwright.ts`, the commented-out assignment in
+`createContext`). The orchestrator then scales the 900×1000 tester iframe to fit Playwright's
+smaller default page. Measured on the `AspectRatio` pilot: a declared 760px story became a 548px
+PNG. Give `playwright()` the same `contextOptions.viewport`; the reference becomes the expected
+760×974 with no CSS transform/downsampling. Pin the complete Playwright container tag in CI, keep
+its Linux baseline beside the local platform baseline, and allow automated updates only from an
+explicit non-default branch dispatch.
+
+**Generic component props need both an exact-key check and a test-specific type-check.** Vue's
+component props are mostly optional, and a variant produced by `Array.map` is no longer a fresh
+object literal. A plain `ComponentProps<C>` constraint therefore accepted `{ ratioo: 1 }` through
+structural assignment. The since-removed hand-built `defineVisualStory` helper intersected each
+inferred props object with the real component props and made every extra key `never`
+(mutation-verified: `ratio` → `ratioo` failed `type-check:visual`). Recorded because the lesson
+outlives the helper: a Histoire sheet sidesteps it only because the `*.story.vue` is itself a
+type-checked SFC — a typo there is `vue-tsc`'s problem, and `tsconfig.visual.json` still includes
+the visual test call sites so the test bodies are checked too.
 
 **A headless scrollbar has no intrinsic thickness — geometry stubs can be silent fixture
 authors.** Unstyled, ScrollArea's bars measure 0×200/200×0 (probed), so the corner that sizes
@@ -812,6 +1225,13 @@ looks like a faithful port and is not: Chrome throws `NotFoundError` from
 so the handler short-circuits. This is precisely what the jsdom mocks were hiding. Use real
 input — `locator.click({ position })`, `locator.dropTo(target)`. Both go through Playwright's
 `FrameLocator`, which handles iframe coordinate translation for you.
+*Refinement from the cross-browser run:* "never real" is the operative phrase. **The real mouse is
+pointer 1 in Chromium and WebKit and pointer 0 in Firefox** (measured on a real hover), so once
+anything has moved the mouse in the page, a synthetic `pointerId: 1` *is* a real pointer on two
+engines and the capture call silently succeeds. `ColorArea`'s "thumb gains focus when dragging
+starts" passes on Chromium and WebKit by that coincidence and fails on Firefox with an unhandled
+`NotFoundError` (`cross-browser#firefox-mouse-pointerid-0`). A test that passes because of which
+number an engine gives its mouse is still a test of a synthetic event.
 
 **Tests run inside an iframe.** So raw `page.mouse` and `cdp()` take *page*-level coordinates
 and you would have to offset by the iframe rect yourself. Prefer locator methods. Custom
@@ -1025,7 +1445,8 @@ Measured in Chromium with the Tabs shape: Password content was visible while Acc
 selected tab and Account as the panel's accessible name. Every attribute was legal, but their
 combined meaning was wrong. `toMatchAriaInlineSnapshot` can assert the intended selected tab and
 named panel together. Keep axe too: snapshots do not replace its rules, contrast, or hidden-focus
-checks. The full measured example is in `VITEST-AXE-VS-ARIA-SNAPSHOTS.md`.
+checks. *(The full measured example was written up in `VITEST-AXE-VS-ARIA-SNAPSHOTS.md`, which is
+no longer in the tree — see the note two entries down. The summary here is the record.)*
 
 **…but an ARIA snapshot only asserts the states it *lists*, so it cannot catch a state appearing
 on the wrong node.** There is no `[selected=false]`, and `/children: equal` constrains child
@@ -1036,9 +1457,13 @@ half is the role **state filter**, which no ported file uses:
 `expect(screen.getByRole('tab', { selected: true }).elements()).toHaveLength(1)` turns the same
 mutation red. `getByRole` takes `selected`, `checked`, `expanded`, `pressed`, `level`, `disabled`
 and `includeHidden` (`docs/api/browser/locators.md:105-212`). Rule: the snapshot proves the state
-is on the right node, the filter proves it is on no other. Write both. Full survey of the
-accessibility API surface, plus the five `*.improved.browser.test.ts` files written against it,
-in `IMPROVING-A11Y-TESTS.md`.
+is on the right node, the filter proves it is on no other. Write both. *(A survey of the
+accessibility API surface and five `*.improved.browser.test.ts` pilot files were cited here as
+`IMPROVING-A11Y-TESTS.md`; neither exists on disk or in any branch — only
+`Collapsible/Collapsible.aria-controls.browser.test.ts` survived whatever session wrote them. The
+living examples of the pattern are now `src/a11y-census.browser.test.ts` and the six
+`<Component>.aria.browser.test.ts` files; see [ARIA census and transition
+tests](#aria-census-and-transition-tests).)*
 
 **The whole browser-mode a11y family is backed by `ivya`, not by Chromium's AX tree.**
 `toMatchAriaSnapshot` builds its tree with `generateAriaTree` from `ivya/aria`
@@ -1049,6 +1474,39 @@ implementation across queries, matchers and snapshots, where the jsdom stack com
 font metrics (unlike the DOM snapshots in `ScrollArea`), and it is a *model* of what an AT would
 be told, so it will not show Chromium's own repairs of broken relations — the divergence already
 recorded for `combobox-stale-activedescendant`.
+
+**…and the tree carries no relations at all, so an ARIA snapshot cannot see a broken
+`aria-controls`.** Read out of `@vitest/browser` `dist/expect-element.js` (bundled ivya): a tree
+node has role, name, and the props `checked / disabled / expanded / level / pressed / selected /
+active`, plus `/url` for links and `/placeholder` for textboxes. `aria-controls`, `-describedby`,
+`-owns`, `-activedescendant` are not rendered. Measured in `Collapsible/Collapsible.aria-controls.browser.test.ts`: `toMatchAriaInlineSnapshot`
+of the open fixture is byte-identical (`- button "Trigger" [expanded]` / `- text: Content`) with
+`aria-controls=""` and with it filled after a click — so `#aria-controls-empty-at-rest` is
+quarantined as an attribute assertion, and a green sibling test pins the snapshot's blindness
+(if it goes red, the tree has started carrying relations). An ARIA snapshot does see the *effect*
+of a relation that feeds the accessible name — `aria-labelledby` — because the name is computed;
+it never sees the wiring itself. Pair the snapshot with a `toHaveAttribute` for each relation that
+is the contract.
+
+**…but it does see a relation that *fails to feed* a name, and that is the census's best catch.**
+`SelectGroup`/`MenuGroup` render `aria-labelledby=<own id>` and their `Label` takes that id only
+from a group context it is nested in; placed as a sibling — which `_Select.vue`, `_DropdownMenu.vue`
+**and both docs demos** do — the label renders with no id, the reference dangles, and the tree
+shows it on the first line: `- listbox: - text: Fruits - group: - option "Apple"`. Measured:
+`aria-labelledby="reka-select-group-v-26"` resolves to no element; `getByRole('group', { name:
+'Fruits' })` → 0; axe files the dangling idref under `incomplete`, so every axe test stays green.
+The Combobox fixture nests its label and its tree reads `- group "Fruits": - text: Fruits …` — the
+shape the other two should have. Same class, different wiring: `DateFieldRoot` gives its `id` to
+the hidden `<input tabindex=-1>`, so `<Label for>` labels a node no user reaches and the tree is
+`- text: Label` / `- group:` / `- spinbutton "month,": mm` — the segment's hardcoded `'month, '`
+(`useDateField.ts:92`, trailing comma from the React-Aria convention of concatenating the field
+label, which reka does not do) is the whole name; and `CalendarRoot` binds `fullCalendarLabel` as
+`aria-label` on its role-less root div while `role="application"` is on the `<table>`
+(`CalendarGrid.vue:23`, deliberate, #2502), so the tree is `- application: - rowgroup: …` — an
+unnamed landmark, where `MonthPickerGrid` labels its application by the heading. **Reading rule for
+a census tree:** a loose `- text:` immediately beside an unnamed `group:`/`application:`/control is
+a label that reaches nothing. The five findings and four fixture bugs are in `FINDINGS.tsv` under
+`a11y-census.browser.test.ts#census` and the `*.aria.browser.test.ts#…` keys.
 
 **axe in a real browser is much less forgiving, and that is the point.** `Slider.test.ts:27-33`
 calls `axe(wrapper.element)` *synchronously* after `mount()`. Vue has not flushed yet, so the thumb
@@ -1152,14 +1610,23 @@ labelled by its trigger, and Chromium passes that rule once the positioned state
   jsdom's is JavaScript. Two numbers still to respect: the inner loop is **~1.9×** (single-file cold
   start, ~0.6s of unamortized Chromium launch), and a **failing** retrying matcher costs **~15s**
   against jsdom's 8ms.
-  What remains open is CI-hardware behaviour, headed/multi-browser runs, and whether the 1000ms
-  locator timeout can be safely lowered — all marked `[unverified]` there.
-- Worth adding `toMatchScreenshot` visual regression once a CSS shim exists? Probably **not yet**,
-  and possibly never in this fork. `docs/guide/browser/visual-regression-testing.md:31-49` is blunt
-  that screenshots are unstable across environments — font rendering, GPU drivers, headless vs
-  headed — and recommends Docker or a cloud service for stable baselines. reka-ui is a *headless*
-  library whose components ship with no styling of their own, so the thing under test would be the
-  CSS shim written for the tests, not the library. Revisit only if a styled story tree appears.
+  What remains open is CI-hardware behaviour, headed runs, and whether the 1000ms locator timeout
+  can be safely lowered — all marked `[unverified]` there. Multi-browser is answered: one engine per
+  process, serial files, Firefox 87s / WebKit 81s for the corpus (see the cross-browser bullet above
+  and `PERFORMANCE.md`).
+- **Visual regression has 22 files, 25 sheets, one helper.** Every sheet is a
+  `defineHistoireStory` render of an existing `*.story.vue`, through native `toMatchScreenshot`;
+  the hand-built `defineVisualStory` sheets were removed by project-owner decision, and the
+  references are intentionally outside the functional browser/coverage project. Every static
+  Chromatic story in the tree now has a sheet; what remains uncovered is the interactive/overlay
+  stories (Dialog, Popover, Combobox, Menu, Toast, Tooltip…) — open overlays and animations are
+  not sheet material — and components with no story file (Popper). Only Darwin references exist
+  until the branch-only Linux update workflow is dispatched. This does **not** reverse the
+  general caution: references remain browser/platform-specific, and a headless library should
+  screenshot geometry/state with minimal fixture CSS rather than consumer decoration. Darwin and
+  Linux references are reviewed at 760×974; Linux comparison and branch-only updates run in the
+  pinned Playwright 1.62.1 Noble container. Stability outside those owned environments remains
+  `[unverified]`; expand only with the same fixed-image discipline.
 
 ---
 

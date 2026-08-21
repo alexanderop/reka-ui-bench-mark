@@ -268,7 +268,10 @@ Sweep note: BSD grep misses byte-pattern form — use `grep -rlP '\x{00A0}'`.
    `*.improved.browser.test.ts` files covering the accessibility layer, and the pilot produced a
    product finding plus a design correction (a snapshot alone cannot catch a state on the *wrong*
    node; pair it with a `getByRole` state filter). Survey, measurements and the remaining
-   candidates are in **`IMPROVING-A11Y-TESTS.md`**.
+   candidates are in **`IMPROVING-A11Y-TESTS.md`**. *(Neither that file nor the five
+   `*.improved.browser.test.ts` files exist in the tree or any branch any more; the pattern lives
+   on in `src/a11y-census.browser.test.ts` and the six `<Component>.aria.browser.test.ts` files —
+   see AGENTS.md "ARIA census and transition tests".)*
 6. **Editable selection, DropdownMenu real Tab, useGraceArea real geometry** —
    smaller, independent.
 

@@ -334,11 +334,22 @@ Ordered by leverage:
   slower or more contended CI runner. `[unverified]`
 - **Headed vs headless, and other browsers.** Only headless Chromium was measured. The 16.65ms frame
   pair is a headless figure. `[unverified]`
-- **Multi-browser `browser.instances`.** Not exercised; naively it multiplies the test phase, which
-  is the expensive one. `[unverified]`
+- ~~**Multi-browser `browser.instances`.** Not exercised.~~ **Measured** via `vite.config.cross-browser.ts`,
+  one engine per process, whole 97-file corpus, same machine: Chromium 16.3s; Firefox 35.2s with
+  parallel files and **87.2s** serial; WebKit 21.1s parallel and **80.8s** serial. Serial is
+  mandatory for those two engines — parallel tabs steal focus and fail 12 (Firefox) / 1 (WebKit)
+  focus-dependent tests that pass alone — so the honest multipliers are **5.3× (Firefox)** and
+  **5.0× (WebKit)** over Chromium, dominated by the `tests` phase (59.4s / 58.8s vs 10.3s). All three
+  engines in *one* process: 97s and 11 spurious Chromium failures from contention. Details and the
+  per-test verdicts in `FINDINGS.tsv` under `cross-browser#…`; CI runs one engine per job.
 - **Whether the 1000ms locator timeout can safely be lowered** for this suite, which would cut the
   15s failure cliff proportionally. Worth trying; not tried. `[unverified]`
-- **`toMatchScreenshot`.** Not enabled here, deliberately — see the open questions in `AGENTS.md`.
+- **`toMatchScreenshot`.** One isolated `AspectRatio` story-sheet pilot is now enabled outside the
+  measured 89-file browser project. Its cold visual run completed in 1.74s and the assertion/test
+  body in 136ms on the same machine. The pinned Playwright 1.62.1 Noble container completed the
+  same one-test Vitest phase in 2.41s with a 295ms test body (dependency installation excluded).
+  One case is not a performance study; larger-sheet costs remain `[unverified]`. See the bounded
+  visual-regression note in `AGENTS.md`.
 
 ## Reproducing all of it
 
@@ -453,4 +464,3 @@ Summed per-test durations in ms, sorted by delta. `ptr` counts `.click(`/`.hover
 | `ColorArea` | 64 | 265 | 54 | -211 | 0 | 0 |
 | `Listbox` | 40 | 1069 | 757 | -312 | 3 | 0 |
 | `Autocomplete` | 25 | 947 | 550 | -396 | 2 | 0 |
-

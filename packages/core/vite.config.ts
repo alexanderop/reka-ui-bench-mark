@@ -125,7 +125,12 @@ export default defineConfig({
         test: {
           name: 'browser',
           include: ['./**/*.browser.test.ts'],
-          exclude: ['**/node_modules/**'],
+          // Visual story sheets have platform-specific PNG baselines and run
+          // only through `vite.config.visual.ts`. Keeping them out of this
+          // project preserves the 89-file functional/coverage corpus and
+          // prevents a macOS baseline from becoming an implicit Linux CI
+          // requirement.
+          exclude: ['**/node_modules/**', '**/*.visual.browser.test.ts'],
           setupFiles: './vitest.browser.setup.ts',
           browser: {
             enabled: true,
@@ -143,7 +148,16 @@ export default defineConfig({
             // 2000 rather than 1000 for headroom: the suite is green at 1000,
             // 1 file fails at 500 and 12 fail at 300, so the slowest legitimate
             // wait here is ~500-1000ms and CI hardware is slower than this.
-            provider: playwright({ actionTimeout: 2000 }),
+            provider: playwright({
+              actionTimeout: 2000,
+              // `vitest.global.ts` sets `process.env.TZ` for the node and jsdom
+              // projects. Chromium happens to inherit it from the Vitest
+              // process; WebKit does not (measured: `Europe/Berlin` in every
+              // ZonedDateTime test there). The 12 date files depend on this
+              // zone, so it is configuration here, not inheritance. Same name
+              // the tests assert (`America/New_York`; `US/Eastern` is its alias).
+              contextOptions: { timezoneId: 'America/New_York' },
+            }),
             headless: true,
             instances: [{ browser: 'chromium' }],
             // `page.mouse` is stateful and page-level; the locator API's only

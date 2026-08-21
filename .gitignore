@@ -39,7 +39,16 @@ vite.config.ts.timestamp*
 */.vitepress/cache
 .eslintcache
 
-# Vitest browser mode writes these on every failing test. They are diagnostics,
-# not baselines — there is no visual-regression suite here (see AGENTS.md).
+# Vitest browser mode writes failure captures here on every failing test. Keep
+# those diagnostics ignored, but retain the reviewed references owned by the
+# isolated `*.visual.browser.test.ts` project.
 .vitest-attachments/
 **/__screenshots__/
+!packages/core/src/**/__screenshots__/
+packages/core/src/**/__screenshots__/*
+!packages/core/src/**/__screenshots__/*.visual.browser.test.ts/
+# Only reference images (`<name>-<browser>-<platform>.png`). A failing visual
+# test also writes `<test name>-1.png` into the same folder; that is a capture,
+# not a baseline, and must not ride along.
+packages/core/src/**/__screenshots__/*.visual.browser.test.ts/*
+!packages/core/src/**/__screenshots__/*.visual.browser.test.ts/*-chromium-*.png

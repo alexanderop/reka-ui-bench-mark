@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.visual.tsbuildinfo"
+  },
+  "include": [
+    "env.visual.d.ts",
+    "src/test/visual/**/*.ts",
+    "src/**/*.visual.browser.test.ts"
+  ]
+}

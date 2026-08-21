@@ -1,0 +1,51 @@
+name: Visual Regression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/visual-regression.yml
+      - package.json
+      - pnpm-lock.yaml
+      - packages/core/**
+
+  pull_request:
+    paths:
+      - .github/workflows/visual-regression.yml
+      - package.json
+      - pnpm-lock.yaml
+      - packages/core/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup (Install node & pnpm)
+        uses: ./.github/actions/setup
+
+      - name: Compare visual references
+        run: pnpm test:visual
+
+      - name: Upload visual differences
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-differences
+          path: packages/core/.vitest-attachments
+          if-no-files-found: ignore
+          retention-days: 7

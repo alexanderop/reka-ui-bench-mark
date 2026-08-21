@@ -1,0 +1,72 @@
+name: Cross-Browser
+
+# The 97 `*.browser.test.ts` files on the engines they were not written
+# against. Chromium is covered by the normal test job; this runs Firefox and
+# WebKit, one engine per job, through `vite.config.cross-browser.ts`, with the
+# engine-specific verdicts recorded in `packages/core/cross-browser.expectations.ts`.
+# One engine per job on purpose: three engines in one process contend for CPU
+# and fail Chromium tests that are green alone (measured, see PERFORMANCE.md).
+
+on:
+  push:
+    branches:
+      - v2
+    paths:
+      - .github/workflows/cross-browser.yml
+      - package.json
+      - pnpm-lock.yaml
+      - packages/core/**
+
+  pull_request:
+    paths:
+      - .github/workflows/cross-browser.yml
+      - package.json
+      - pnpm-lock.yaml
+      - packages/core/**
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: ${{ matrix.engine }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [firefox, webkit]
+    container:
+      # Playwright 1.62.1 with all three engines preinstalled; pinned by digest
+      # so the Linux verdicts in cross-browser.expectations.ts stay tied to one
+      # exact engine build.
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --ipc=host
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup (Install node & pnpm)
+        uses: ./.github/actions/setup
+
+      - name: Run the browser corpus on ${{ matrix.engine }}
+        env:
+          CROSS_BROWSERS: ${{ matrix.engine }}
+        run: pnpm test:cross-browser
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cross-browser-${{ matrix.engine }}-failures
+          path: packages/core/src/**/__screenshots__/*.browser.test.ts/*-1.png
+          if-no-files-found: ignore
+          retention-days: 7

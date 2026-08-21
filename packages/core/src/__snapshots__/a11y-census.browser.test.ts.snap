@@ -1,0 +1,1031 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Accordion / Accordion 1`] = `
+- heading "One" [level=3]:
+  - button "One"
+- heading "Two" [level=3]:
+  - button "Two"
+- heading "Three" [level=3]:
+  - button "Three"
+- heading "Four" [level=3]:
+  - button "Four"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > AlertDialog / AlertDialog 1`] = `
+- button "Open"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Autocomplete / Autocomplete 1`] = `
+- combobox "Placeholder..."
+- button "Show popup"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Calendar / Calendar 1`] = `
+- button "Previous page": Prev page
+- button "Previous page": Prev page
+- text: February 2024
+- button "Next page"
+- button "Next page"
+- application:
+  - rowgroup:
+    - row "Sunday, January 28, 2024 Monday, January 29, 2024 Tuesday, January 30, 2024 Wednesday, January 31, 2024 Thursday, February 1, 2024 Friday, February 2, 2024 Saturday, February 3, 2024":
+      - gridcell "Sunday, January 28, 2024":
+        - button "Sunday, January 28, 2024": "28"
+      - gridcell "Monday, January 29, 2024":
+        - button "Monday, January 29, 2024": "29"
+      - gridcell "Tuesday, January 30, 2024":
+        - button "Tuesday, January 30, 2024": "30"
+      - gridcell "Wednesday, January 31, 2024":
+        - button "Wednesday, January 31, 2024": "31"
+      - gridcell "Thursday, February 1, 2024":
+        - button "Thursday, February 1, 2024": "1"
+      - gridcell "Friday, February 2, 2024":
+        - button "Friday, February 2, 2024": "2"
+      - gridcell "Saturday, February 3, 2024":
+        - button "Saturday, February 3, 2024": "3"
+    - row "Sunday, February 4, 2024 Monday, February 5, 2024 Tuesday, February 6, 2024 Wednesday, February 7, 2024 Thursday, February 8, 2024 Friday, February 9, 2024 Saturday, February 10, 2024":
+      - gridcell "Sunday, February 4, 2024":
+        - button "Sunday, February 4, 2024": "4"
+      - gridcell "Monday, February 5, 2024":
+        - button "Monday, February 5, 2024": "5"
+      - gridcell "Tuesday, February 6, 2024":
+        - button "Tuesday, February 6, 2024": "6"
+      - gridcell "Wednesday, February 7, 2024":
+        - button "Wednesday, February 7, 2024": "7"
+      - gridcell "Thursday, February 8, 2024":
+        - button "Thursday, February 8, 2024": "8"
+      - gridcell "Friday, February 9, 2024":
+        - button "Friday, February 9, 2024": "9"
+      - gridcell "Saturday, February 10, 2024":
+        - button "Saturday, February 10, 2024": "10"
+    - row "Sunday, February 11, 2024 Monday, February 12, 2024 Tuesday, February 13, 2024 Wednesday, February 14, 2024 Thursday, February 15, 2024 Friday, February 16, 2024 Saturday, February 17, 2024":
+      - gridcell "Sunday, February 11, 2024":
+        - button "Sunday, February 11, 2024": "11"
+      - gridcell "Monday, February 12, 2024":
+        - button "Monday, February 12, 2024": "12"
+      - gridcell "Tuesday, February 13, 2024":
+        - button "Tuesday, February 13, 2024": "13"
+      - gridcell "Wednesday, February 14, 2024":
+        - button "Wednesday, February 14, 2024": "14"
+      - gridcell "Thursday, February 15, 2024":
+        - button "Thursday, February 15, 2024": "15"
+      - gridcell "Friday, February 16, 2024":
+        - button "Friday, February 16, 2024": "16"
+      - gridcell "Saturday, February 17, 2024":
+        - button "Saturday, February 17, 2024": "17"
+    - row "Sunday, February 18, 2024 Monday, February 19, 2024 Tuesday, February 20, 2024 Wednesday, February 21, 2024 Thursday, February 22, 2024 Friday, February 23, 2024 Saturday, February 24, 2024":
+      - gridcell "Sunday, February 18, 2024":
+        - button "Sunday, February 18, 2024": "18"
+      - gridcell "Monday, February 19, 2024":
+        - button "Monday, February 19, 2024": "19"
+      - gridcell "Tuesday, February 20, 2024":
+        - button "Tuesday, February 20, 2024": "20"
+      - gridcell "Wednesday, February 21, 2024":
+        - button "Wednesday, February 21, 2024": "21"
+      - gridcell "Thursday, February 22, 2024":
+        - button "Thursday, February 22, 2024": "22"
+      - gridcell "Friday, February 23, 2024":
+        - button "Friday, February 23, 2024": "23"
+      - gridcell "Saturday, February 24, 2024":
+        - button "Saturday, February 24, 2024": "24"
+    - row "Sunday, February 25, 2024 Monday, February 26, 2024 Tuesday, February 27, 2024 Wednesday, February 28, 2024 Thursday, February 29, 2024 Friday, March 1, 2024 Saturday, March 2, 2024":
+      - gridcell "Sunday, February 25, 2024":
+        - button "Sunday, February 25, 2024": "25"
+      - gridcell "Monday, February 26, 2024":
+        - button "Monday, February 26, 2024": "26"
+      - gridcell "Tuesday, February 27, 2024":
+        - button "Tuesday, February 27, 2024": "27"
+      - gridcell "Wednesday, February 28, 2024":
+        - button "Wednesday, February 28, 2024": "28"
+      - gridcell "Thursday, February 29, 2024":
+        - button "Thursday, February 29, 2024": "29"
+      - gridcell "Friday, March 1, 2024":
+        - button "Friday, March 1, 2024": "1"
+      - gridcell "Saturday, March 2, 2024":
+        - button "Saturday, March 2, 2024": "2"
+- heading "Event Date, February 2024" [level=2]
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Calendar / DummyCalendar 1`] = `
+- button "Previous page"
+- text: February 2024
+- button "Next page"
+- application:
+  - rowgroup:
+    - row "Sunday, January 28, 2024 Monday, January 29, 2024 Tuesday, January 30, 2024 Wednesday, January 31, 2024 Thursday, February 1, 2024 Friday, February 2, 2024 Saturday, February 3, 2024":
+      - gridcell "Sunday, January 28, 2024":
+        - button "Sunday, January 28, 2024": "28"
+      - gridcell "Monday, January 29, 2024":
+        - button "Monday, January 29, 2024": "29"
+      - gridcell "Tuesday, January 30, 2024":
+        - button "Tuesday, January 30, 2024": "30"
+      - gridcell "Wednesday, January 31, 2024":
+        - button "Wednesday, January 31, 2024": "31"
+      - gridcell "Thursday, February 1, 2024":
+        - button "Thursday, February 1, 2024": "1"
+      - gridcell "Friday, February 2, 2024":
+        - button "Friday, February 2, 2024": "2"
+      - gridcell "Saturday, February 3, 2024":
+        - button "Saturday, February 3, 2024": "3"
+    - row "Sunday, February 4, 2024 Monday, February 5, 2024 Tuesday, February 6, 2024 Wednesday, February 7, 2024 Thursday, February 8, 2024 Friday, February 9, 2024 Saturday, February 10, 2024":
+      - gridcell "Sunday, February 4, 2024":
+        - button "Sunday, February 4, 2024": "4"
+      - gridcell "Monday, February 5, 2024":
+        - button "Monday, February 5, 2024": "5"
+      - gridcell "Tuesday, February 6, 2024":
+        - button "Tuesday, February 6, 2024": "6"
+      - gridcell "Wednesday, February 7, 2024":
+        - button "Wednesday, February 7, 2024": "7"
+      - gridcell "Thursday, February 8, 2024":
+        - button "Thursday, February 8, 2024": "8"
+      - gridcell "Friday, February 9, 2024":
+        - button "Friday, February 9, 2024": "9"
+      - gridcell "Saturday, February 10, 2024":
+        - button "Saturday, February 10, 2024": "10"
+    - row "Sunday, February 11, 2024 Monday, February 12, 2024 Tuesday, February 13, 2024 Wednesday, February 14, 2024 Thursday, February 15, 2024 Friday, February 16, 2024 Saturday, February 17, 2024":
+      - gridcell "Sunday, February 11, 2024":
+        - button "Sunday, February 11, 2024": "11"
+      - gridcell "Monday, February 12, 2024":
+        - button "Monday, February 12, 2024": "12"
+      - gridcell "Tuesday, February 13, 2024":
+        - button "Tuesday, February 13, 2024": "13"
+      - gridcell "Wednesday, February 14, 2024":
+        - button "Wednesday, February 14, 2024": "14"
+      - gridcell "Thursday, February 15, 2024":
+        - button "Thursday, February 15, 2024": "15"
+      - gridcell "Friday, February 16, 2024":
+        - button "Friday, February 16, 2024": "16"
+      - gridcell "Saturday, February 17, 2024":
+        - button "Saturday, February 17, 2024": "17"
+    - row "Sunday, February 18, 2024 Monday, February 19, 2024 Tuesday, February 20, 2024 Wednesday, February 21, 2024 Thursday, February 22, 2024 Friday, February 23, 2024 Saturday, February 24, 2024":
+      - gridcell "Sunday, February 18, 2024":
+        - button "Sunday, February 18, 2024": "18"
+      - gridcell "Monday, February 19, 2024":
+        - button "Monday, February 19, 2024": "19"
+      - gridcell "Tuesday, February 20, 2024":
+        - button "Tuesday, February 20, 2024": "20"
+      - gridcell "Wednesday, February 21, 2024":
+        - button "Wednesday, February 21, 2024": "21"
+      - gridcell "Thursday, February 22, 2024":
+        - button "Thursday, February 22, 2024": "22"
+      - gridcell "Friday, February 23, 2024":
+        - button "Friday, February 23, 2024": "23"
+      - gridcell "Saturday, February 24, 2024":
+        - button "Saturday, February 24, 2024": "24"
+    - row "Sunday, February 25, 2024 Monday, February 26, 2024 Tuesday, February 27, 2024 Wednesday, February 28, 2024 Thursday, February 29, 2024 Friday, March 1, 2024 Saturday, March 2, 2024":
+      - gridcell "Sunday, February 25, 2024":
+        - button "Sunday, February 25, 2024": "25"
+      - gridcell "Monday, February 26, 2024":
+        - button "Monday, February 26, 2024": "26"
+      - gridcell "Tuesday, February 27, 2024":
+        - button "Tuesday, February 27, 2024": "27"
+      - gridcell "Wednesday, February 28, 2024":
+        - button "Wednesday, February 28, 2024": "28"
+      - gridcell "Thursday, February 29, 2024":
+        - button "Thursday, February 29, 2024": "29"
+      - gridcell "Friday, March 1, 2024":
+        - button "Friday, March 1, 2024": "1"
+      - gridcell "Saturday, March 2, 2024":
+        - button "Saturday, March 2, 2024": "2"
+- heading "Event Date, February 2024" [level=2]
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Checkbox / Checkbox 1`] = `
+- text: Test
+- checkbox "Test"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Checkbox / CheckboxGroup 1`] = `
+- checkbox "jack"
+- text: jack
+- checkbox "john"
+- text: john
+- checkbox "mike"
+- text: mike
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Collapsible / Collapsible 1`] = `
+- button "Trigger"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorArea / ColorArea 1`] = `
+- text: "Current: #ff0000"
+- group:
+  - application:
+    - slider "Hue, Saturation"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorField / ColorField 1`] = `
+- group:
+  - textbox: "#ff0000"
+- text: "#ff0000"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorPicker / ColorPicker 1`] = `
+- img "vibrant dark magenta"
+- text: Selected Color
+- code: "#7f007f"
+- group:
+  - application:
+    - slider "Saturation, Lightness"
+- slider "Hue"
+- slider "Alpha"
+- group:
+  - textbox "#000000": "#7f007f"
+- group:
+  - textbox "H": "300"
+- group:
+  - textbox "S": "100"
+- group:
+  - textbox "L": "25"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorSlider / ColorSlider 1`] = `
+- slider "Hue"
+- text: "#ff0000"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorSwatch / ColorSwatch 1`] = `
+- img "red"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ColorSwatchPicker / ColorSwatchPicker 1`] = `
+- listbox "Color swatches":
+  - option "red":
+    - img "red"
+  - option "red-magenta":
+    - img "red-magenta"
+  - option "violet":
+    - img "violet"
+  - option "vibrant blue":
+    - img "vibrant blue"
+  - option "green-cyan":
+    - img "green-cyan"
+  - option "vibrant orange":
+    - img "vibrant orange"
+  - option "vibrant yellow":
+    - img "vibrant yellow"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Combobox / Combobox 1`] = `
+- combobox "Placeholder..."
+- button "Show popup"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ContextMenu / ContextMenu 1`] = `
+- text: Right click here.
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DateField / DateField 1`] = `
+- text: Label
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DatePicker / DatePicker 1`] = `
+- text: Input label
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "second,": ––
+  - spinbutton "AM/PM": AM
+  - button "Open"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DatePicker / DummyDatePicker 1`] = `
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - button
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DateRangeField / DateRangeField 1`] = `
+- text: Label
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DateRangeField / DummyDateRangeField 1`] = `
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - text: "-"
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DateRangePicker / DateRangePicker 1`] = `
+- text: Input label
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - text: "-"
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - button "Open"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DateRangePicker / DummyDateRangePicker 1`] = `
+- group:
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - text: "-"
+  - spinbutton "month,": mm
+  - spinbutton "day,": dd
+  - spinbutton "year,": yyyy
+  - button
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Dialog / Dialog 1`] = `
+- button "Edit profile"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DismissableLayer / DismissableLayer 1`] = `
+- button
+- button
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DismissableLayer / DummyDialog 1`] = `
+- button
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DismissableLayer / DummyPopover 1`] = `
+- button "Open"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Drawer / Drawer 1`] = `
+- button "Open Drawer"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DropdownMenu / DropdownMenu 1`] = `
+- button "Customise options"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > DropdownMenu / DropdownMenuWithFilter 1`] = `
+- button "Customise options": Open
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Editable / DummyEditable 1`] = `
+- text: Enter text...
+- button "edit": Edit
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Editable / Editable 1`] = `
+- text: Enter text...
+- button "edit": Edit
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > HoverCard / HoverCard 1`] = `
+- link "Radix UI":
+  - /url: https://twitter.com/unovue
+  - img "Radix UI"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Listbox / Listbox 1`] = `
+- listbox "options":
+  - option "Afghanistan"
+  - option "Albania"
+  - option "Algeria"
+  - option "American Samoa"
+  - option "Andorra"
+  - option "Angola"
+  - option "Anguilla"
+  - option "Antarctica"
+  - option "Antigua and Barbuda"
+  - option "Argentina"
+  - option "Armenia"
+  - option "Aruba"
+  - option "Australia"
+  - option "Austria"
+  - option "Azerbaijan"
+  - option "Bahamas (the)"
+  - option "Bahrain"
+  - option "Bangladesh"
+  - option "Barbados"
+  - option "Belarus"
+  - option "Belgium"
+  - option "Belize"
+  - option "Benin"
+  - option "Bermuda"
+  - option "Bhutan"
+  - option "Bolivia (Plurinational State of)"
+  - option "Bonaire, Sint Eustatius and Saba"
+  - option "Bosnia and Herzegovina"
+  - option "Botswana"
+  - option "Bouvet Island"
+  - option "Brazil"
+  - option "British Indian Ocean Territory (the)"
+  - option "Brunei Darussalam"
+  - option "Bulgaria"
+  - option "Burkina Faso"
+  - option "Burundi"
+  - option "Cabo Verde"
+  - option "Cambodia"
+  - option "Cameroon"
+  - option "Canada"
+  - option "Cayman Islands (the)"
+  - option "Central African Republic (the)"
+  - option "Chad"
+  - option "Chile"
+  - option "China"
+  - option "Christmas Island"
+  - option "Cocos (Keeling) Islands (the)"
+  - option "Colombia"
+  - option "Comoros (the)"
+  - option "Congo (the Democratic Republic of the)"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Menu / Menu 1`] = `
+- menu:
+  - group "Fruits":
+    - text: Fruits
+    - menuitem "Apple"
+    - menuitem "Banana"
+    - menuitem "Blueberry"
+    - menuitem "Grapes"
+    - menuitem "Pineapple"
+    - separator
+  - group "Vegetables":
+    - text: Vegetables
+    - menuitem "Aubergine"
+    - menuitem "Broccoli"
+    - menuitem "Carrot"
+    - menuitem "Courgette"
+    - menuitem "Leek"
+    - separator
+  - group "Meat":
+    - text: Meat
+    - menuitem "Beef"
+    - menuitem "Beef with sauce"
+    - menuitem "Chicken"
+    - menuitem "Lamb"
+    - menuitem "Pork"
+    - separator
+  - group:
+    - menuitem "Candies"
+    - menuitem "Chocolates"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Menubar / Menubar 1`] = `
+- menubar:
+  - menuitem "File"
+  - menuitem "Edit"
+  - menuitem "View"
+  - menuitem "Profiles"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > MonthPicker / MonthPicker 1`] = `
+- button "Previous year": Prev year
+- heading "2024" [level=2]
+- button "Next year"
+- application "2024":
+  - rowgroup:
+    - row "January 2024 February 2024 March 2024 April 2024":
+      - gridcell "January 2024":
+        - button "January 2024": Jan
+      - gridcell "February 2024":
+        - button "February 2024": Feb
+      - gridcell "March 2024":
+        - button "March 2024": Mar
+      - gridcell "April 2024":
+        - button "April 2024": Apr
+    - row "May 2024 June 2024 July 2024 August 2024":
+      - gridcell "May 2024":
+        - button "May 2024": May
+      - gridcell "June 2024":
+        - button "June 2024": Jun
+      - gridcell "July 2024":
+        - button "July 2024": Jul
+      - gridcell "August 2024":
+        - button "August 2024": Aug
+    - row "September 2024 October 2024 November 2024 December 2024":
+      - gridcell "September 2024":
+        - button "September 2024": Sep
+      - gridcell "October 2024":
+        - button "October 2024": Oct
+      - gridcell "November 2024":
+        - button "November 2024": Nov
+      - gridcell "December 2024":
+        - button "December 2024": Dec
+- heading "Month Picker, 2024" [level=2]
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > MonthRangePicker / MonthRangePicker 1`] = `
+- heading "Month Picker, 2024" [level=2]
+- button "Previous year": Prev year
+- heading "2024" [level=2]
+- button "Next year"
+- application "2024":
+  - rowgroup:
+    - row "January 2024 February 2024 March 2024 April 2024":
+      - gridcell "January 2024":
+        - button "January 2024": Jan
+      - gridcell "February 2024":
+        - button "February 2024": Feb
+      - gridcell "March 2024":
+        - button "March 2024": Mar
+      - gridcell "April 2024":
+        - button "April 2024": Apr
+    - row "May 2024 June 2024 July 2024 August 2024":
+      - gridcell "May 2024":
+        - button "May 2024": May
+      - gridcell "June 2024":
+        - button "June 2024": Jun
+      - gridcell "July 2024":
+        - button "July 2024": Jul
+      - gridcell "August 2024":
+        - button "August 2024": Aug
+    - row "September 2024 October 2024 November 2024 December 2024":
+      - gridcell "September 2024":
+        - button "September 2024": Sep
+      - gridcell "October 2024":
+        - button "October 2024": Oct
+      - gridcell "November 2024":
+        - button "November 2024": Nov
+      - gridcell "December 2024":
+        - button "December 2024": Dec
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > NavigationMenu / NavigationMenu 1`] = `
+- navigation:
+  - list:
+    - listitem:
+      - button "Learn"
+    - listitem:
+      - button "Overview"
+    - listitem:
+      - link "Github":
+        - /url: https://github.com/unovue
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > NumberField / NumberField 1`] = `
+- group:
+  - text: Number Field
+  - button "Decrease"
+  - spinbutton "Number Field"
+  - button "Increase"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Pagination / Pagination 1`] = `
+- navigation:
+  - button "First Page" [disabled]: First page
+  - button "Previous Page" [disabled]: Prev page
+  - button "Page 1": "1"
+  - button "Page 2": "2"
+  - button "Page 3": "3"
+  - button "Page 4": "4"
+  - button "Page 5": "5"
+  - button "Next Page": Next page
+  - button "Last Page": Last page
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > PinInput / PinInput 1`] = `
+- text: Test label
+- textbox "pin input 1 of 5":
+  - /placeholder: "*"
+- textbox "pin input 2 of 5":
+  - /placeholder: "*"
+- textbox "pin input 3 of 5":
+  - /placeholder: "*"
+- textbox "pin input 4 of 5":
+  - /placeholder: "*"
+- textbox "pin input 5 of 5":
+  - /placeholder: "*"
+- button "Reset value"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Popover / Popover 1`] = `
+- button "Update dimensions": Open
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Progress / Progress 1`] = `
+- progressbar "0%": 0.00%
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > RadioGroup / RadioGroup 1`] = `
+- radiogroup "View density":
+  - radio "Default" [checked]
+  - text: Default
+  - radio "Comfortable" [disabled]
+  - text: Comfortable
+  - radio "Compact"
+  - text: Compact
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > RangeCalendar / DummyRangeCalendar 1`] = `
+- heading "Event Date, February 2024" [level=2]
+- button "Previous page"
+- text: February 2024
+- button "Next page"
+- application:
+  - rowgroup:
+    - row "Sunday, January 28, 2024 Monday, January 29, 2024 Tuesday, January 30, 2024 Wednesday, January 31, 2024 Thursday, February 1, 2024 Friday, February 2, 2024 Saturday, February 3, 2024":
+      - gridcell "Sunday, January 28, 2024":
+        - button "Sunday, January 28, 2024": "28"
+      - gridcell "Monday, January 29, 2024":
+        - button "Monday, January 29, 2024": "29"
+      - gridcell "Tuesday, January 30, 2024":
+        - button "Tuesday, January 30, 2024": "30"
+      - gridcell "Wednesday, January 31, 2024":
+        - button "Wednesday, January 31, 2024": "31"
+      - gridcell "Thursday, February 1, 2024":
+        - button "Thursday, February 1, 2024": "1"
+      - gridcell "Friday, February 2, 2024":
+        - button "Friday, February 2, 2024": "2"
+      - gridcell "Saturday, February 3, 2024":
+        - button "Saturday, February 3, 2024": "3"
+    - row "Sunday, February 4, 2024 Monday, February 5, 2024 Tuesday, February 6, 2024 Wednesday, February 7, 2024 Thursday, February 8, 2024 Friday, February 9, 2024 Saturday, February 10, 2024":
+      - gridcell "Sunday, February 4, 2024":
+        - button "Sunday, February 4, 2024": "4"
+      - gridcell "Monday, February 5, 2024":
+        - button "Monday, February 5, 2024": "5"
+      - gridcell "Tuesday, February 6, 2024":
+        - button "Tuesday, February 6, 2024": "6"
+      - gridcell "Wednesday, February 7, 2024":
+        - button "Wednesday, February 7, 2024": "7"
+      - gridcell "Thursday, February 8, 2024":
+        - button "Thursday, February 8, 2024": "8"
+      - gridcell "Friday, February 9, 2024":
+        - button "Friday, February 9, 2024": "9"
+      - gridcell "Saturday, February 10, 2024":
+        - button "Saturday, February 10, 2024": "10"
+    - row "Sunday, February 11, 2024 Monday, February 12, 2024 Tuesday, February 13, 2024 Wednesday, February 14, 2024 Thursday, February 15, 2024 Friday, February 16, 2024 Saturday, February 17, 2024":
+      - gridcell "Sunday, February 11, 2024":
+        - button "Sunday, February 11, 2024": "11"
+      - gridcell "Monday, February 12, 2024":
+        - button "Monday, February 12, 2024": "12"
+      - gridcell "Tuesday, February 13, 2024":
+        - button "Tuesday, February 13, 2024": "13"
+      - gridcell "Wednesday, February 14, 2024":
+        - button "Wednesday, February 14, 2024": "14"
+      - gridcell "Thursday, February 15, 2024":
+        - button "Thursday, February 15, 2024": "15"
+      - gridcell "Friday, February 16, 2024":
+        - button "Friday, February 16, 2024": "16"
+      - gridcell "Saturday, February 17, 2024":
+        - button "Saturday, February 17, 2024": "17"
+    - row "Sunday, February 18, 2024 Monday, February 19, 2024 Tuesday, February 20, 2024 Wednesday, February 21, 2024 Thursday, February 22, 2024 Friday, February 23, 2024 Saturday, February 24, 2024":
+      - gridcell "Sunday, February 18, 2024":
+        - button "Sunday, February 18, 2024": "18"
+      - gridcell "Monday, February 19, 2024":
+        - button "Monday, February 19, 2024": "19"
+      - gridcell "Tuesday, February 20, 2024":
+        - button "Tuesday, February 20, 2024": "20"
+      - gridcell "Wednesday, February 21, 2024":
+        - button "Wednesday, February 21, 2024": "21"
+      - gridcell "Thursday, February 22, 2024":
+        - button "Thursday, February 22, 2024": "22"
+      - gridcell "Friday, February 23, 2024":
+        - button "Friday, February 23, 2024": "23"
+      - gridcell "Saturday, February 24, 2024":
+        - button "Saturday, February 24, 2024": "24"
+    - row "Sunday, February 25, 2024 Monday, February 26, 2024 Tuesday, February 27, 2024 Wednesday, February 28, 2024 Thursday, February 29, 2024 Friday, March 1, 2024 Saturday, March 2, 2024":
+      - gridcell "Sunday, February 25, 2024":
+        - button "Sunday, February 25, 2024": "25"
+      - gridcell "Monday, February 26, 2024":
+        - button "Monday, February 26, 2024": "26"
+      - gridcell "Tuesday, February 27, 2024":
+        - button "Tuesday, February 27, 2024": "27"
+      - gridcell "Wednesday, February 28, 2024":
+        - button "Wednesday, February 28, 2024": "28"
+      - gridcell "Thursday, February 29, 2024":
+        - button "Thursday, February 29, 2024": "29"
+      - gridcell "Friday, March 1, 2024":
+        - button "Friday, March 1, 2024": "1"
+      - gridcell "Saturday, March 2, 2024":
+        - button "Saturday, March 2, 2024": "2"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > RangeCalendar / RangeCalendar 1`] = `
+- heading "Event Date, February 2024" [level=2]
+- button "Previous page": Prev page
+- button "Previous page": Prev page
+- text: February 2024
+- button "Next page"
+- button "Next page"
+- application:
+  - rowgroup:
+    - row "Sunday, January 28, 2024 Monday, January 29, 2024 Tuesday, January 30, 2024 Wednesday, January 31, 2024 Thursday, February 1, 2024 Friday, February 2, 2024 Saturday, February 3, 2024":
+      - gridcell "Sunday, January 28, 2024":
+        - button "Sunday, January 28, 2024": "28"
+      - gridcell "Monday, January 29, 2024":
+        - button "Monday, January 29, 2024": "29"
+      - gridcell "Tuesday, January 30, 2024":
+        - button "Tuesday, January 30, 2024": "30"
+      - gridcell "Wednesday, January 31, 2024":
+        - button "Wednesday, January 31, 2024": "31"
+      - gridcell "Thursday, February 1, 2024":
+        - button "Thursday, February 1, 2024": "1"
+      - gridcell "Friday, February 2, 2024":
+        - button "Friday, February 2, 2024": "2"
+      - gridcell "Saturday, February 3, 2024":
+        - button "Saturday, February 3, 2024": "3"
+    - row "Sunday, February 4, 2024 Monday, February 5, 2024 Tuesday, February 6, 2024 Wednesday, February 7, 2024 Thursday, February 8, 2024 Friday, February 9, 2024 Saturday, February 10, 2024":
+      - gridcell "Sunday, February 4, 2024":
+        - button "Sunday, February 4, 2024": "4"
+      - gridcell "Monday, February 5, 2024":
+        - button "Monday, February 5, 2024": "5"
+      - gridcell "Tuesday, February 6, 2024":
+        - button "Tuesday, February 6, 2024": "6"
+      - gridcell "Wednesday, February 7, 2024":
+        - button "Wednesday, February 7, 2024": "7"
+      - gridcell "Thursday, February 8, 2024":
+        - button "Thursday, February 8, 2024": "8"
+      - gridcell "Friday, February 9, 2024":
+        - button "Friday, February 9, 2024": "9"
+      - gridcell "Saturday, February 10, 2024":
+        - button "Saturday, February 10, 2024": "10"
+    - row "Sunday, February 11, 2024 Monday, February 12, 2024 Tuesday, February 13, 2024 Wednesday, February 14, 2024 Thursday, February 15, 2024 Friday, February 16, 2024 Saturday, February 17, 2024":
+      - gridcell "Sunday, February 11, 2024":
+        - button "Sunday, February 11, 2024": "11"
+      - gridcell "Monday, February 12, 2024":
+        - button "Monday, February 12, 2024": "12"
+      - gridcell "Tuesday, February 13, 2024":
+        - button "Tuesday, February 13, 2024": "13"
+      - gridcell "Wednesday, February 14, 2024":
+        - button "Wednesday, February 14, 2024": "14"
+      - gridcell "Thursday, February 15, 2024":
+        - button "Thursday, February 15, 2024": "15"
+      - gridcell "Friday, February 16, 2024":
+        - button "Friday, February 16, 2024": "16"
+      - gridcell "Saturday, February 17, 2024":
+        - button "Saturday, February 17, 2024": "17"
+    - row "Sunday, February 18, 2024 Monday, February 19, 2024 Tuesday, February 20, 2024 Wednesday, February 21, 2024 Thursday, February 22, 2024 Friday, February 23, 2024 Saturday, February 24, 2024":
+      - gridcell "Sunday, February 18, 2024":
+        - button "Sunday, February 18, 2024": "18"
+      - gridcell "Monday, February 19, 2024":
+        - button "Monday, February 19, 2024": "19"
+      - gridcell "Tuesday, February 20, 2024":
+        - button "Tuesday, February 20, 2024": "20"
+      - gridcell "Wednesday, February 21, 2024":
+        - button "Wednesday, February 21, 2024": "21"
+      - gridcell "Thursday, February 22, 2024":
+        - button "Thursday, February 22, 2024": "22"
+      - gridcell "Friday, February 23, 2024":
+        - button "Friday, February 23, 2024": "23"
+      - gridcell "Saturday, February 24, 2024":
+        - button "Saturday, February 24, 2024": "24"
+    - row "Sunday, February 25, 2024 Monday, February 26, 2024 Tuesday, February 27, 2024 Wednesday, February 28, 2024 Thursday, February 29, 2024 Friday, March 1, 2024 Saturday, March 2, 2024":
+      - gridcell "Sunday, February 25, 2024":
+        - button "Sunday, February 25, 2024": "25"
+      - gridcell "Monday, February 26, 2024":
+        - button "Monday, February 26, 2024": "26"
+      - gridcell "Tuesday, February 27, 2024":
+        - button "Tuesday, February 27, 2024": "27"
+      - gridcell "Wednesday, February 28, 2024":
+        - button "Wednesday, February 28, 2024": "28"
+      - gridcell "Thursday, February 29, 2024":
+        - button "Thursday, February 29, 2024": "29"
+      - gridcell "Friday, March 1, 2024":
+        - button "Friday, March 1, 2024": "1"
+      - gridcell "Saturday, March 2, 2024":
+        - button "Saturday, March 2, 2024": "2"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Rating / Rating 1`] = `
+- radiogroup:
+  - radio "Rating 1 of 5"
+  - radio "Rating 2 of 5"
+  - radio "Rating 3 of 5"
+  - radio "Rating 4 of 5"
+  - radio "Rating 5 of 5"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ScrollArea / ScrollArea 1`] = `
+- paragraph: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce sit amet eros iaculis, bibendum tellus ac, lobortis odio. Aliquam bibendum elit est, in iaculis est commodo id. Donec pulvinar est libero. Proin consectetur pellentesque molestie. Fusce mi ante, ullamcorper eu ante finibus, finibus pellentesque turpis. Mauris convallis, leo in vulputate various, sapien lectus suscipit eros, ac semper odio sapien sit amet magna. Sed mattis turpis et lacinia ultrices. Nulla a commodo mauris. Orci various natoque penatibus et magnis dis parturient montes, nascetur ridiculous mus. Pellentesque id tempor metus. Pellentesque faucibus tortor non nisi maximus dignissim. Etiam leo nisi, molestie a porttitor at, euismod a libero. Nullam placerat tristique enim nec pulvinar. Sed eleifend dictum nulla a aliquam. Sed tempus ipsum eget urna posuere aliquam. Nulla maximus tortor dui, sed laoreet odio aliquet ac. Vestibulum dolor orci, lacinia finibus vehicula eget, posuere ac lectus. Quisque non felis at ipsum scelerisque condimentum. In pharetra semper arcu, ut hendrerit sem auctor vel. Aliquam non lacinia elit, a facilisis ante. Praesent eget eros augue. Praesent nunc orci, ullamcorper non pulvinar eu, elementum id nibh. Name id lorem euismod, sodales augue quis, porttitor magna. Vivamus ut nisl velit. Name ultrices maximus felis, quis ullamcorper quam luctus et.
+- paragraph: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce sit amet eros iaculis, bibendum tellus ac, lobortis odio. Aliquam bibendum elit est, in iaculis est commodo id. Donec pulvinar est libero. Proin consectetur pellentesque molestie. Fusce mi ante, ullamcorper eu ante finibus, finibus pellentesque turpis. Mauris convallis, leo in vulputate various, sapien lectus suscipit eros, ac semper odio sapien sit amet magna. Sed mattis turpis et lacinia ultrices. Nulla a commodo mauris. Orci various natoque penatibus et magnis dis parturient montes, nascetur ridiculous mus. Pellentesque id tempor metus. Pellentesque faucibus tortor non nisi maximus dignissim. Etiam leo nisi, molestie a porttitor at, euismod a libero. Nullam placerat tristique enim nec pulvinar. Sed eleifend dictum nulla a aliquam. Sed tempus ipsum eget urna posuere aliquam. Nulla maximus tortor dui, sed laoreet odio aliquet ac. Vestibulum dolor orci, lacinia finibus vehicula eget, posuere ac lectus. Quisque non felis at ipsum scelerisque condimentum. In pharetra semper arcu, ut hendrerit sem auctor vel. Aliquam non lacinia elit, a facilisis ante. Praesent eget eros augue. Praesent nunc orci, ullamcorper non pulvinar eu, elementum id nibh. Name id lorem euismod, sodales augue quis, porttitor magna. Vivamus ut nisl velit. Name ultrices maximus felis, quis ullamcorper quam luctus et.
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Select / Select 1`] = `
+- combobox "Customise options"
+- combobox "Customise options"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Slider / Slider 1`] = `
+- slider
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Splitter / Splitter 1`] = `
+- text: Panel A
+- separator
+- text: Panel B1
+- separator
+- text: Panel B2
+- separator
+- text: Panel C
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Stepper / DummyStepper 1`] = `
+- group "progress":
+  - button "Address":
+    - heading "Address" [level=4]
+    - paragraph: Add your address here
+  - button "Shipping":
+    - heading "Shipping" [level=4]
+    - paragraph: Set your preferred shipping method
+  - button "Trade-in" [disabled]:
+    - heading "Trade-in" [level=4]
+    - paragraph: Add any trade-in items you have
+  - button "Payment" [disabled]:
+    - heading "Payment" [level=4]
+    - paragraph: Add any payment information you have
+  - button "Checkout" [disabled]:
+    - heading "Checkout" [level=4]
+    - paragraph: Confirm your order
+  - status: Step 1 of 5
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Stepper / Stepper 1`] = `
+- group "progress":
+  - button "Address":
+    - text: Step 1
+    - heading "Address" [level=4]
+    - paragraph: Add your address here
+  - button "Shipping":
+    - text: Step 2
+    - heading "Shipping" [level=4]
+    - paragraph: Set your preferred shipping method
+  - button "Trade-in" [disabled]:
+    - text: Step 3
+    - heading "Trade-in" [level=4]
+    - paragraph: Add any trade-in items you have
+  - button "Payment" [disabled]:
+    - text: Step 4
+    - heading "Payment" [level=4]
+    - paragraph: Add any payment information you have
+  - button "Checkout" [disabled]:
+    - text: Step 5
+    - heading "Checkout" [level=4]
+    - paragraph: Confirm your order
+  - status: Step 1 of 5
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Tabs / Tabs 1`] = `
+- tablist "Manage your account":
+  - tab "Account" [selected]
+  - tab "Password"
+- tabpanel "Account":
+  - paragraph: Make changes to your account here. Click save when you're done.
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > TagsInput / TagsInput 1`] = `
+- text: Test
+- button "Test"
+- textbox "Anything..."
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > TimeField / TimeField 1`] = `
+- text: Label
+- group:
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "AM/PM": AM
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > TimeRangeField / DummyTimeRangeField 1`] = `
+- group:
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "AM/PM": AM
+  - text: "-"
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "AM/PM": AM
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > TimeRangeField / TimeRangeField 1`] = `
+- text: Label
+- group:
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "AM/PM": AM
+  - spinbutton "hour,": ––
+  - spinbutton "minute,": ––
+  - spinbutton "AM/PM": AM
+  - text: "{}"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Toast / Toast 1`] = `
+- button "Add to calendar"
+- region "Notifications (F8)":
+  - list
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > ToggleGroup / ToggleGroup 1`] = `
+- group:
+  - button "Toggle italic"
+  - button "Toggle italic"
+  - button "Toggle italic"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Toolbar / Toolbar 1`] = `
+- toolbar "Formatting options":
+  - group "Text formatting":
+    - button "Bold"
+    - button "Italic"
+    - button "Strike through"
+  - separator
+  - group "Text Alignment":
+    - button "Left Aligned"
+    - button "Center Aligned" [pressed]
+    - button "Right Aligned"
+  - separator
+  - link "Edited 2 hours ago":
+    - /url: "#"
+  - button "Share"
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > Tree / Tree 1`] = `
+- tree:
+  - treeitem "index.vue" [level=1]
+  - treeitem "lib" [level=1]
+  - treeitem "routes" [level=1]
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > YearPicker / YearPicker 1`] = `
+- button "Previous page": Prev page
+- heading "2020 - 2031" [level=2]
+- button "Next page"
+- application "2020 - 2031":
+  - rowgroup:
+    - row "2020 2021 2022 2023":
+      - gridcell "2020":
+        - button "2020"
+      - gridcell "2021":
+        - button "2021"
+      - gridcell "2022":
+        - button "2022"
+      - gridcell "2023":
+        - button "2023"
+    - row "2024 2025 2026 2027":
+      - gridcell "2024":
+        - button "2024"
+      - gridcell "2025":
+        - button "2025"
+      - gridcell "2026":
+        - button "2026"
+      - gridcell "2027":
+        - button "2027"
+    - row "2028 2029 2030 2031":
+      - gridcell "2028":
+        - button "2028"
+      - gridcell "2029":
+        - button "2029"
+      - gridcell "2030":
+        - button "2030"
+      - gridcell "2031":
+        - button "2031"
+- heading "Year Picker, 2020 - 2031" [level=2]
+`;
+
+exports[`a11y census: at-rest ARIA tree of every story fixture > YearRangePicker / YearRangePicker 1`] = `
+- heading "Year Picker, 2020 - 2031" [level=2]
+- button "Previous page": Prev page
+- heading "2020 - 2031" [level=2]
+- button "Next page"
+- application "2020 - 2031":
+  - rowgroup:
+    - row "2020 2021 2022 2023":
+      - gridcell "2020":
+        - button "2020"
+      - gridcell "2021":
+        - button "2021"
+      - gridcell "2022":
+        - button "2022"
+      - gridcell "2023":
+        - button "2023"
+    - row "2024 2025 2026 2027":
+      - gridcell "2024":
+        - button "2024"
+      - gridcell "2025":
+        - button "2025"
+      - gridcell "2026":
+        - button "2026"
+      - gridcell "2027":
+        - button "2027"
+    - row "2028 2029 2030 2031":
+      - gridcell "2028":
+        - button "2028"
+      - gridcell "2029":
+        - button "2029"
+      - gridcell "2030":
+        - button "2030"
+      - gridcell "2031":
+        - button "2031"
+`;
