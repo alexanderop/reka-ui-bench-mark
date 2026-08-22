@@ -2,7 +2,7 @@ import { renderToString } from '@vue/server-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { createSSRApp, defineComponent, h, nextTick } from 'vue'
 import { ConfigProvider } from '@/ConfigProvider'
 import {
@@ -164,7 +164,7 @@ describe('given a single Accordion', () => {
 
     beforeEach(async () => {
       trigger = buttons[0]
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
       contentOne = getContent(screen, 'Content One')
     })
 
@@ -178,19 +178,19 @@ describe('given a single Accordion', () => {
 
     describe('then clicking the trigger again', () => {
       it('should not close the content', async () => {
-        await user.click(trigger)
+        await user.click(page.elementLocator(trigger))
         expect(screen.container.innerHTML).toContain(contentOne.innerHTML)
       })
 
       it('should not call update:modelValue', async () => {
-        await user.click(trigger)
+        await user.click(page.elementLocator(trigger))
         expect(screen.emitted('update:modelValue')?.length).toBe(1)
       })
     })
 
     describe('then clicking another trigger', () => {
       beforeEach(async () => {
-        await user.click(buttons[1])
+        await user.click(page.elementLocator(buttons[1]))
       })
 
       it('should show the new content', () => {
@@ -263,7 +263,7 @@ describe('given a multiple Accordion', () => {
 
     beforeEach(async () => {
       trigger = buttons[0]
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
       contentOne = getContent(screen, 'Content One')
     })
 
@@ -277,7 +277,7 @@ describe('given a multiple Accordion', () => {
 
     describe('then clicking the trigger again', () => {
       beforeEach(async () => {
-        await user.click(trigger)
+        await user.click(page.elementLocator(trigger))
       })
 
       it('should hide the content', () => {
@@ -291,7 +291,7 @@ describe('given a multiple Accordion', () => {
 
     describe('then clicking another trigger', () => {
       beforeEach(async () => {
-        await user.click(buttons[1])
+        await user.click(page.elementLocator(buttons[1]))
       })
 
       it('should show the new content', () => {

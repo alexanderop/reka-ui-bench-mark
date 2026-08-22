@@ -4,7 +4,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import { MonthPickerHeader, MonthPickerHeading, MonthPickerNext, MonthPickerPrev, MonthPickerRoot } from '..'
 import MonthPicker from './story/_MonthPicker.vue'
@@ -124,9 +124,9 @@ describe('month picker', async () => {
     const nextBtn = getButton('Next year')
 
     expect(text(heading)).toBe('1980')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(text(heading)).toBe('1981')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(text(heading)).toBe('1982')
   })
 
@@ -137,9 +137,9 @@ describe('month picker', async () => {
     const prevBtn = getButton('Previous year')
 
     expect(text(heading)).toBe('1980')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(text(heading)).toBe('1979')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(text(heading)).toBe('1978')
   })
 
@@ -153,7 +153,7 @@ describe('month picker', async () => {
 
     const selectedMonth = getSelectedMonth(picker)!
     expect(text(selectedMonth)).toBe('Jan')
-    await user.click(selectedMonth)
+    await user.click(page.elementLocator(selectedMonth))
     expect(getSelectedMonth(picker)).toBe(null)
   })
 
@@ -179,7 +179,7 @@ describe('month picker', async () => {
 
     const marchMonth = getButton('March 1980')
     expect(text(marchMonth)).toBe('Mar')
-    await user.click(marchMonth)
+    await user.click(page.elementLocator(marchMonth))
 
     const selectedMonth = getSelectedMonth(picker)
     expect(text(selectedMonth)).toBe('Mar')
@@ -207,13 +207,13 @@ describe('month picker', async () => {
     })
 
     const prevBtn = getButton('Previous year')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     const heading = getByTestId('heading')
     expect(text(heading)).toBe('1979')
     expect(prevBtn).toHaveAttribute('aria-disabled', 'true')
     expect(prevBtn).toHaveAttribute('data-disabled')
 
-    await user.click(prevBtn, { force: true })
+    await user.click(page.elementLocator(prevBtn), { force: true })
     expect(text(heading)).toBe('1979')
   })
 
@@ -226,13 +226,13 @@ describe('month picker', async () => {
     })
 
     const nextBtn = getButton('Next year')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     const heading = getByTestId('heading')
     expect(text(heading)).toBe('1981')
     expect(nextBtn).toHaveAttribute('aria-disabled', 'true')
     expect(nextBtn).toHaveAttribute('data-disabled')
 
-    await user.click(nextBtn, { force: true })
+    await user.click(page.elementLocator(nextBtn), { force: true })
     expect(text(heading)).toBe('1981')
   })
 
@@ -250,7 +250,7 @@ describe('month picker', async () => {
     expect(text(marchMonth)).toBe('Mar')
     expect(marchMonth).toHaveAttribute('data-unavailable')
     expect(marchMonth).toHaveAttribute('aria-disabled', 'true')
-    await user.click(marchMonth, { force: true })
+    await user.click(page.elementLocator(marchMonth), { force: true })
     expect(marchMonth).not.toHaveAttribute('data-selected')
   })
 
@@ -268,7 +268,7 @@ describe('month picker', async () => {
     expect(text(marchMonth)).toBe('Mar')
     expect(marchMonth).toHaveAttribute('data-disabled')
     expect(marchMonth).toHaveAttribute('aria-disabled', 'true')
-    await user.click(marchMonth, { force: true })
+    await user.click(page.elementLocator(marchMonth), { force: true })
     expect(marchMonth).not.toHaveAttribute('data-selected')
   })
 
@@ -288,7 +288,7 @@ describe('month picker', async () => {
     expect(janMonth).toHaveAttribute('aria-disabled', 'true')
     expect(janMonth).toHaveAttribute('data-disabled')
 
-    await user.click(janMonth, { force: true })
+    await user.click(page.elementLocator(janMonth), { force: true })
     expect(janMonth).not.toHaveAttribute('data-selected')
     janMonth.focus()
     expect(janMonth).not.toHaveFocus()
@@ -312,7 +312,7 @@ describe('month picker', async () => {
     expect(grid).toHaveAttribute('data-readonly')
 
     const janMonth = getButton('January 1980')
-    await user.click(janMonth)
+    await user.click(page.elementLocator(janMonth))
     expect(janMonth).not.toHaveAttribute('data-selected')
     janMonth.focus()
     expect(janMonth).toHaveFocus()
@@ -390,7 +390,7 @@ describe('month picker - multiple', () => {
     expect(selectedMonths.length).toBe(2)
 
     const mayMonth = getButton('May 1980')
-    await user.click(mayMonth)
+    await user.click(page.elementLocator(mayMonth))
 
     expect(getSelectedMonths(picker).length).toBe(3)
   })
@@ -409,7 +409,7 @@ describe('month picker - multiple', () => {
     const selectedMonths = getSelectedMonths(picker)
     expect(selectedMonths.length).toBe(2)
 
-    await user.click(selectedMonths[0])
+    await user.click(page.elementLocator(selectedMonths[0]))
     expect(getSelectedMonths(picker).length).toBe(1)
   })
 
@@ -426,7 +426,7 @@ describe('month picker - multiple', () => {
     expect(getSelectedMonths(picker)).toHaveLength(1)
     expect(getByTestId('month-1')).toHaveAttribute('data-selected')
 
-    await user.click(getButton('May 1980'))
+    await user.click(page.elementLocator(getButton('May 1980')))
 
     expect(getSelectedMonths(picker)).toHaveLength(2)
     expect(getByTestId('month-1')).toHaveAttribute('data-selected')

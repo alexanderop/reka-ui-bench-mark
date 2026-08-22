@@ -1,3 +1,4 @@
+import type { Locator } from 'vitest/browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
 import { page, userEvent } from 'vitest/browser'
@@ -51,11 +52,13 @@ const VirtualTree = defineComponent({
 
 describe('tree virtualizer native browser interactions', () => {
   let screen: Awaited<ReturnType<typeof render<typeof VirtualTree>>>
+  let treeLocator: Locator
   let tree: HTMLElement
 
   beforeEach(async () => {
     screen = await render(VirtualTree)
-    tree = screen.container.querySelector('[role="tree"]') as HTMLElement
+    treeLocator = screen.getByRole('tree')
+    tree = treeLocator.element() as HTMLElement
 
     await expect.poll(() => tree.scrollHeight).toBe(ITEM_COUNT * ITEM_HEIGHT)
   })
@@ -65,7 +68,7 @@ describe('tree virtualizer native browser interactions', () => {
     expect(initiallyRendered.length).toBeLessThan(ITEM_COUNT)
     expect(initiallyRendered[0].dataset.index).toBe('0')
 
-    await userEvent.wheel(tree, { delta: { y: 640 } })
+    await userEvent.wheel(treeLocator, { delta: { y: 640 } })
 
     // Gecko applies a smaller physical wheel step than Chromium/WebKit for the
     // same delta. The contract is window replacement, not an exact distance.
@@ -108,6 +111,6 @@ describe('tree virtualizer native browser interactions', () => {
     const match = scope.getByRole('treeitem', { name: 'Zulu destination', exact: true })
     await expect.element(match).toHaveFocus()
     await expect.poll(() => tree.scrollTop).toBeGreaterThan(2000)
-    expect((await match.element()).dataset.index).toBe(String(TYPEAHEAD_INDEX))
+    expect(match.element().dataset.index).toBe(String(TYPEAHEAD_INDEX))
   })
 })

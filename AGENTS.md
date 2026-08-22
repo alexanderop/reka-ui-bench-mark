@@ -337,6 +337,13 @@ three green—the jsdom project is the retained comparison corpus, not unfinishe
 - Render with `vitest-browser-vue`, mount the **story fixture** (`story/_<Component>.vue`), not
   the raw primitive — same house rule as the jsdom tests.
 - Delete every mock the browser makes unnecessary. That deletion is the deliverable.
+- Keep ordinary action targets as locators: `await locator.click()` or
+  `await userEvent.type(locator, text)`, never `userEvent.click(locator.element())`.
+  `locator.element()` is synchronous and throws immediately; `expect.element(locator)` and
+  locator-backed actions retry. When a low-level payload contract genuinely needs a stable raw
+  node, retain that node for `dispatchEvent`/identity reads and pair it with
+  `page.elementLocator(node)` for ordinary actions. That pairing does not restore any wait lost
+  before the raw node was first resolved, so it is the exception, not the default query shape.
 - **…but only the *compensating* mocks.** A stub that **constructs the scenario** — Combobox's
   popper describe mocks ResizeObserver to fire twice synchronously because *RO-driven re-render
   counts are the subject* — ports with the test, scoped and restored. Ask of every stub: is it

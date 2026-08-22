@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, getLocalTimeZone, today, toZoned } from
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { ConfigProvider } from '@/ConfigProvider'
 import { useTestKbd } from '@/shared'
 import DatePicker from './story/_DatePicker.vue'
@@ -56,7 +56,7 @@ it('should pass axe accessibility tests', async () => {
   const { container, getByTestId, trigger, user } = await setup()
   expect(await axe(container)).toHaveNoViolations()
 
-  await user.click(trigger)
+  await user.click(page.elementLocator(trigger))
   expect(getByTestId('calendar')).toBeVisible()
   expect(await axe(document.body)).toHaveNoViolations()
 })
@@ -101,7 +101,7 @@ describe('datePicker', async () => {
 
   it('focuses first segment on label click', async () => {
     const { user, input, label } = await setup()
-    await user.click(label)
+    await user.click(page.elementLocator(label))
     expect(input.firstElementChild).toHaveFocus()
   })
 
@@ -117,7 +117,7 @@ describe('datePicker', async () => {
     const segments = [day, month, year, hour, minute, dayPeriod, timeZoneName]
 
     for (const segment of segments) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       expect(segment).toHaveFocus()
     }
   })
@@ -139,22 +139,22 @@ describe('datePicker', async () => {
       return segment === 'minute' || segment === 'second' ? value.padStart(2, '0') : value
     }
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(day)).toBe(cycle('day'))
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(month)).toBe(cycle('month'))
-    await user.click(year)
+    await user.click(page.elementLocator(year))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(year)).toBe(cycle('year'))
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(hour)).toBe('1')
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(minute)).toBe(cycle('minute'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(second)).toBe(cycle('second'))
   })
@@ -175,22 +175,22 @@ describe('datePicker', async () => {
       return String(zonedDateTime.cycle(segment, -1)[segment])
     }
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(day).toHaveTextContent(cycle('day'))
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(month).toHaveTextContent(cycle('month'))
-    await user.click(year)
+    await user.click(page.elementLocator(year))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(year).toHaveTextContent(cycle('year'))
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(hour).toHaveTextContent(cycle('hour'))
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(minute).toHaveTextContent(cycle('minute'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(second).toHaveTextContent(cycle('second'))
   })
@@ -206,7 +206,7 @@ describe('datePicker', async () => {
 
     const segments = [month, day, year, hour, minute, second, dayPeriod, timeZoneName, trigger]
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
 
     for (const seg of segments) {
       expect(seg).toHaveFocus()
@@ -232,7 +232,7 @@ describe('datePicker', async () => {
 
     const segments = [month, day, year, hour, minute, second, dayPeriod, timeZoneName]
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
 
     for (const seg of segments) {
       expect(seg).toHaveFocus()
@@ -254,7 +254,7 @@ describe('datePicker', async () => {
     })
     expect(trigger).toBeDisabled()
 
-    await user.click(trigger, { force: true })
+    await user.click(page.elementLocator(trigger), { force: true })
     expect(document.querySelector('[data-testid="popover-content"]')).toBe(null)
 
     const segments = [day, month, year]
@@ -263,7 +263,7 @@ describe('datePicker', async () => {
       expect(segment).not.toHaveAttribute('tabindex')
       let mouseDown: MouseEvent | undefined
       segment.addEventListener('mousedown', event => mouseDown = event, { once: true })
-      await user.click(segment, { force: true })
+      await user.click(page.elementLocator(segment), { force: true })
       expect(mouseDown?.defaultPrevented).toBe(true)
     }
     expect(segments.map(text)).toStrictEqual(initialValues)
@@ -287,17 +287,17 @@ describe('datePicker', async () => {
     })
     rerender = view.rerender
 
-    await view.user.click(view.trigger)
+    await view.user.click(page.elementLocator(view.trigger))
     const placeholder = today(getLocalTimeZone())
     const firstOfMonth = new CalendarDate(placeholder.year, placeholder.month, 1)
     const targetDayName = dateLabel(firstOfMonth)
 
-    await view.user.click(view.getButton(targetDayName))
+    await view.user.click(page.elementLocator(view.getButton(targetDayName)))
     await pendingRerender
     const targetDay = view.getButton(targetDayName)
     expect(targetDay).toHaveAttribute('data-selected')
     expect(emittedValues.at(-1)?.compare(firstOfMonth)).toBe(0)
-    await view.user.click(targetDay)
+    await view.user.click(page.elementLocator(targetDay))
     await pendingRerender
     expect(view.getButton(targetDayName)).not.toHaveAttribute('data-selected')
     expect(emittedValues.at(-1)).toBeUndefined()
@@ -325,8 +325,8 @@ describe('datePicker', async () => {
       },
     })
 
-    await user.click(trigger)
-    await user.click(getButton('Tuesday, January 1, 1980'))
+    await user.click(page.elementLocator(trigger))
+    await user.click(page.elementLocator(getButton('Tuesday, January 1, 1980')))
 
     const selectedValue = emittedValues.at(-1)
     expect(selectedValue).toBeInstanceOf(CalendarDateTime)
@@ -360,8 +360,8 @@ describe('datePicker', async () => {
       },
     })
 
-    await user.click(trigger)
-    await user.click(getButton('Tuesday, January 1, 1980'))
+    await user.click(page.elementLocator(trigger))
+    await user.click(page.elementLocator(getButton('Tuesday, January 1, 1980')))
 
     const selectedValue = emittedValues.at(-1)
     const expectedValue = toZoned(new CalendarDateTime(1980, 1, 1, 0, 0, 0, 0), 'America/New_York')
@@ -410,16 +410,16 @@ describe('datePicker', async () => {
       },
     })
 
-    await view.user.click(view.month)
+    await view.user.click(page.elementLocator(view.month))
     await view.user.keyboard('2')
     expect(view.day).toHaveFocus()
-    await view.user.click(view.day)
+    await view.user.click(page.elementLocator(view.day))
     await view.user.keyboard('3')
-    await view.user.click(view.year)
+    await view.user.click(page.elementLocator(view.year))
     await view.user.keyboard('2020')
-    await view.user.click(view.getByTestId('hour'))
+    await view.user.click(page.elementLocator(view.getByTestId('hour')))
     await view.user.keyboard('9')
-    await view.user.click(view.getByTestId('minute'))
+    await view.user.click(page.elementLocator(view.getByTestId('minute')))
     await view.user.keyboard('45')
 
     expect(view.month).toHaveTextContent('2')
@@ -437,13 +437,13 @@ describe('datePicker', async () => {
       },
     })
 
-    await user.click(trigger)
+    await user.click(page.elementLocator(trigger))
 
     const popoverContent = getByTestId('popover-content')
     expect(popoverContent).toBeVisible()
 
     const day = getButton('Tuesday, January 1, 1980')
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     expect(popoverContent).not.toBeVisible()
   })
 
@@ -459,13 +459,13 @@ describe('datePicker', async () => {
       },
     })
 
-    await user.click(trigger)
+    await user.click(page.elementLocator(trigger))
 
     const popoverContent = getByTestId('popover-content')
     expect(popoverContent).toBeVisible()
 
     const day = getButton('Tuesday, January 1, 1980')
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     expect(emittedValues.at(-1)?.compare(new CalendarDate(1980, 1, 1))).toBe(0)
     expect(popoverContent).toBeVisible()
   })
@@ -486,7 +486,7 @@ describe('datePicker', async () => {
       })
 
       const trigger = screen.getByRole('button', { name: 'Open', exact: true }).element() as HTMLButtonElement
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = screen.getByTestId('heading').element()
       expect(text(heading)).toBe('Januar 2024')
@@ -507,7 +507,7 @@ describe('datePicker', async () => {
       })
 
       const trigger = screen.getByRole('button', { name: 'Open', exact: true }).element() as HTMLButtonElement
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = screen.getByTestId('heading').element()
       expect(text(heading)).toBe('January 2024')
@@ -518,7 +518,7 @@ describe('datePicker', async () => {
         datePickerProps: { modelValue: calendarDate },
       })
 
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = getByTestId('heading')
       expect(text(heading)).toBe('January 1980')

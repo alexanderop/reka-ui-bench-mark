@@ -55,8 +55,8 @@ async function mount(direction: SwipeDirection) {
   return {
     drawer,
     scrollable,
-    drawerElement: await drawer.element() as HTMLElement,
-    scrollElement: await scrollable.element() as HTMLElement,
+    drawerElement: drawer.element() as HTMLElement,
+    scrollElement: scrollable.element() as HTMLElement,
     onOpenChange,
   }
 }

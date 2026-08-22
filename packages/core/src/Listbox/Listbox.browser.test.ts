@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { handleSubmit } from '@/test'
 import { ListboxContent, ListboxFilter, ListboxItem, ListboxRoot, ListboxVirtualizer } from '.'
@@ -26,7 +26,7 @@ async function tabIntoScreen(screen: Screen) {
     // Establish keyboard entry in this tester iframe with trusted input. Full
     // browser runs execute files in parallel, so BODY is not a stable shared
     // starting point for Tab even though it is in an isolated file run.
-    await userEvent.click(sentinel)
+    await page.elementLocator(sentinel).click()
     await userEvent.tab()
   }
   finally {

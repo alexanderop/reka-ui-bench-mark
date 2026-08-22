@@ -2,10 +2,14 @@ import type { NumberFieldRootProps } from './NumberFieldRoot.vue'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useKbd } from '@/shared'
 import { handleSubmit } from '@/test'
 import NumberField from './story/_NumberField.vue'
+
+function interactionTarget(element: Element) {
+  return page.elementLocator(element)
+}
 
 async function setup(props?: NumberFieldRootProps) {
   const user = userEvent.setup()
@@ -60,11 +64,11 @@ describe('numberField', () => {
   it('should restart from 0 when clearing the value', async () => {
     const { input, increment } = await setup({ defaultValue: 5 })
 
-    await userEvent.clear(input)
+    await userEvent.clear(interactionTarget(input))
 
     expect(input.value).toBe('')
-    await userEvent.click(document.body)
-    await userEvent.click(increment)
+    await page.elementLocator(document.body).click()
+    await userEvent.click(interactionTarget(increment))
     expect(input.value).toBe('0')
   })
 
@@ -72,14 +76,14 @@ describe('numberField', () => {
     const { input, increment, decrement } = await setup({ defaultValue: 10 })
     expect(input.value).toBe('10')
 
-    await userEvent.click(increment)
+    await userEvent.click(interactionTarget(increment))
     expect(input.value).toBe('11')
-    await userEvent.click(increment)
+    await userEvent.click(interactionTarget(increment))
     expect(input.value).toBe('12')
 
-    await userEvent.click(decrement)
+    await userEvent.click(interactionTarget(decrement))
     expect(input.value).toBe('11')
-    await userEvent.click(decrement)
+    await userEvent.click(interactionTarget(decrement))
     expect(input.value).toBe('10')
   })
 
@@ -87,21 +91,21 @@ describe('numberField', () => {
     const { input, increment, decrement } = await setup({ defaultValue: 0, step: 3 })
     expect(input.value).toBe('0')
 
-    await userEvent.click(increment)
+    await userEvent.click(interactionTarget(increment))
     expect(input.value).toBe('3')
-    await userEvent.click(increment)
+    await userEvent.click(interactionTarget(increment))
     expect(input.value).toBe('6')
 
-    await userEvent.click(decrement)
+    await userEvent.click(interactionTarget(decrement))
     expect(input.value).toBe('3')
-    await userEvent.click(decrement)
+    await userEvent.click(interactionTarget(decrement))
     expect(input.value).toBe('0')
   })
 
   it('should increase and decrease based on keyboard navigation on input', async () => {
     const { input } = await setup({ defaultValue: 0, min: 0, max: 10 })
 
-    await userEvent.click(input)
+    await userEvent.click(interactionTarget(input))
     await userEvent.keyboard('{ArrowUp}')
     expect(input.value).toBe('1')
     await userEvent.keyboard('{ArrowDown}')
@@ -121,9 +125,9 @@ describe('numberField', () => {
     expect(input.value).toBe('0')
     dispatchKeyboardPayload.keyDown(input, { key: kbd.ARROW_DOWN })
     expect(input.value).toBe('0')
-    await userEvent.click(increment, { force: true })
+    await userEvent.click(interactionTarget(increment), { force: true })
     expect(input.value).toBe('0')
-    await userEvent.click(decrement, { force: true })
+    await userEvent.click(interactionTarget(decrement), { force: true })
     expect(input.value).toBe('0')
   })
 
@@ -132,14 +136,14 @@ describe('numberField', () => {
 
     expect(root.getAttribute('data-readonly')).toBe('')
     expect(input.getAttribute('data-readonly')).toBe('')
-    await userEvent.click(input)
+    await userEvent.click(interactionTarget(input))
     await userEvent.keyboard('{ArrowUp}')
     expect(input.value).toBe('0')
     await userEvent.keyboard('{ArrowDown}')
     expect(input.value).toBe('0')
-    await userEvent.click(increment, { force: true })
+    await userEvent.click(interactionTarget(increment), { force: true })
     expect(input.value).toBe('0')
-    await userEvent.click(decrement, { force: true })
+    await userEvent.click(interactionTarget(decrement), { force: true })
     expect(input.value).toBe('0')
   })
 
@@ -155,11 +159,11 @@ describe('numberField', () => {
       const { input } = await setup({
         defaultValue: 10,
       })
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       expect(input.value).toBe('10')
-      await userEvent.wheel(input, { delta: { y: 100 } })
+      await userEvent.wheel(interactionTarget(input), { delta: { y: 100 } })
       expect(input.value).toBe('11')
-      await userEvent.wheel(input, { delta: { y: -100 } })
+      await userEvent.wheel(interactionTarget(input), { delta: { y: -100 } })
       expect(input.value).toBe('10')
     })
 
@@ -168,11 +172,11 @@ describe('numberField', () => {
         defaultValue: 10,
         invertWheelChange: true,
       })
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       expect(input.value).toBe('10')
-      await userEvent.wheel(input, { delta: { y: 100 } })
+      await userEvent.wheel(interactionTarget(input), { delta: { y: 100 } })
       expect(input.value).toBe('9')
-      await userEvent.wheel(input, { delta: { y: -100 } })
+      await userEvent.wheel(interactionTarget(input), { delta: { y: -100 } })
       expect(input.value).toBe('10')
     })
 
@@ -181,9 +185,9 @@ describe('numberField', () => {
         defaultValue: 10,
         disableWheelChange: true,
       })
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       expect(input.value).toBe('10')
-      await userEvent.wheel(input, { delta: { y: 100 } })
+      await userEvent.wheel(interactionTarget(input), { delta: { y: 100 } })
       expect(input.value).toBe('10')
     })
   })
@@ -247,7 +251,7 @@ describe('numberField', () => {
       })
       expect(input.value).toBe('13 min')
 
-      await user.click(input)
+      await user.click(interactionTarget(input))
       await user.keyboard('{Backspace}')
       expect(input.value).toBe('13 mi')
 
@@ -285,7 +289,7 @@ describe('numberField', () => {
       const { input } = await setup({ min: 2, step: 3 })
 
       expect(input.value).toBe('')
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       await userEvent.keyboard('{ArrowUp}')
       expect(input.value).toBe('2')
       await userEvent.keyboard('{ArrowUp}')
@@ -298,7 +302,7 @@ describe('numberField', () => {
       const { input } = await setup({ min: 2, max: 21, step: 3, stepSnapping: true })
 
       expect(input.value).toBe('')
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       await userEvent.keyboard('{ArrowUp}'.repeat(7)) // 2, 5, 8, 11, 14, 17, 20
       expect(input.value).toBe('20')
       await userEvent.keyboard('{ArrowUp}') // 20 (max snapped to step)
@@ -309,7 +313,7 @@ describe('numberField', () => {
       const { input } = await setup({ min: 17, max: 21, step: 3, stepSnapping: false })
 
       expect(input.value).toBe('')
-      await userEvent.click(input)
+      await userEvent.click(interactionTarget(input))
       await userEvent.keyboard('{ArrowUp}{ArrowUp}') // 17, 20
       expect(input.value).toBe('20')
       await userEvent.keyboard('{ArrowUp}') // 21 (max not snapped to step)
@@ -320,23 +324,23 @@ describe('numberField', () => {
       // Seed the off-grid value via defaultValue: typing it would snap on commit.
       const { input, increment } = await setup({ step: 1, stepSnapping: true, defaultValue: 18.98 })
 
-      await userEvent.click(increment) // snap up to the nearest grid line, not 18.98 + 1 -> 20
+      await userEvent.click(interactionTarget(increment)) // snap up to the nearest grid line, not 18.98 + 1 -> 20
       expect(input.value).toBe('19')
     })
 
     it('should snap an off-grid value to the previous grid line when decrementing', async () => {
       const { input, decrement } = await setup({ step: 1, stepSnapping: true, defaultValue: 18.11 })
 
-      await userEvent.click(decrement) // snap down to the nearest grid line, not 18.11 - 1 -> 17
+      await userEvent.click(interactionTarget(decrement)) // snap down to the nearest grid line, not 18.11 - 1 -> 17
       expect(input.value).toBe('18')
     })
 
     it('should add a full step when the value is already on the grid', async () => {
       const { input, increment, decrement } = await setup({ step: 1, stepSnapping: true, defaultValue: 5 })
 
-      await userEvent.click(increment)
+      await userEvent.click(interactionTarget(increment))
       expect(input.value).toBe('6')
-      await userEvent.click(decrement)
+      await userEvent.click(interactionTarget(decrement))
       expect(input.value).toBe('5')
     })
   })
@@ -346,7 +350,7 @@ describe('numberField', () => {
       const { input, increment } = await setup({ max: 10, step: 3, stepSnapping: true, defaultValue: 8 })
 
       expect(increment).not.toHaveAttribute('disabled')
-      await userEvent.click(increment) // aligns to 9, not 8 + 3
+      await userEvent.click(interactionTarget(increment)) // aligns to 9, not 8 + 3
       expect(input.value).toBe('9')
     })
 
@@ -354,7 +358,7 @@ describe('numberField', () => {
       const { input, decrement } = await setup({ min: 2, step: 3, stepSnapping: true, defaultValue: 4 })
 
       expect(decrement).not.toHaveAttribute('disabled')
-      await userEvent.click(decrement) // aligns to 2, not 4 - 3
+      await userEvent.click(interactionTarget(decrement)) // aligns to 2, not 4 - 3
       expect(input.value).toBe('2')
     })
 
@@ -374,7 +378,7 @@ describe('numberField', () => {
       const { input, increment } = await setup({ max: -5 })
 
       // Empty input: the bare fallback would be 0, which is above max; it must be clamped.
-      await userEvent.click(increment)
+      await userEvent.click(interactionTarget(increment))
       expect(input.value).toBe('-5')
     })
   })
@@ -383,20 +387,20 @@ describe('numberField', () => {
     it('should it increase/decrease the value appropriately', async () => {
       const { input, increment, decrement } = await setup({ defaultValue: 6 })
 
-      await userEvent.fill(input, '100')
-      await userEvent.click(increment)
+      await userEvent.fill(interactionTarget(input), '100')
+      await userEvent.click(interactionTarget(increment))
       expect(input.value).toBe('101')
 
-      await userEvent.fill(input, '100')
-      await userEvent.click(decrement)
+      await userEvent.fill(interactionTarget(input), '100')
+      await userEvent.click(interactionTarget(decrement))
       expect(input.value).toBe('99')
 
-      await userEvent.clear(input)
-      await userEvent.click(decrement)
+      await userEvent.clear(interactionTarget(input))
+      await userEvent.click(interactionTarget(decrement))
       expect(input.value).toBe('0')
 
-      await userEvent.fill(input, '0')
-      await userEvent.click(decrement)
+      await userEvent.fill(interactionTarget(input), '0')
+      await userEvent.click(interactionTarget(decrement))
       expect(input.value).toBe('-1')
     })
   })
@@ -413,7 +417,7 @@ describe('numberField', () => {
         },
       })
 
-      await userEvent.fill(input, '7')
+      await userEvent.fill(interactionTarget(input), '7')
       expect(input.value).toBe('7')
       await userEvent.keyboard('{Enter}')
       expect(input.value).toBe('EUR\u00A07.00')
@@ -423,13 +427,13 @@ describe('numberField', () => {
   describe('given focusOnChange prop', () => {
     it('should focus input when clicking increment by default', async () => {
       const { input, increment } = await setup({ defaultValue: 0, focusOnChange: true })
-      await userEvent.click(increment)
+      await userEvent.click(interactionTarget(increment))
       expect(input).toHaveFocus()
     })
 
     it('should not focus input when clicking increment if focusOnChange is false', async () => {
       const { input, increment } = await setup({ defaultValue: 0, focusOnChange: false })
-      await userEvent.click(increment)
+      await userEvent.click(interactionTarget(increment))
       expect(input).not.toHaveFocus()
     })
   })
@@ -465,7 +469,7 @@ describe('given checkbox in a form', async () => {
   describe('after changing value and click submit button again', () => {
     beforeEach(async () => {
       const increment = screen.getByTestId('increment').element()
-      await userEvent.click(increment)
+      await userEvent.click(interactionTarget(increment))
       await screen.getByRole('button', { name: 'Submit' }).click()
     })
 
@@ -479,7 +483,7 @@ describe('given checkbox in a form', async () => {
 describe('handle IME composition', () => {
   it('should not block beforeinput during IME composition', async () => {
     const { input } = await setup()
-    await userEvent.click(input)
+    await userEvent.click(interactionTarget(input))
 
     // `isComposing` is the payload under test; Vitest 4.1.10 has no
     // cross-browser API for driving a real IME session.
@@ -494,7 +498,7 @@ describe('handle IME composition', () => {
 
   it('should block invalid beforeinput when NOT composing', async () => {
     const { input } = await setup()
-    await userEvent.click(input)
+    await userEvent.click(interactionTarget(input))
 
     // Direct dispatch keeps this test isolated to the cancelable beforeinput
     // payload; ordinary value entry elsewhere in this file uses `fill()`.
@@ -517,7 +521,7 @@ describe('handle IME composition', () => {
     expect(input.value).toBe('0')
 
     // Once composition ends, stepping works again
-    await userEvent.click(input)
+    await userEvent.click(interactionTarget(input))
     await userEvent.keyboard('{ArrowUp}')
     expect(input.value).toBe('1')
   })

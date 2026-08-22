@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { ConfigProvider } from '@/ConfigProvider'
 import { useTestKbd } from '@/shared'
 import DateRangePicker from './story/_DateRangePicker.vue'
@@ -57,7 +57,7 @@ function text(element: Element | null) {
 it('should pass axe accessibility tests', async () => {
   const { container, getByTestId, trigger, user } = await setup()
   expect(await axe(container)).toHaveNoViolations()
-  await user.click(trigger)
+  await user.click(page.elementLocator(trigger))
   expect(getByTestId('calendar')).toBeVisible()
   expect(await axe(document.body)).toHaveNoViolations()
 })
@@ -125,7 +125,7 @@ describe('dateRangePicker', async () => {
 
   it('focuses first segment on label click', async () => {
     const { user, input, label } = await setup()
-    await user.click(label)
+    await user.click(page.elementLocator(label))
     expect(input.firstElementChild).toHaveFocus()
   })
 
@@ -137,7 +137,7 @@ describe('dateRangePicker', async () => {
     const fields = ['start', 'end'] as const
     const segments = ['month', 'day', 'year'] as const
 
-    await user.click(getByTestId('start-month'))
+    await user.click(page.elementLocator(getByTestId('start-month')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -149,7 +149,7 @@ describe('dateRangePicker', async () => {
       }
     }
 
-    await user.click(getByTestId('start-month'))
+    await user.click(page.elementLocator(getByTestId('start-month')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -170,7 +170,7 @@ describe('dateRangePicker', async () => {
     const fields = ['end', 'start'] as const
     const segments = ['year', 'day', 'month'] as const
 
-    await user.click(getByTestId('end-year'))
+    await user.click(page.elementLocator(getByTestId('end-year')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -182,7 +182,7 @@ describe('dateRangePicker', async () => {
       }
     }
 
-    await user.click(getByTestId('end-year'))
+    await user.click(page.elementLocator(getByTestId('end-year')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -203,7 +203,7 @@ describe('dateRangePicker', async () => {
     })
     expect(trigger).toBeDisabled()
 
-    await user.click(trigger, { force: true })
+    await user.click(page.elementLocator(trigger), { force: true })
     expect(document.querySelector('[data-testid="popover-content"]')).toBe(null)
 
     const fields = ['end', 'start'] as const
@@ -225,15 +225,15 @@ describe('dateRangePicker', async () => {
       },
     })
 
-    await user.click(trigger)
+    await user.click(page.elementLocator(trigger))
 
     const popoverContent = getByTestId('popover-content')
     expect(popoverContent).toBeVisible()
 
     const startDay = getButton('Saturday, January 1, 2022')
     const endDay = getButton('Monday, January 10, 2022')
-    await user.click(startDay)
-    await user.click(endDay)
+    await user.click(page.elementLocator(startDay))
+    await user.click(page.elementLocator(endDay))
     expect(popoverContent).not.toBeVisible()
   })
 
@@ -245,15 +245,15 @@ describe('dateRangePicker', async () => {
       },
     })
 
-    await user.click(trigger)
+    await user.click(page.elementLocator(trigger))
 
     const popoverContent = getByTestId('popover-content')
     expect(popoverContent).toBeVisible()
 
     const startDay = getButton('Saturday, January 1, 2022')
     const endDay = getButton('Monday, January 10, 2022')
-    await user.click(startDay)
-    await user.click(endDay)
+    await user.click(page.elementLocator(startDay))
+    await user.click(page.elementLocator(endDay))
     expect(startDay).toHaveAttribute('data-selection-start')
     expect(endDay).toHaveAttribute('data-selection-end')
     expect(popoverContent).toBeVisible()
@@ -281,7 +281,7 @@ describe('dateRangePicker', async () => {
       const getByTestId = (id: string) => screen.getByTestId(id).element() as HTMLElement
 
       const trigger = screen.getByRole('button', { name: 'Open', exact: true }).element() as HTMLElement
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = getByTestId('heading')
       expect(text(heading)).toBe('Januar 2024')
@@ -309,7 +309,7 @@ describe('dateRangePicker', async () => {
       const getByTestId = (id: string) => screen.getByTestId(id).element() as HTMLElement
 
       const trigger = screen.getByRole('button', { name: 'Open', exact: true }).element() as HTMLElement
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = getByTestId('heading')
       expect(text(heading)).toBe('January 2024')
@@ -320,7 +320,7 @@ describe('dateRangePicker', async () => {
         dateFieldProps: { modelValue: calendarDate },
       })
 
-      await user.click(trigger)
+      await user.click(page.elementLocator(trigger))
 
       const heading = getByTestId('heading')
       expect(text(heading)).toBe('January 2022')

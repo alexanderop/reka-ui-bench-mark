@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
 import { defineComponent } from 'vue'
 import {
   DropdownMenuContent,
@@ -55,7 +54,7 @@ describe('given default DropdownMenu', () => {
     })
 
     describe('after selecting the first item', () => {
-      beforeEach(async () => { await userEvent.click(screen.getByRole('menuitem').elements()[0]) })
+      beforeEach(async () => { await screen.getByRole('menuitem').first().click() })
 
       it('should close the modal', async () => {
         await expect.element(screen.getByRole('menu')).not.toBeInTheDocument()

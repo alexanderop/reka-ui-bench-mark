@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import MonthRangePicker from './story/_MonthRangePicker.vue'
 
@@ -114,7 +114,7 @@ describe('month range picker', () => {
     expect(text(startValue)).toBe('Jan')
     expect(text(endValue)).toBe('Mar')
 
-    await user.click(getMonth(5))
+    await user.click(page.elementLocator(getMonth(5)))
 
     expect(monthLabels(getSelectedMonths(picker))).toStrictEqual(['May'])
 
@@ -124,7 +124,7 @@ describe('month range picker', () => {
     expect(startValue).toBe(getMonth(5))
     expect(endValue).not.toBeInTheDocument()
 
-    await user.click(getMonth(7))
+    await user.click(page.elementLocator(getMonth(7)))
     expect(monthLabels(getSelectedMonths(picker))).toStrictEqual(['May', 'Jun', 'Jul'])
   })
 
@@ -153,7 +153,7 @@ describe('month range picker', () => {
     })
     rerender = screenRerender
 
-    await user.click(getMonth(4))
+    await user.click(page.elementLocator(getMonth(4)))
 
     expect(getByTestId('month-4')).toHaveAttribute('data-selection-start')
     expect(getByTestId('month-8')).toHaveAttribute('data-selection-end')
@@ -171,8 +171,8 @@ describe('month range picker', () => {
     rerender = screenRerender
 
     const janMonth = getMonth(1)
-    await user.click(janMonth)
-    await user.click(janMonth)
+    await user.click(page.elementLocator(janMonth))
+    await user.click(page.elementLocator(janMonth))
 
     expect(monthLabels(getSelectedMonths(picker))).toStrictEqual(['Jan'])
     expect(picker.querySelector('[data-selection-start]')).toBe(getMonth(1))
@@ -188,12 +188,12 @@ describe('month range picker', () => {
     rerender = screenRerender
 
     const janMonth = getMonth(1)
-    await user.click(janMonth)
-    await user.click(janMonth)
+    await user.click(page.elementLocator(janMonth))
+    await user.click(page.elementLocator(janMonth))
 
     expect(monthLabels(getSelectedMonths(picker))).toStrictEqual(['Jan'])
 
-    await user.click(janMonth)
+    await user.click(page.elementLocator(janMonth))
     expect(getSelectedMonths(picker)).toHaveLength(0)
   })
 
@@ -211,7 +211,7 @@ describe('month range picker', () => {
     expect(text(startValue)).toBe('Jan')
     expect(text(endValue)).toBe('Mar')
 
-    await user.click(getMonth(5))
+    await user.click(page.elementLocator(getMonth(5)))
 
     const selectedMonths = getSelectedMonths(picker)
     expect(selectedMonths).toHaveLength(1)
@@ -241,7 +241,7 @@ describe('month range picker', () => {
     expect(text(startValue)).toBe('Apr')
     expect(text(endValue)).toBe('Jun')
 
-    await user.click(getMonth(2))
+    await user.click(page.elementLocator(getMonth(2)))
     expect(getSelectedMonths(picker)).toHaveLength(1)
 
     await user.keyboard(kbd.ESCAPE)
@@ -260,7 +260,7 @@ describe('month range picker', () => {
     const nextBtn = getButton('Next year')
 
     expect(text(heading)).toBe('1980')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(text(heading)).toBe('1981')
   })
 
@@ -271,7 +271,7 @@ describe('month range picker', () => {
     const prevBtn = getButton('Previous year')
 
     expect(text(heading)).toBe('1980')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(text(heading)).toBe('1979')
   })
 
@@ -286,7 +286,7 @@ describe('month range picker', () => {
     const heading = getByTestId('heading')
     expect(text(heading)).toBe('1980')
 
-    await user.click(getMonth(5))
+    await user.click(page.elementLocator(getMonth(5)))
 
     expect(getByTestId('month-4')).toHaveAttribute('data-selected')
     expect(getByTestId('month-1')).toHaveAttribute('data-selection-start')
@@ -304,13 +304,13 @@ describe('month range picker', () => {
     const heading = getByTestId('heading')
     expect(text(heading)).toBe('1980')
 
-    await user.click(getMonth(5))
+    await user.click(page.elementLocator(getMonth(5)))
 
     expect(getByTestId('month-4')).toHaveAttribute('data-selected')
     expect(getByTestId('month-1')).toHaveAttribute('data-selection-start')
     expect(getByTestId('month-5')).toHaveAttribute('data-selection-end')
 
-    await user.click(getMonth(2))
+    await user.click(page.elementLocator(getMonth(2)))
     expect(getByTestId('month-2')).toHaveAttribute('data-selection-start')
     expect(getByTestId('month-5')).toHaveAttribute('data-selection-end')
   })
@@ -326,8 +326,8 @@ describe('month range picker', () => {
       },
     })
 
-    await user.click(getMonth(1))
-    await user.click(getMonth(5))
+    await user.click(page.elementLocator(getMonth(1)))
+    await user.click(page.elementLocator(getMonth(5)))
     expect(monthLabels(getSelectedMonths(picker))).toStrictEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May'])
   })
 })
@@ -342,11 +342,11 @@ describe('month range picker - maximumMonths', () => {
     })
 
     const marchMonth = getMonth(3)
-    await user.click(marchMonth)
+    await user.click(page.elementLocator(marchMonth))
     expect(marchMonth).toHaveAttribute('data-selection-start')
 
     const juneMonth = getMonth(6)
-    await user.click(juneMonth, { force: true })
+    await user.click(page.elementLocator(juneMonth), { force: true })
 
     expect(juneMonth).toHaveAttribute('data-disabled')
     expect(juneMonth).not.toHaveAttribute('data-selected')
@@ -354,7 +354,7 @@ describe('month range picker - maximumMonths', () => {
     const mayMonth = getMonth(5)
     expect(mayMonth).not.toHaveAttribute('data-disabled')
 
-    await user.click(mayMonth)
+    await user.click(page.elementLocator(mayMonth))
     expect(getByTestId('month-3')).toHaveAttribute('data-selected')
     expect(getByTestId('month-4')).toHaveAttribute('data-selected')
     expect(getByTestId('month-5')).toHaveAttribute('data-selected')
@@ -369,11 +369,11 @@ describe('month range picker - maximumMonths', () => {
     })
 
     const marchMonth = getMonth(3)
-    await user.click(marchMonth)
+    await user.click(page.elementLocator(marchMonth))
     expect(marchMonth).toHaveAttribute('data-selection-start')
 
     const janMonth = getMonth(1)
-    await user.hover(janMonth)
+    await user.hover(page.elementLocator(janMonth))
 
     expect(janMonth).toHaveAttribute('data-highlighted-start')
     expect(getByTestId('month-2')).toHaveAttribute('data-highlighted')
@@ -400,10 +400,10 @@ describe('month range picker - maximumMonths', () => {
 
     expect(getByTestId('month-5')).toHaveAttribute('data-disabled')
 
-    await user.click(getMonth(5), { force: true })
+    await user.click(page.elementLocator(getMonth(5)), { force: true })
     expect(getByTestId('month-6')).toHaveAttribute('data-selection-end')
 
-    await user.click(getMonth(3))
+    await user.click(page.elementLocator(getMonth(3)))
     expect(getByTestId('month-1')).toHaveAttribute('data-selection-start')
     expect(getByTestId('month-2')).toHaveAttribute('data-selected')
     expect(getByTestId('month-3')).toHaveAttribute('data-selection-end')
@@ -429,10 +429,10 @@ describe('month range picker - maximumMonths', () => {
 
     expect(getByTestId('month-2')).toHaveAttribute('data-disabled')
 
-    await user.click(getMonth(2), { force: true })
+    await user.click(page.elementLocator(getMonth(2)), { force: true })
     expect(getByTestId('month-1')).toHaveAttribute('data-selection-start')
 
-    await user.click(getMonth(4))
+    await user.click(page.elementLocator(getMonth(4)))
     expect(getByTestId('month-4')).toHaveAttribute('data-selection-start')
     expect(getByTestId('month-5')).toHaveAttribute('data-selected')
     expect(getByTestId('month-6')).toHaveAttribute('data-selection-end')

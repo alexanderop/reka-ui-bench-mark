@@ -2,7 +2,7 @@ import type { Locator } from 'vitest/browser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { commands, userEvent } from 'vitest/browser'
+import { commands, page, userEvent } from 'vitest/browser'
 import { nextTick } from 'vue'
 import TagsInput from './story/_TagsInput.vue'
 import TagsInputDisabled from './story/_TagsInputDisabled.vue'
@@ -219,7 +219,7 @@ describe('given default TagsInput', () => {
       outside.textContent = 'Outside TagsInput'
       document.body.append(outside)
       try {
-        await userEvent.click(outside)
+        await page.elementLocator(outside).click()
         await expect.element(input).not.toHaveFocus()
       }
       finally {

@@ -4,7 +4,7 @@ import { CalendarDateTime, Time, toZoned } from '@internationalized/date'
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import TimeField from './story/_TimeRangeField.vue'
 
@@ -56,7 +56,7 @@ describe('timeField', () => {
       },
     })
 
-    await user.click(start.hour)
+    await user.click(page.elementLocator(start.hour))
     expect(start.hour).toHaveFocus()
     await user.keyboard('4')
     expect(start.minute).toHaveFocus()
@@ -107,7 +107,7 @@ describe('timeField', () => {
     const fields = ['start', 'end'] as const
     const segments = ['hour', 'minute'] as const
 
-    await user.click(getByTestId('start-hour'))
+    await user.click(page.elementLocator(getByTestId('start-hour')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -119,7 +119,7 @@ describe('timeField', () => {
       }
     }
 
-    await user.click(getByTestId('start-hour'))
+    await user.click(page.elementLocator(getByTestId('start-hour')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -140,7 +140,7 @@ describe('timeField', () => {
     const fields = ['end', 'start'] as const
     const segments = ['minute', 'hour'] as const
 
-    await user.click(getByTestId('end-minute'))
+    await user.click(page.elementLocator(getByTestId('end-minute')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -152,7 +152,7 @@ describe('timeField', () => {
       }
     }
 
-    await user.click(getByTestId('end-minute'))
+    await user.click(page.elementLocator(getByTestId('end-minute')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -172,7 +172,7 @@ describe('timeField', () => {
     expect(start.hour).toHaveTextContent(String(time.start.hour).padStart(2, '0'))
     expect(end.hour).toHaveTextContent(String(time.end.hour))
 
-    await user.click(start.minute)
+    await user.click(page.elementLocator(start.minute))
     await user.keyboard('2')
     expect(start.minute).toHaveTextContent('02')
     expect(end.minute).toHaveTextContent(String(time.end.minute))
@@ -183,7 +183,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(end.hour)
+    await user.click(page.elementLocator(end.hour))
     await user.keyboard(kbd.ARROW_UP)
     expect(start.hour).toHaveTextContent(String(time.start.hour).padStart(2, '0'))
     expect(start.minute).toHaveTextContent(String(time.start.minute))
@@ -194,7 +194,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(start.hour)
+    await user.click(page.elementLocator(start.hour))
     await user.keyboard(kbd.ARROW_UP)
     expect(start.hour).toHaveTextContent(String(time.start.hour + 1).padStart(2, '0'))
   })
@@ -204,7 +204,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(end.minute)
+    await user.click(page.elementLocator(end.minute))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(end.minute).toHaveTextContent(String(time.end.minute - 1))
   })
@@ -214,7 +214,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(start.hour)
+    await user.click(page.elementLocator(start.hour))
     await user.keyboard('14')
     expect(start.hour).toHaveTextContent('14')
   })
@@ -224,7 +224,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(end.minute)
+    await user.click(page.elementLocator(end.minute))
     await user.keyboard('30')
     expect(end.minute).toHaveTextContent('30')
   })
@@ -236,7 +236,7 @@ describe('timeField', () => {
 
     const segments = [start.hour, start.minute, end.hour, end.minute]
     for (const seg of segments) {
-      await user.click(seg, { force: true })
+      await user.click(page.elementLocator(seg), { force: true })
       expect(seg).not.toHaveFocus()
     }
   })
@@ -246,12 +246,12 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB', readonly: true },
     })
 
-    await user.click(start.hour)
+    await user.click(page.elementLocator(start.hour))
     expect(start.hour).toHaveFocus()
     await user.keyboard(kbd.ARROW_UP)
     expect(start.hour).toHaveTextContent(String(time.start.hour).padStart(2, '0'))
 
-    await user.click(end.hour)
+    await user.click(page.elementLocator(end.hour))
     expect(end.hour).toHaveFocus()
     await user.keyboard(kbd.ARROW_UP)
     expect(end.hour).toHaveTextContent(String(time.end.hour).padStart(2, '0'))
@@ -294,7 +294,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(label)
+    await user.click(page.elementLocator(label))
     expect(start.hour).toHaveFocus()
   })
 
@@ -333,7 +333,7 @@ describe('timeField', () => {
       timeRangeFieldProps: { modelValue: time, locale: 'en-GB' },
     })
 
-    await user.click(start.hour)
+    await user.click(page.elementLocator(start.hour))
     await user.keyboard('09')
     expect(start.minute).toHaveFocus()
     await user.keyboard('15')

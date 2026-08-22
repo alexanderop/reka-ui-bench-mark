@@ -10,8 +10,8 @@ import Tabs from './story/_Tabs.vue'
 // knowing which tab the application intends to expose as selected.
 
 async function expectTabPanelRelation(tab: Locator, panel: Locator) {
-  const tabElement = await tab.element()
-  const panelElement = await panel.element()
+  const tabElement = tab.element()
+  const panelElement = panel.element()
 
   await expect.element(tab).toHaveAttribute('aria-controls', panelElement.id)
   expect(document.getElementById(tabElement.getAttribute('aria-controls')!)).toBe(panelElement)
@@ -42,7 +42,7 @@ describe('given the Tabs story fixture', () => {
     await userEvent.keyboard('{ArrowRight}')
 
     const passwordPanel = screen.getByRole('tabpanel', { name: 'Password', exact: true })
-    expect(await password.element()).toBe(document.activeElement)
+    expect(password.element()).toBe(document.activeElement)
     await expectTabPanelRelation(password, passwordPanel)
     await expect.element(document.body).toMatchAriaInlineSnapshot(`
       - tablist "Manage your account":

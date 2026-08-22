@@ -1858,6 +1858,15 @@ site, classify the subject:
   to it;
 - pinned API limitation → source/type citation plus runtime evidence, not a training-data guess.
 
+Keep the locator intact at the action boundary. `locator.element()` resolves synchronously and
+throws if the node is not present; `userEvent.click(locator)` and `locator.click()` can retry the
+selector and actionability. Do not write `userEvent.click(locator.element())`. Component-library
+tests still need raw nodes for geometry, DOM identity and constructed payloads. In that narrow case,
+keep a stable raw handle for those reads and use `page.elementLocator(handle)` for the ordinary
+action. Measured during a 4.1.10 corpus audit: all 497 target-taking `UserEvent` calls accepted
+locators unchanged, while changing an IME helper itself to a dynamic `nth()` locator broke its
+stable-node payload contract. The paired raw-handle/locator form kept both contracts explicit.
+
 This distinction deleted one shared synthetic adapter from five large ports. It also found a
 false coverage path: a click-only adapter could stack two focus scopes in an order a trusted
 pointerdown/focus/click sequence never does. The native sequence gained more product coverage while

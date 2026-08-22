@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
 import Menubar from './story/_Menubar.vue'
 
 describe('given default Menubar', () => {
@@ -18,7 +17,7 @@ describe('given default Menubar', () => {
 
   describe('after opening the dropdown', () => {
     beforeEach(async () => {
-      await userEvent.click(screen.container.querySelector('button')!)
+      await screen.getByRole('menuitem', { name: 'File', exact: true }).click()
     })
 
     // @finding Menubar/Menubar.test.ts#open-color-contrast

@@ -6,7 +6,7 @@ import { CalendarDateTime, now, parseAbsoluteToLocal, Time, toZoned } from '@int
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import TimeField from './story/_TimeField.vue'
 
@@ -65,7 +65,7 @@ describe('timeField', async () => {
       },
     })
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     expect(hour).toHaveFocus()
     await user.keyboard('11')
     expect(getByTestId('minute')).toHaveFocus()
@@ -129,7 +129,7 @@ describe('timeField', async () => {
 
   it('focuses first segment on label click', async () => {
     const { user, input, label } = await setup()
-    await user.click(label)
+    await user.click(page.elementLocator(label))
     expect(input.firstElementChild).toHaveFocus()
   })
 
@@ -144,7 +144,7 @@ describe('timeField', async () => {
     const segments = [hour, minute, dayPeriod, timeZoneName]
 
     for (const segment of segments) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       expect(segment).toHaveFocus()
     }
   })
@@ -164,13 +164,13 @@ describe('timeField', async () => {
     const minute = getByTestId('minute')
     const second = getByTestId('second')
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_UP)
     expect(hour.textContent).toBe('1')
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_UP)
     expect(minute.textContent).toBe(cycle('minute').padStart(2, '0'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_UP)
     expect(second.textContent).toBe(cycle('second').padStart(2, '0'))
   })
@@ -190,13 +190,13 @@ describe('timeField', async () => {
     const minute = getByTestId('minute')
     const second = getByTestId('second')
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(hour.textContent).toBe(cycle('hour'))
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(minute.textContent).toBe(cycle('minute').padStart(2, '0'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(second.textContent).toBe(cycle('second').padStart(2, '0'))
   })
@@ -218,20 +218,20 @@ describe('timeField', async () => {
     const minute = getByTestId('minute')
     const second = getByTestId('second')
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(hour.textContent).toBe(cycle('hour', -1))
     await user.keyboard(kbd.ARROW_UP)
     expect(hour.textContent).toBe(cycle('hour', 0))
 
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(minute.textContent).toBe(cycle('minute', -step).padStart(2, '0'))
     await user.keyboard(kbd.ARROW_UP)
     await user.keyboard(kbd.ARROW_UP)
     expect(minute.textContent).toBe(cycle('minute', step).padStart(2, '0'))
 
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(second.textContent).toBe(cycle('second', -step).padStart(2, '0'))
     await user.keyboard(kbd.ARROW_UP)
@@ -250,7 +250,7 @@ describe('timeField', async () => {
 
     const segments = [hour, minute, second, dayPeriod, timeZoneName]
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
 
     // A real IME cannot be selected in the configured headless browser. This
     // controlled event isolates the component's composition guard before the
@@ -286,7 +286,7 @@ describe('timeField', async () => {
 
     const segments = [hour, minute, second, dayPeriod]
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
 
     for (const seg of segments) {
       expect(seg).toHaveFocus()
@@ -314,11 +314,11 @@ describe('timeField', async () => {
     const segments = [hour, minute, second]
 
     for (const segment of segments) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       await user.keyboard('0')
       await user.keyboard(kbd.TAB)
       expect(segment).not.toHaveFocus()
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       await user.keyboard('1')
       expect(segment).toHaveFocus()
     }
@@ -346,7 +346,7 @@ describe('timeField', async () => {
       // Actionability correctly rejects an aria-disabled spinbutton. Force is
       // used only to deliver Chromium's trusted pointerdown; it cannot reach
       // the component's mousedown handler on a disabled element.
-      await user.click(seg, { force: true })
+      await user.click(page.elementLocator(seg), { force: true })
       expect(trustedPointerDown?.isTrusted).toBe(true)
 
       // Isolate the disabled mousedown handler with a cancelable event and
@@ -382,7 +382,7 @@ describe('timeField', async () => {
 
     for (const segment of segments) {
       const initialText = segment.textContent
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       expect(segment).toHaveFocus()
       await user.keyboard(kbd.ARROW_UP)
       expect(segment.textContent).toBe(initialText)
@@ -399,7 +399,7 @@ describe('timeField', async () => {
 
     expect(queryByTestId('dayPeriod')).toBeNull()
     expect(hour.textContent).toBe('12')
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     expect(hour).toHaveFocus()
     await user.keyboard(kbd.ARROW_UP)
     expect(hour.textContent).toBe('13')
@@ -423,7 +423,7 @@ describe('timeField', async () => {
       },
     })
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard('14')
 
     expect(hour.textContent).toBe('14')
@@ -479,7 +479,7 @@ describe('timeField', async () => {
 
     const { minute, second, dayPeriod } = getTimeSegments(getByTestId)
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard('1')
     await user.keyboard('1')
     expect(minute).toHaveFocus()
@@ -501,7 +501,7 @@ describe('timeField', async () => {
 
     const { minute, second, dayPeriod } = getTimeSegments(getByTestId)
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard('0')
     expect(hour).toHaveFocus()
     await user.keyboard('0')
@@ -536,7 +536,7 @@ describe('timeField', async () => {
 
     const dayPeriod = getByTestId('dayPeriod')
     expect(value.textContent).toBe(calendarDateTime.toString())
-    await user.click(dayPeriod)
+    await user.click(page.elementLocator(dayPeriod))
     await user.keyboard('a')
     expect(getByTestId('value').textContent).toBe(calendarDateTime.subtract({ hours: 12 }).toString())
     await user.keyboard('p')
@@ -555,7 +555,7 @@ describe('timeField', async () => {
       },
     })
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     expect(hour).toHaveFocus()
     expect(hour.textContent).toBe(String(zonedDateTime.hour))
     await user.keyboard('3')
@@ -678,7 +678,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard(kbd.ARROW_UP)
 
       expect(hour.textContent).toBe('12')
@@ -693,7 +693,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard(kbd.ARROW_UP)
 
       expect(hour.textContent).toBe('12')
@@ -718,7 +718,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
 
       // Cycle from 1 PM through 11 PM
       for (let i = 1; i < 11; i++) {
@@ -752,7 +752,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('10')
 
       expect(hour.textContent).toBe('10')
@@ -778,7 +778,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('11')
 
       expect(hour.textContent).toBe('11')
@@ -804,7 +804,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('12')
 
       expect(hour.textContent).toBe('12')
@@ -831,7 +831,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('10')
 
       expect(hour.textContent).toBe('10')
@@ -858,7 +858,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('11')
 
       expect(hour.textContent).toBe('11')
@@ -885,7 +885,7 @@ describe('timeField', async () => {
         },
       })
 
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('12')
 
       expect(hour.textContent).toBe('12')
@@ -919,7 +919,7 @@ describe('timeField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       // Type 23 - should snap to 30 (nearest multiple of 15)
       await user.keyboard('23')
       expect(minute.textContent).toBe('30')
@@ -948,7 +948,7 @@ describe('timeField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       // Type 17 - should snap to 15 (nearest multiple of 15)
       await user.keyboard('17')
       expect(minute.textContent).toBe('15')
@@ -977,7 +977,7 @@ describe('timeField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       // Type 23 - should remain 23 (no snapping)
       await user.keyboard('23')
       expect(minute.textContent).toBe('23')
@@ -994,7 +994,7 @@ describe('timeField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard(kbd.ARROW_UP)
       expect(minute.textContent).toBe('15')
     })
@@ -1022,7 +1022,7 @@ describe('timeField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       // Type 58 - should snap to 45 (last valid step before 60)
       await user.keyboard('58')
       expect(minute.textContent).toBe('45')
@@ -1037,7 +1037,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       // Branch 125:0 — deleteValue(null) from handleHourSegmentKeydown
       // Also covers isNumberString false-branch (branch 111:1) for Backspace on hour
       const { user, hour } = await setup()
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       // Empty segments show a placeholder (data-placeholder attribute is present and empty string)
       expect(hour).toHaveAttribute('data-placeholder', '')
       await user.keyboard(kbd.BACKSPACE)
@@ -1049,7 +1049,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       // Branch 132:0 — deleteValue(null) from handleMinuteSegmentKeydown
       const { user, getByTestId } = await setup({ timeFieldProps: { granularity: 'second' } })
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       expect(minute).toHaveAttribute('data-placeholder', '')
       await user.keyboard(kbd.BACKSPACE)
       // NOTE: current behavior — backspace on null segment leaves it null (placeholder stays)
@@ -1060,7 +1060,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       // Branch 139:0 — deleteValue(null) from handleSecondSegmentKeydown
       const { user, getByTestId } = await setup({ timeFieldProps: { granularity: 'second' } })
       const second = getByTestId('second')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       expect(second).toHaveAttribute('data-placeholder', '')
       await user.keyboard(kbd.BACKSPACE)
       // NOTE: current behavior — backspace on null segment leaves it null (placeholder stays)
@@ -1075,7 +1075,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       // Segment is filled (no data-placeholder attribute when value is set)
       expect(hour).not.toHaveAttribute('data-placeholder')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard(kbd.BACKSPACE)
       // NOTE: current behavior — single-digit value is cleared to null (placeholder shown)
       expect(hour).toHaveAttribute('data-placeholder', '')
@@ -1088,7 +1088,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const minute = getByTestId('minute')
       expect(minute).not.toHaveAttribute('data-placeholder')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard(kbd.BACKSPACE)
       // deleteValue(30) → '30'.slice(0,-1) = '3', returns 3
       // NOTE: current behavior — minute=30 after backspace becomes 3
@@ -1103,7 +1103,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const second = getByTestId('second')
       expect(second).not.toHaveAttribute('data-placeholder')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       await user.keyboard(kbd.BACKSPACE)
       // deleteValue(5): str='5', length===1 → modelValue=undefined, returns null
       // NOTE: current behavior — single-digit second cleared to null (placeholder shows)
@@ -1117,7 +1117,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       // Branch 39:0 — cond-expr sign > 0 → min path
       const { user, getByTestId } = await setup({ timeFieldProps: { granularity: 'second' } })
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       expect(minute).toHaveAttribute('data-placeholder', '')
       await user.keyboard(kbd.ARROW_UP)
       // NOTE: current behavior — null minute + arrow up → returns 0 (the min), segment is filled
@@ -1130,7 +1130,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       // Branch 39:1 — cond-expr sign > 0 → max path
       const { user, getByTestId } = await setup({ timeFieldProps: { granularity: 'second' } })
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       expect(minute).toHaveAttribute('data-placeholder', '')
       await user.keyboard(kbd.ARROW_DOWN)
       // NOTE: current behavior — null minute + arrow down → returns 59 (the max)
@@ -1141,7 +1141,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
     it('arrow Down on empty second sets it to 59 (max)', async () => {
       const { user, getByTestId } = await setup({ timeFieldProps: { granularity: 'second' } })
       const second = getByTestId('second')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       await user.keyboard(kbd.ARROW_DOWN)
       // NOTE: current behavior — null second + arrow down → returns 59
       expect(second.textContent).toBe('59')
@@ -1157,7 +1157,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const second = getByTestId('second')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       await user.keyboard(kbd.ARROW_UP)
       // NOTE: current behavior — null second with step=15, arrow up: sign>0 → returns min (0)
       expect(second.textContent).toBe('00')
@@ -1172,7 +1172,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const minute = getByTestId('minute')
       const second = getByTestId('second')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('7')
       // NOTE: current behavior — typing 7 (> maxStart=5) sets minute=7 and moves to next segment
       // hasLeftFocus=true resets prev to null; 7>5 → moveToNext=true
@@ -1190,7 +1190,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const minute = getByTestId('minute')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       // Type 1, then 3: total=13 > 12 → resets to 3
       await user.keyboard('13')
       // NOTE: current behavior — '13' > 12 → hour resets to 3 (and 3>maxStart=1 → moves to minute)
@@ -1204,7 +1204,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const minute = getByTestId('minute')
       const second = getByTestId('second')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('35')
       // NOTE: current behavior — '35' is valid (≤59), sets minute=35 and advances to second
       expect(minute.textContent).toBe('35')
@@ -1222,7 +1222,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const minute = getByTestId('minute')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('3')
       // NOTE: current behavior — typing 3 (> maxStart=2 for max=24) sets hour=3 and advances
       expect(hour).not.toHaveAttribute('data-placeholder')
@@ -1239,7 +1239,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const minute = getByTestId('minute')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       // Type 2 then 5: total=25 > 24 → resets hour to 5, 5>2=maxStart → moveToNext
       await user.keyboard('25')
       // NOTE: current behavior — '25' > 24 → hour resets to 5, advances to minute
@@ -1266,7 +1266,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const dayPeriod = getByTestId('dayPeriod')
       expect(dayPeriod).toHaveTextContent('AM')
-      await user.click(dayPeriod)
+      await user.click(page.elementLocator(dayPeriod))
       await user.keyboard(kbd.ARROW_UP)
       // NOTE: current behavior — AM + arrow up → PM, hour += 12 (9 → 21)
       expect(dayPeriod).toHaveTextContent('PM')
@@ -1290,7 +1290,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const dayPeriod = getByTestId('dayPeriod')
       expect(dayPeriod).toHaveTextContent('AM')
-      await user.click(dayPeriod)
+      await user.click(page.elementLocator(dayPeriod))
       await user.keyboard(kbd.ARROW_DOWN)
       // NOTE: current behavior — AM + arrow down → PM (same as arrow up when currently AM)
       expect(dayPeriod).toHaveTextContent('PM')
@@ -1313,7 +1313,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const dayPeriod = getByTestId('dayPeriod')
       expect(dayPeriod).toHaveTextContent('PM')
-      await user.click(dayPeriod)
+      await user.click(page.elementLocator(dayPeriod))
       await user.keyboard(kbd.ARROW_UP)
       // NOTE: current behavior — PM + arrow up → AM, hour -= 12 (21 → 9)
       expect(dayPeriod).toHaveTextContent('AM')
@@ -1329,7 +1329,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
       })
       const dayPeriod = getByTestId('dayPeriod')
       expect(dayPeriod).toHaveTextContent('PM')
-      await user.click(dayPeriod)
+      await user.click(page.elementLocator(dayPeriod))
       await user.keyboard('p')
       // NOTE: current behavior — pressing p when already PM has no effect
       expect(dayPeriod).toHaveTextContent('PM')
@@ -1360,7 +1360,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const dayPeriod = getByTestId('dayPeriod')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       // Type 7 — auto-advances (7 > maxStart=1 for 12h max=12) → focusout on hour triggers snap
       await user.keyboard('7')
       // snapValueToStep(7, 0, 23, 6) = 6; 6 < 12 → dayPeriod set to 'AM'
@@ -1391,7 +1391,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const dayPeriod = getByTestId('dayPeriod')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       // Type 9 — auto-advances (9 > maxStart=1 for 12h) → focusout triggers snap
       // snapValueToStep(9, 0, 23, 6) = 6; but we want a PM result
       // Use value that snaps to >=12: type a 2-digit 12h hour like 2 (display=2, internal depends on PM context)
@@ -1426,7 +1426,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const second = getByTestId('second')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       // Type 17 — should snap to 15 (nearest multiple of 15)
       await user.keyboard('17')
       expect(second.textContent).toBe('15')
@@ -1445,7 +1445,7 @@ describe('useDateField – time segment characterization tests (coverage gaps)',
         },
       })
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       // Type just one digit (minute has value but hour is still null)
       // Then tab away to trigger focusout — not all segments filled, so no modelValue update
       await user.keyboard('3')

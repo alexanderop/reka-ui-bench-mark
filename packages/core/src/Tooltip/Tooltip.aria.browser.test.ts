@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import Tooltip from './stories/_Tooltip.vue'
 
 // Not a port — the parity file checks whether visible content mounts. This file
@@ -19,21 +19,21 @@ describe('given the Tooltip story fixture', () => {
     `)
 
     const entry = document.createElement('input')
-    ;(await trigger.element()).before(entry)
+    trigger.element().before(entry)
     try {
       // Start keyboard navigation inside this tester iframe. Parallel browser
       // files make BODY an unstable Tab origin; macOS WebKit's intentional
       // button-skipping convention remains an engine expectation.
-      await userEvent.click(entry)
+      await page.elementLocator(entry).click()
       await userEvent.tab()
     }
     finally {
       entry.remove()
     }
 
-    expect(await trigger.element()).toBe(document.activeElement)
+    expect(trigger.element()).toBe(document.activeElement)
     await expect.element(trigger).toHaveAccessibleDescription('Add to library')
-    const triggerElement = await trigger.element()
+    const triggerElement = trigger.element()
     await expect.element(trigger).toHaveAttribute('aria-describedby')
     const descriptionId = triggerElement.getAttribute('aria-describedby')!
     const tooltipElement = document.getElementById(descriptionId)

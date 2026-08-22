@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, now, parseAbsoluteToLocal, toZoned } fr
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { nextTick } from 'vue'
 import { useTestKbd } from '@/shared'
 import DateField from './story/_DateField.vue'
@@ -144,7 +144,7 @@ describe('dateField', async () => {
 
   it('focuses first segment on label click', async () => {
     const { user, input, label } = await setup()
-    await user.click(label)
+    await user.click(page.elementLocator(label))
     expect(input.firstElementChild).toHaveFocus()
   })
 
@@ -160,7 +160,7 @@ describe('dateField', async () => {
     const segments = [day, month, year, hour, minute, dayPeriod, timeZoneName]
 
     for (const segment of segments) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       expect(segment).toHaveFocus()
     }
   })
@@ -182,22 +182,22 @@ describe('dateField', async () => {
       return segment === 'minute' || segment === 'second' ? value.padStart(2, '0') : value
     }
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(day)).toBe(cycle('day'))
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(month)).toBe(cycle('month'))
-    await user.click(year)
+    await user.click(page.elementLocator(year))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(year)).toBe(cycle('year'))
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(hour)).toBe('1')
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(minute)).toBe(cycle('minute'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_UP)
     expect(text(second)).toBe(cycle('second'))
   })
@@ -218,22 +218,22 @@ describe('dateField', async () => {
       return String(zonedDateTime.cycle(segment, -1)[segment])
     }
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(day)).toBe(cycle('day'))
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(month)).toBe(cycle('month'))
-    await user.click(year)
+    await user.click(page.elementLocator(year))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(year)).toBe(cycle('year'))
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(hour)).toBe(cycle('hour'))
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(minute)).toBe(cycle('minute'))
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     await user.keyboard(kbd.ARROW_DOWN)
     expect(text(second)).toBe(cycle('second'))
   })
@@ -250,7 +250,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.ARROW_UP)
     await user.keyboard(kbd.ARROW_UP)
     expect(text(day)).toBe('31')
@@ -267,7 +267,7 @@ describe('dateField', async () => {
 
     const segments = [month, day, year, hour, minute, second, dayPeriod, timeZoneName]
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
 
     for (const seg of segments) {
       expect(seg).toHaveFocus()
@@ -293,7 +293,7 @@ describe('dateField', async () => {
 
     const segments = [month, day, year, hour, minute, second, dayPeriod]
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
 
     for (const seg of segments) {
       expect(seg).toHaveFocus()
@@ -319,11 +319,11 @@ describe('dateField', async () => {
     const segments = [month, day, year, hour, minute, second]
 
     for (const segment of segments) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       await user.keyboard('0')
       await user.keyboard(kbd.TAB)
       expect(segment).not.toHaveFocus()
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       await user.keyboard('1')
       expect(segment).toHaveFocus()
     }
@@ -342,14 +342,14 @@ describe('dateField', async () => {
       year: year.innerHTML,
     }
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard(kbd.BACKSPACE)
 
     expect(text(month)).toBe('mm')
     expect(text(day)).toBe(initialValues.day)
     expect(text(year)).toBe(initialValues.year)
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     await user.keyboard(kbd.BACKSPACE)
     await user.keyboard(kbd.BACKSPACE)
 
@@ -397,7 +397,7 @@ describe('dateField', async () => {
     for (const seg of segments) {
       let mouseDown: MouseEvent | undefined
       seg.addEventListener('mousedown', event => mouseDown = event, { once: true })
-      await user.click(seg, { force: true })
+      await user.click(page.elementLocator(seg), { force: true })
       expect(mouseDown?.defaultPrevented).toBe(true)
       expect(seg).not.toHaveFocus()
       expect(seg).not.toHaveAttribute('tabindex')
@@ -418,7 +418,7 @@ describe('dateField', async () => {
     const initialValues = segments.map(text)
 
     for (const [index, segment] of segments.entries()) {
-      await user.click(segment)
+      await user.click(page.elementLocator(segment))
       expect(segment).toHaveFocus()
       await user.keyboard(kbd.ARROW_UP)
       expect(text(segment)).toBe(initialValues[index])
@@ -446,7 +446,7 @@ describe('dateField', async () => {
     const { hour, minute, second, dayPeriod, timeZoneName } = getTimeSegments(getByTestId)
     const segments = [month, day, year, hour, minute, second, dayPeriod, timeZoneName]
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard('2')
     expect(text(month)).toBe('2')
     expect(day).toHaveFocus()
@@ -475,7 +475,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     expect(month).toHaveFocus()
     await user.keyboard('2')
     expect(day).toHaveFocus()
@@ -498,7 +498,7 @@ describe('dateField', async () => {
     expect(queryByTestId('dayPeriod')).toBeNull()
     const hour = getByTestId('hour')
     expect(text(hour)).toBe('12')
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     expect(hour).toHaveFocus()
     await user.keyboard(kbd.ARROW_UP)
     expect(text(hour)).toBe('13')
@@ -554,7 +554,7 @@ describe('dateField', async () => {
 
     const { hour, minute, second, dayPeriod } = getTimeSegments(getByTestId)
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     await user.keyboard('3')
     expect(day).toHaveFocus()
     await user.keyboard('3')
@@ -595,7 +595,7 @@ describe('dateField', async () => {
 
     const dayPeriod = getByTestId('dayPeriod')
     expect(value.textContent).toBe(calendarDateTime.toString())
-    await user.click(dayPeriod)
+    await user.click(page.elementLocator(dayPeriod))
     await user.keyboard('{a}')
     expect(getByTestId('value').textContent).toBe(calendarDateTime.subtract({ hours: 12 }).toString())
     await user.keyboard('{p}')
@@ -614,7 +614,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     expect(month).toHaveFocus()
     expect(text(month)).toBe(String(zonedDateTime.month))
     await user.keyboard('3')
@@ -629,7 +629,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     expect(day).toHaveFocus()
     expect(text(day)).toBe(String(zonedDateTime.day))
     await user.keyboard('1')
@@ -644,7 +644,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(year)
+    await user.click(page.elementLocator(year))
     expect(year).toHaveFocus()
     expect(text(year)).toBe(String(zonedDateTime.year))
     await user.keyboard('1')
@@ -660,7 +660,7 @@ describe('dateField', async () => {
     })
     const hour = getByTestId('hour')
 
-    await user.click(hour)
+    await user.click(page.elementLocator(hour))
     expect(hour).toHaveFocus()
     expect(text(hour)).toBe(String(zonedDateTime.hour))
     await user.keyboard('1')
@@ -676,7 +676,7 @@ describe('dateField', async () => {
     })
     const minute = getByTestId('minute')
 
-    await user.click(minute)
+    await user.click(page.elementLocator(minute))
     expect(minute).toHaveFocus()
     expect(text(minute)).toBe(String(zonedDateTime.minute))
     await user.keyboard('1')
@@ -692,7 +692,7 @@ describe('dateField', async () => {
     })
     const second = getByTestId('second')
 
-    await user.click(second)
+    await user.click(page.elementLocator(second))
     expect(second).toHaveFocus()
     expect(text(second)).toBe('00')
     await user.keyboard('1')
@@ -766,9 +766,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('23')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('30')
     })
@@ -780,9 +780,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('15')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('15')
     })
@@ -794,9 +794,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('26')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('30')
     })
@@ -824,9 +824,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('07')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('00')
     })
@@ -838,9 +838,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('23')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('23')
     })
@@ -852,9 +852,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('23')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('21')
     })
@@ -868,9 +868,9 @@ describe('dateField', async () => {
       })
 
       const hour = getByTestId('hour')
-      await user.click(hour)
+      await user.click(page.elementLocator(hour))
       await user.keyboard('10')
-      await user.click(getByTestId('minute'))
+      await user.click(page.elementLocator(getByTestId('minute')))
 
       expect(text(hour)).toBe('12')
     })
@@ -882,9 +882,9 @@ describe('dateField', async () => {
       })
 
       const second = getByTestId('second')
-      await user.click(second)
+      await user.click(page.elementLocator(second))
       await user.keyboard('10')
-      await user.click(getByTestId('minute'))
+      await user.click(page.elementLocator(getByTestId('minute')))
 
       expect(text(second)).toBe('07')
     })
@@ -896,9 +896,9 @@ describe('dateField', async () => {
       })
 
       const minute = getByTestId('minute')
-      await user.click(minute)
+      await user.click(page.elementLocator(minute))
       await user.keyboard('23')
-      await user.click(getByTestId('second'))
+      await user.click(page.elementLocator(getByTestId('second')))
 
       expect(text(minute)).toBe('23')
     })
@@ -909,7 +909,7 @@ describe('handle IME composition', () => {
   it('should block direct text insertion into the segment (Safari fires beforeinput before keydown with an IME active)', async () => {
     const { day, user } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     // Safari inserts the raw character at `input` (before `keydown`) while an IME
     // is active; blocking `beforeinput` is the only way to stop it leaking in.
@@ -923,7 +923,7 @@ describe('handle IME composition', () => {
   it('should let composition input through beforeinput', async () => {
     const { day, user } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     const event = new InputEvent('beforeinput', { data: 'n', inputType: 'insertCompositionText', cancelable: true })
     Object.defineProperty(event, 'isComposing', { value: true })
@@ -935,7 +935,7 @@ describe('handle IME composition', () => {
   it('should still apply a directly-typed digit when a CJK IME is active (keyCode 229, not composing)', async () => {
     const { day, user, getByTestId } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     expect(day).toHaveFocus()
 
     // Pinyin active but NOT composing: Safari flags the keydown with keyCode 229
@@ -949,7 +949,7 @@ describe('handle IME composition', () => {
   it('should not update segment during IME keydown (keyCode 229)', async () => {
     const { day, user } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
     expect(day).toHaveFocus()
 
     dispatchKeydown(day, { key: '1', keyCode: 229, isComposing: true })
@@ -960,7 +960,7 @@ describe('handle IME composition', () => {
   it('should process committed digit after compositionend', async () => {
     const { day, user, getByTestId } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     dispatchKeydown(day, { key: 'Process', keyCode: 229, isComposing: true })
     expect(text(day)).toBe('dd')
@@ -974,7 +974,7 @@ describe('handle IME composition', () => {
   it('should ignore non-digit characters from compositionend', async () => {
     const { day, user, getByTestId } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     day.dispatchEvent(new CompositionEvent('compositionend', { data: 'あ', bubbles: true, cancelable: true }))
     await nextTick()
@@ -985,7 +985,7 @@ describe('handle IME composition', () => {
   it('should restore the placeholder after composing non-numeric text into the segment', async () => {
     const { day, user, getByTestId } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     // The IME mutates the contenteditable directly: capture Vue's nodes on
     // compositionstart, then simulate the IME prepending text to the value node.
@@ -1005,7 +1005,7 @@ describe('handle IME composition', () => {
   it('should still apply a digit typed right after a non-numeric composition', async () => {
     const { day, user, getByTestId } = await setup()
 
-    await user.click(day)
+    await user.click(page.elementLocator(day))
 
     // Compose a non-numeric character and commit it.
     day.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true, cancelable: true }))
@@ -1024,7 +1024,7 @@ describe('handle IME composition', () => {
   it('should not advance to next segment during composition', async () => {
     const { month, day, user } = await setup()
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     expect(month).toHaveFocus()
 
     dispatchKeydown(month, { key: 'Process', keyCode: 229, isComposing: true })
@@ -1036,7 +1036,7 @@ describe('handle IME composition', () => {
   it('should route multi-digit commit to following segments after focus advances', async () => {
     const { month, day, user, getByTestId } = await setup()
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
 
     // Committing "45": 4 fills month and auto-advances, 5 lands in the next segment
     month.dispatchEvent(new CompositionEvent('compositionend', { data: '45', bubbles: true, cancelable: true }))
@@ -1049,7 +1049,7 @@ describe('handle IME composition', () => {
   it('should not navigate between segments during composition (arrow keys are IME candidate navigation)', async () => {
     const { month, day, user } = await setup()
 
-    await user.click(month)
+    await user.click(page.elementLocator(month))
     expect(month).toHaveFocus()
 
     // Arrow keys mid-composition are used to navigate IME candidates, not segments
@@ -1070,7 +1070,7 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
       // Branch 40:0 — deleteValue(null) early-return path
       const { user, month } = await setup()
       // month is empty (no modelValue), backspace should be a no-op
-      await user.click(month)
+      await user.click(page.elementLocator(month))
       expect(text(month)).toBe('mm')
       await user.keyboard(kbd.BACKSPACE)
       // NOTE: current behavior — backspace on null segment leaves it null (placeholder text stays)
@@ -1088,7 +1088,7 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
         },
       })
       // Year is 1980 (4 digits). First backspace removes the last digit → 198
-      await user.click(year)
+      await user.click(page.elementLocator(year))
       await user.keyboard(kbd.BACKSPACE)
       expect(text(year)).toBe('198')
     })
@@ -1107,11 +1107,11 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
         },
       })
       // Type 4 digits to fill the year segment (auto-advances after 4th digit)
-      await user.click(year)
+      await user.click(page.elementLocator(year))
       await user.keyboard('2024')
       expect(text(year)).toBe('2024')
       // Click back on year and type more to get to a 5-digit accumulated string
-      await user.click(year)
+      await user.click(page.elementLocator(year))
       await user.keyboard('20245')
       // NOTE: current behavior — 5th digit resets: returns { value: 5, moveToNext: false }
       expect(text(year)).toBe('5')
@@ -1127,9 +1127,9 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
           },
         },
       })
-      await user.click(year)
+      await user.click(page.elementLocator(year))
       await user.keyboard('2024')
-      await user.click(year)
+      await user.click(page.elementLocator(year))
       await user.keyboard('20240')
       // NOTE: current behavior — 5th digit of 0 returns 1 (year 0 is invalid)
       expect(text(year)).toBe('1')
@@ -1140,7 +1140,7 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
     it('compositionend with empty string data does not crash or modify the segment', async () => {
       // Branch 171:0 — handleSegmentCompositionEnd early return when data is falsy
       const { day, user, getByTestId } = await setup()
-      await user.click(day)
+      await user.click(page.elementLocator(day))
       // Fire compositionend with empty string data
       day.dispatchEvent(new CompositionEvent('compositionend', { data: '', bubbles: true, cancelable: true }))
       await nextTick()
@@ -1151,7 +1151,7 @@ describe('useDateField – characterization tests (coverage gaps)', () => {
     it('compositionend with no data (undefined) does not crash or modify the segment', async () => {
       // Branch 171:0 — handleSegmentCompositionEnd early return when data is null/undefined
       const { day, user, getByTestId } = await setup()
-      await user.click(day)
+      await user.click(page.elementLocator(day))
       day.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, cancelable: true }))
       await nextTick()
       expect(text(getByTestId('day'))).toBe('dd')

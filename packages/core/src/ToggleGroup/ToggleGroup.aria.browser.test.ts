@@ -34,7 +34,7 @@ describe('given a single-value ToggleGroup', () => {
 
     await center.click()
     await userEvent.keyboard('{ArrowRight}')
-    expect(await right.element()).toBe(document.activeElement)
+    expect(right.element()).toBe(document.activeElement)
     await userEvent.keyboard('{Space}')
 
     await expect.element(document.body).toMatchAriaInlineSnapshot(`

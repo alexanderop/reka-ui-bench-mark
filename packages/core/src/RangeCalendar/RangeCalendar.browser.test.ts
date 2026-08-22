@@ -4,7 +4,7 @@ import { CalendarDate, CalendarDateTime, getLocalTimeZone, toZoned } from '@inte
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import { RangeCalendarHeader, RangeCalendarHeading, RangeCalendarNext, RangeCalendarPrev, RangeCalendarRoot } from '..'
 import RangeCalendar from './story/_RangeCalendar.vue'
@@ -176,7 +176,7 @@ describe('rangeCalendar', () => {
     expect(startValue).toHaveTextContent(String(calendarDateRange.start.day))
     expect(endValue).toHaveTextContent(String(calendarDateRange.end.day))
 
-    await user.click(dayButton(5))
+    await user.click(page.elementLocator(dayButton(5)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 5))
     expect(getByTestId('date-1-5')).toHaveAttribute('data-focused')
 
@@ -189,15 +189,15 @@ describe('rangeCalendar', () => {
     expect(startValue).toBeInTheDocument()
     expect(endValue).not.toBeInTheDocument()
 
-    await user.click(dayButton(7))
+    await user.click(page.elementLocator(dayButton(7)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 5), new CalendarDate(1980, 1, 7))
     expect(getSelectedDays(calendar)).toHaveLength(3)
     expectSelectedRange(calendar, new CalendarDate(1980, 1, 5), new CalendarDate(1980, 1, 7))
 
     // Allow select the same day as both start and end.
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 8))
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 8), new CalendarDate(1980, 1, 8))
     expect(getSelectedDays(calendar)).toHaveLength(1)
     expectSelectedRange(calendar, new CalendarDate(1980, 1, 8), new CalendarDate(1980, 1, 8))
@@ -205,31 +205,31 @@ describe('rangeCalendar', () => {
     expect(calendar.querySelector('[data-selection-end]')).toHaveAttribute('data-value', '1980-01-08')
 
     // Allow deselect
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1))
     expect(getSelectedDays(calendar)).toHaveLength(0)
     expect(calendar.querySelector('[data-selection-start]')).not.toBeInTheDocument()
     expect(calendar.querySelector('[data-selection-end]')).not.toBeInTheDocument()
 
     // Allow re-select the start day as new start day
-    await user.click(dayButton(7))
+    await user.click(page.elementLocator(dayButton(7)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 7))
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 7), new CalendarDate(1980, 1, 8))
     expect(getSelectedDays(calendar)).toHaveLength(2)
     expectSelectedRange(calendar, new CalendarDate(1980, 1, 7), new CalendarDate(1980, 1, 8))
-    await user.click(dayButton(7))
+    await user.click(page.elementLocator(dayButton(7)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 7))
     expect(getSelectedDays(calendar)).toHaveLength(1)
     expect(calendar.querySelector('[data-selection-start]')).toBeInTheDocument()
     expect(calendar.querySelector('[data-selection-end]')).not.toBeInTheDocument()
 
     // Allow re-select the end day as new start day
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 7), new CalendarDate(1980, 1, 8))
     expect(getSelectedDays(calendar)).toHaveLength(2)
     expectSelectedRange(calendar, new CalendarDate(1980, 1, 7), new CalendarDate(1980, 1, 8))
-    await user.click(dayButton(8))
+    await user.click(page.elementLocator(dayButton(8)))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 8))
     expect(getSelectedDays(calendar)).toHaveLength(1)
     expect(calendar.querySelector('[data-selection-start]')).toBeInTheDocument()
@@ -261,7 +261,7 @@ describe('rangeCalendar', () => {
       },
     })
 
-    await user.click(getButton(dateLabel(new CalendarDate(1980, 1, 24))))
+    await user.click(page.elementLocator(getButton(dateLabel(new CalendarDate(1980, 1, 24)))))
 
     expectEmittedRange(childPayload, new CalendarDate(1980, 1, 24))
     expect(getByTestId('date-1-24')).toHaveAttribute('data-selection-start')
@@ -283,7 +283,7 @@ describe('rangeCalendar', () => {
     expect(calendar.querySelector('[data-selection-end]')).toHaveAttribute('data-value', calendarDateRange.end.toString())
 
     const fifthDayInMonth = getByTestId('date-1-5')
-    await user.click(fifthDayInMonth)
+    await user.click(page.elementLocator(fifthDayInMonth))
     expect(getByTestId('date-1-5')).toHaveAttribute('data-focused')
 
     const selectedDays = getSelectedDays(calendar)
@@ -310,8 +310,8 @@ describe('rangeCalendar', () => {
       },
     })
 
-    await user.click(getByTestId('date-1-20'))
-    await user.hover(getByTestId('date-1-24'))
+    await user.click(page.elementLocator(getByTestId('date-1-20')))
+    await user.hover(page.elementLocator(getByTestId('date-1-24')))
 
     expect(getHighlightedDays(calendar)).toHaveLength(5)
 
@@ -328,8 +328,8 @@ describe('rangeCalendar', () => {
       },
     })
 
-    await user.click(getByTestId('date-1-20'))
-    await user.hover(getByTestId('date-1-16'))
+    await user.click(page.elementLocator(getByTestId('date-1-20')))
+    await user.hover(page.elementLocator(getByTestId('date-1-16')))
 
     expect(getHighlightedDays(calendar)).toHaveLength(5)
 
@@ -346,7 +346,7 @@ describe('rangeCalendar', () => {
 
     for (const month of months) {
       expect(heading).toHaveTextContent(`${month} 1980`)
-      await user.click(nextBtn)
+      await user.click(page.elementLocator(nextBtn))
     }
     expect(heading).toHaveTextContent('January 1981')
   })
@@ -360,11 +360,11 @@ describe('rangeCalendar', () => {
     newMonths.pop()
 
     expect(heading).toHaveTextContent('January 1980')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
 
     for (const month of newMonths) {
       expect(heading).toHaveTextContent(`${month} 1979`)
-      await user.click(prevBtn)
+      await user.click(page.elementLocator(prevBtn))
     }
     expect(heading).toHaveTextContent('January 1979')
   })
@@ -402,7 +402,7 @@ describe('rangeCalendar', () => {
     const screen = await render(Test)
     const getByTestId = (id: string) => screen.getByTestId(id).element() as HTMLElement
     expect(getByTestId('heading')).toHaveTextContent('January 1980')
-    await user.click(getByTestId('prev-button'), { force: true })
+    await user.click(page.elementLocator(getByTestId('prev-button')), { force: true })
     expect(getByTestId('heading')).toHaveTextContent('January 1980')
   })
 
@@ -414,14 +414,14 @@ describe('rangeCalendar', () => {
     })
 
     const prevBtn = getByTestId('prev-year-button')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     const heading = getByTestId('heading')
     expect(heading).toHaveTextContent('January 1979')
 
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading).toHaveTextContent('January 1978')
 
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading).toHaveTextContent('January 1977')
   })
 
@@ -433,14 +433,14 @@ describe('rangeCalendar', () => {
     })
 
     const nextBtn = getByTestId('next-year-button')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     const heading = getByTestId('heading')
     expect(heading).toHaveTextContent('January 1981')
 
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading).toHaveTextContent('January 1982')
 
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading).toHaveTextContent('January 1983')
   })
 
@@ -460,12 +460,12 @@ describe('rangeCalendar', () => {
 
     for (let i = 0; i < 12; i++) {
       expect(getNumberOfWeeks()).toBe(6)
-      await user.click(nextButton)
+      await user.click(page.elementLocator(nextButton))
     }
 
     for (let i = 0; i < 24; i++) {
       expect(getNumberOfWeeks()).toBe(6)
-      await user.click(nextButton)
+      await user.click(page.elementLocator(nextButton))
     }
   })
 
@@ -478,18 +478,18 @@ describe('rangeCalendar', () => {
     })
 
     const prevBtn = getByTestId('prev-button')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     const heading = getByTestId('heading')
     expect(heading).toHaveTextContent('December 1979')
     expect(prevBtn).not.toHaveAttribute('aria-disabled', 'true')
     expect(prevBtn).not.toHaveAttribute('data-disabled')
 
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading).toHaveTextContent('November 1979')
     expect(prevBtn).toHaveAttribute('aria-disabled', 'true')
     expect(prevBtn).toHaveAttribute('data-disabled')
 
-    await user.click(prevBtn, { force: true })
+    await user.click(page.elementLocator(prevBtn), { force: true })
     expect(heading).toHaveTextContent('November 1979')
   })
 
@@ -502,18 +502,18 @@ describe('rangeCalendar', () => {
     })
 
     const nextBtn = getByTestId('next-button')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     const heading = getByTestId('heading')
     expect(heading).toHaveTextContent('February 1980')
     expect(nextBtn).not.toHaveAttribute('aria-disabled', 'true')
     expect(nextBtn).not.toHaveAttribute('data-disabled')
 
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading).toHaveTextContent('March 1980')
     expect(nextBtn).toHaveAttribute('aria-disabled', 'true')
     expect(nextBtn).toHaveAttribute('data-disabled')
 
-    await user.click(nextBtn, { force: true })
+    await user.click(page.elementLocator(nextBtn), { force: true })
     expect(heading).toHaveTextContent('March 1980')
   })
 
@@ -533,14 +533,14 @@ describe('rangeCalendar', () => {
     expect(firstDayOfMonth).toHaveAttribute('aria-disabled', 'true')
     expect(firstDayOfMonth).toHaveAttribute('data-disabled')
 
-    await user.click(firstDayOfMonth, { force: true })
+    await user.click(page.elementLocator(firstDayOfMonth), { force: true })
     expect(firstDayOfMonth).not.toHaveAttribute('data-selected')
     expect(firstDayOfMonth).not.toHaveAttribute('tabindex')
 
     const tenthDayOfMonth = getButton(dateLabel(new CalendarDate(1980, 1, 10)))
     expect(tenthDayOfMonth).toHaveAttribute('aria-disabled', 'true')
     expect(tenthDayOfMonth).toHaveAttribute('data-disabled')
-    await user.click(tenthDayOfMonth, { force: true })
+    await user.click(page.elementLocator(tenthDayOfMonth), { force: true })
     expect(tenthDayOfMonth).not.toHaveAttribute('data-selected')
     expectSelectedRange(calendar, calendarDateRange.start, calendarDateRange.end)
     expect(getSelectedDays(calendar)).toHaveLength(6)
@@ -657,7 +657,7 @@ describe('rangeCalendar', () => {
     expect(thirdDayInMonth).toHaveTextContent('3')
     expect(thirdDayInMonth).toHaveAttribute('data-unavailable')
     expect(thirdDayInMonth).toHaveAttribute('aria-disabled', 'true')
-    await user.click(thirdDayInMonth, { force: true })
+    await user.click(page.elementLocator(thirdDayInMonth), { force: true })
     expect(thirdDayInMonth).not.toHaveAttribute('data-selected')
     expect(emittedValues).toHaveLength(0)
   })
@@ -676,8 +676,8 @@ describe('rangeCalendar', () => {
     const firstDayInMonth = getByTestId('date-1-1')
     const fourthDayInMonth = getByTestId('date-1-4')
     const fifthDayInMonth = getByTestId('date-1-5')
-    await user.click(firstDayInMonth)
-    await user.click(fifthDayInMonth)
+    await user.click(page.elementLocator(firstDayInMonth))
+    await user.click(page.elementLocator(fifthDayInMonth))
     expect(fourthDayInMonth).toHaveAttribute('data-selected')
   })
 
@@ -792,15 +792,15 @@ describe('numberOfMonths > 1', () => {
     const prevButton = getByTestId('prev-button')
     const nextButton = getByTestId('next-button')
 
-    await user.click(nextButton)
+    await user.click(page.elementLocator(nextButton))
     expect(heading).toHaveTextContent('February - March 1980')
     expect(firstMonthDay).not.toBeInTheDocument()
 
-    await user.click(prevButton)
+    await user.click(page.elementLocator(prevButton))
     expect(heading).toHaveTextContent('January - February 1980')
     expect(getByTestId('date-0-1-12')).toHaveAttribute('data-value', firstMonthDayDateStr)
 
-    await user.click(prevButton)
+    await user.click(page.elementLocator(prevButton))
     expect(heading).toHaveTextContent('December 1979 - January 1980')
     expect(getByTestId('date-1-1-12')).toHaveAttribute('data-value', firstMonthDayDateStr)
   })
@@ -834,15 +834,15 @@ describe('numberOfMonths > 1', () => {
     const prevButton = getByTestId('prev-button')
     const nextButton = getByTestId('next-button')
 
-    await user.click(nextButton)
+    await user.click(page.elementLocator(nextButton))
     expect(heading).toHaveTextContent('March - April 1980')
     expect(firstMonthDay).not.toBeInTheDocument()
 
-    await user.click(prevButton)
+    await user.click(page.elementLocator(prevButton))
     expect(heading).toHaveTextContent('January - February 1980')
     expect(getByTestId('date-0-1-12')).toHaveAttribute('data-value', firstMonthDayDateStr)
 
-    await user.click(prevButton)
+    await user.click(page.elementLocator(prevButton))
     expect(heading).toHaveTextContent('November - December 1979')
     expect(calendar.querySelector(`[data-value="${firstMonthDayDateStr}"]`)).toBeNull()
   })
@@ -903,13 +903,13 @@ describe('numberOfMonths > 1', () => {
     expect(heading).toHaveTextContent('January 1980')
 
     const nextDay = getByTestId('date-1-27')
-    await user.click(nextDay)
+    await user.click(page.elementLocator(nextDay))
 
     expect(getByTestId('date-1-26')).toHaveAttribute('data-selected')
     expect(getByTestId('date-1-20')).toHaveAttribute('data-selection-start')
     expect(getByTestId('date-1-27')).toHaveAttribute('data-selection-end')
 
-    await user.click(getByTestId('date-1-26'))
+    await user.click(page.elementLocator(getByTestId('date-1-26')))
     expect(getByTestId('date-1-20')).toHaveAttribute('data-selection-start')
     expect(getByTestId('date-1-26')).toHaveAttribute('data-selection-end')
   })
@@ -926,13 +926,13 @@ describe('numberOfMonths > 1', () => {
     expect(heading).toHaveTextContent('January 1980')
 
     const nextDay = getByTestId('date-1-27')
-    await user.click(nextDay)
+    await user.click(page.elementLocator(nextDay))
 
     expect(getByTestId('date-1-26')).toHaveAttribute('data-selected')
     expect(getByTestId('date-1-20')).toHaveAttribute('data-selection-start')
     expect(getByTestId('date-1-27')).toHaveAttribute('data-selection-end')
 
-    await user.click(getByTestId('date-1-26'))
+    await user.click(page.elementLocator(getByTestId('date-1-26')))
     expect(getByTestId('date-1-26')).toHaveAttribute('data-selection-start')
     expect(getByTestId('date-1-27')).toHaveAttribute('data-selection-end')
   })
@@ -951,11 +951,11 @@ describe('handles maximumDays', () => {
     const maximumDay = getButton(dateLabel(new CalendarDate(1980, 1, 19))) // 5 days ahead
     const beyondMaximumDay = getButton(dateLabel(new CalendarDate(1980, 1, 20))) // 6 days ahead
 
-    await user.click(startDay)
+    await user.click(page.elementLocator(startDay))
     expect(startDay).toHaveAttribute('data-selection-start')
 
     // Attempt to select an end date beyond the maximum days (more than 5 days ahead)
-    await user.click(beyondMaximumDay, { force: true })
+    await user.click(page.elementLocator(beyondMaximumDay), { force: true })
 
     expect(beyondMaximumDay).toHaveAttribute('data-disabled')
     expect(beyondMaximumDay).not.toHaveAttribute('data-selected')
@@ -963,7 +963,7 @@ describe('handles maximumDays', () => {
     // Should be limited to 5 days
     expect(getByTestId('date-1-19')).not.toHaveAttribute('data-disabled')
 
-    await user.click(maximumDay)
+    await user.click(page.elementLocator(maximumDay))
 
     // Check that all days within the maximum range are selected
     for (let day = 15; day < 20; day++) {
@@ -990,7 +990,7 @@ describe('handles maximumDays', () => {
 
     // Select a start date (10th of January)
     const startDay = getByTestId('date-1-10')
-    await user.click(startDay)
+    await user.click(page.elementLocator(startDay))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 10))
     expect(startDay).toHaveAttribute('data-selection-start')
 
@@ -1001,14 +1001,14 @@ describe('handles maximumDays', () => {
     expect(getByTestId('date-1-12')).not.toHaveAttribute('aria-disabled', 'true')
 
     // Complete the range selection with a date within the limit
-    await user.click(getByTestId('date-1-12'))
+    await user.click(page.elementLocator(getByTestId('date-1-12')))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 10), new CalendarDate(1980, 1, 12))
 
     // Distant dates should no longer be disabled
     expect(getByTestId('date-1-20')).not.toHaveAttribute('aria-disabled', 'true')
 
     // Select a new range
-    await user.click(getByTestId('date-1-15'))
+    await user.click(page.elementLocator(getByTestId('date-1-15')))
     expectEmittedRange(emittedRanges.at(-1), new CalendarDate(1980, 1, 15))
     expect(getByTestId('date-1-15')).toHaveAttribute('data-selection-start')
 
@@ -1028,8 +1028,8 @@ describe('handles maximumDays', () => {
     const secondDay = getByTestId('date-1-16') // same day
     const maximumDay = getByTestId('date-1-18') // 4 days ahead
     const beyondMaximumDay = getByTestId('date-1-19') // 5 days ahead
-    await user.click(startDay)
-    await user.hover(secondDay)
+    await user.click(page.elementLocator(startDay))
+    await user.hover(page.elementLocator(secondDay))
     expect(startDay).toHaveAttribute('data-selection-start')
     expect(secondDay).toHaveAttribute('data-highlighted')
     expect(maximumDay).toHaveAttribute('data-highlighted-end')
@@ -1049,12 +1049,12 @@ describe('handles maximumDays', () => {
     const day8 = getByTestId('date-1-8')
     const day7 = getByTestId('date-1-7')
 
-    await user.click(startDay)
+    await user.click(page.elementLocator(startDay))
     expect(startDay).toHaveAttribute('data-selection-start')
     expect(day7).toHaveAttribute('aria-disabled', 'true')
     expect(day8).not.toHaveAttribute('aria-disabled', 'true')
 
-    await user.hover(day8)
+    await user.hover(page.elementLocator(day8))
 
     expect(day8).toHaveAttribute('data-highlighted-start')
     expect(getByTestId('date-1-9')).toHaveAttribute('data-highlighted')
@@ -1081,7 +1081,7 @@ describe('handles maximumDays', () => {
       })
 
       const startDay = getButton('Tuesday, January 15, 1980')
-      await user.click(startDay)
+      await user.click(page.elementLocator(startDay))
       expect(startDay).toHaveAttribute('data-selection-start')
 
       expect(await axe(calendar)).toHaveNoViolations()

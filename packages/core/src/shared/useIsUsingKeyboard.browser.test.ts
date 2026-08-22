@@ -33,7 +33,7 @@ describe('useIsUsingKeyboard', () => {
     await userEvent.keyboard('{ArrowDown}')
     await expect.element(state).toHaveTextContent('true')
 
-    const rect = (await state.element()).getBoundingClientRect()
+    const rect = state.element().getBoundingClientRect()
     await commands.mouseMove(rect.left + 1, rect.top + rect.height / 2)
     await commands.mouseMove(rect.right - 1, rect.top + rect.height / 2)
     await expect.element(state).toHaveTextContent('false')
@@ -42,7 +42,7 @@ describe('useIsUsingKeyboard', () => {
   it('should reset to false after pointerdown', async () => {
     const screen = await render(setupTestComponent())
     const state = screen.getByTestId('is-using-keyboard')
-    const rect = (await state.element()).getBoundingClientRect()
+    const rect = state.element().getBoundingClientRect()
 
     // Move before the keydown so the reset below is attributable to the real
     // pointerdown, rather than the pointermove that precedes a normal click.

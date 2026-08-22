@@ -4,7 +4,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import YearPicker from './story/_YearPicker.vue'
 
@@ -80,9 +80,9 @@ describe('year picker', async () => {
     const nextBtn = getButton('Next page')
 
     expect(heading).toHaveTextContent('1980 - 1991')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading).toHaveTextContent('1992 - 2003')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading).toHaveTextContent('2004 - 2015')
   })
 
@@ -93,9 +93,9 @@ describe('year picker', async () => {
     const prevBtn = getButton('Previous page')
 
     expect(heading).toHaveTextContent('1980 - 1991')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading).toHaveTextContent('1968 - 1979')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading).toHaveTextContent('1956 - 1967')
   })
 
@@ -109,7 +109,7 @@ describe('year picker', async () => {
 
     const selectedYear = getSelectedYear(picker)!
     expect(selectedYear).toHaveTextContent('1980')
-    await user.click(selectedYear)
+    await user.click(page.elementLocator(selectedYear))
     expect(getSelectedYear(picker)).toBe(null)
   })
 
@@ -135,7 +135,7 @@ describe('year picker', async () => {
 
     const year1985 = getButton('1985')
     expect(year1985).toHaveTextContent('1985')
-    await user.click(year1985)
+    await user.click(page.elementLocator(year1985))
 
     const selectedYear = getSelectedYear(picker)
     expect(selectedYear).toHaveTextContent('1985')
@@ -168,7 +168,7 @@ describe('year picker', async () => {
     expect(prevBtn).toHaveAttribute('aria-disabled', 'true')
     expect(prevBtn).toHaveAttribute('data-disabled')
 
-    await user.click(prevBtn, { force: true })
+    await user.click(page.elementLocator(prevBtn), { force: true })
     expect(heading).toHaveTextContent('1980 - 1991')
   })
 
@@ -186,7 +186,7 @@ describe('year picker', async () => {
     expect(nextBtn).toHaveAttribute('aria-disabled', 'true')
     expect(nextBtn).toHaveAttribute('data-disabled')
 
-    await user.click(nextBtn, { force: true })
+    await user.click(page.elementLocator(nextBtn), { force: true })
     expect(heading).toHaveTextContent('1980 - 1991')
   })
 
@@ -204,7 +204,7 @@ describe('year picker', async () => {
     expect(year1985).toHaveTextContent('1985')
     expect(year1985).toHaveAttribute('data-unavailable')
     expect(year1985).toHaveAttribute('aria-disabled', 'true')
-    await user.click(year1985, { force: true })
+    await user.click(page.elementLocator(year1985), { force: true })
     expect(year1985).not.toHaveAttribute('data-selected')
   })
 
@@ -222,7 +222,7 @@ describe('year picker', async () => {
     expect(year1985).toHaveTextContent('1985')
     expect(year1985).toHaveAttribute('data-disabled')
     expect(year1985).toHaveAttribute('aria-disabled', 'true')
-    await user.click(year1985, { force: true })
+    await user.click(page.elementLocator(year1985), { force: true })
     expect(year1985).not.toHaveAttribute('data-selected')
   })
 
@@ -242,7 +242,7 @@ describe('year picker', async () => {
     expect(year1980).toHaveAttribute('aria-disabled', 'true')
     expect(year1980).toHaveAttribute('data-disabled')
 
-    await user.click(year1980, { force: true })
+    await user.click(page.elementLocator(year1980), { force: true })
     expect(year1980).not.toHaveAttribute('data-selected')
     year1980.focus()
     expect(year1980).not.toHaveFocus()
@@ -266,7 +266,7 @@ describe('year picker', async () => {
     expect(grid).toHaveAttribute('data-readonly')
 
     const year1980 = getButton('1980')
-    await user.click(year1980)
+    await user.click(page.elementLocator(year1980))
     expect(year1980).not.toHaveAttribute('data-selected')
     year1980.focus()
     expect(year1980).toHaveFocus()
@@ -398,7 +398,7 @@ describe('year picker - multiple', () => {
     expect(selectedYears.length).toBe(2)
 
     const year1988 = getButton('1988')
-    await user.click(year1988)
+    await user.click(page.elementLocator(year1988))
 
     expect(getSelectedYears(picker).length).toBe(3)
   })
@@ -417,7 +417,7 @@ describe('year picker - multiple', () => {
     const selectedYears = getSelectedYears(picker)
     expect(selectedYears.length).toBe(2)
 
-    await user.click(selectedYears[0])
+    await user.click(page.elementLocator(selectedYears[0]))
     expect(getSelectedYears(picker).length).toBe(1)
   })
 })

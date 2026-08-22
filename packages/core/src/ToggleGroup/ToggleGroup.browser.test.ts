@@ -13,7 +13,7 @@ function getTriggers(screen: ToggleGroupScreen): [Locator, Locator, Locator] {
 }
 
 async function focusAndPress(trigger: Locator, key: 'ArrowLeft' | 'ArrowRight') {
-  const element = await trigger.element()
+  const element = trigger.element()
   element.focus()
   if (document.activeElement !== element)
     throw new Error('Toggle did not receive focus')
@@ -61,7 +61,7 @@ describe('given default Toggle Group', () => {
     })
 
     it('should received focus for the next toggle', async () => {
-      expect(await triggers[2].element()).toBe(document.activeElement)
+      expect(triggers[2].element()).toBe(document.activeElement)
     })
 
     describe('after toggling', () => {
@@ -81,7 +81,7 @@ describe('given default Toggle Group', () => {
         })
 
         it('should received focus for the first toggle', async () => {
-          expect(await triggers[0].element()).toBe(document.activeElement)
+          expect(triggers[0].element()).toBe(document.activeElement)
         })
       })
     })
@@ -93,7 +93,7 @@ describe('given default Toggle Group', () => {
     })
 
     it('should received focus for the next toggle', async () => {
-      expect(await triggers[0].element()).toBe(document.activeElement)
+      expect(triggers[0].element()).toBe(document.activeElement)
     })
 
     describe('after toggling', () => {
@@ -143,7 +143,7 @@ describe('given multiple value Toggle Group', () => {
     })
 
     it('should received focus for the next toggle', async () => {
-      expect(await triggers[2].element()).toBe(document.activeElement)
+      expect(triggers[2].element()).toBe(document.activeElement)
     })
 
     describe('after toggling', () => {
@@ -163,7 +163,7 @@ describe('given multiple value Toggle Group', () => {
         })
 
         it('should received focus for the first toggle', async () => {
-          expect(await triggers[0].element()).toBe(document.activeElement)
+          expect(triggers[0].element()).toBe(document.activeElement)
         })
       })
     })
@@ -175,7 +175,7 @@ describe('given multiple value Toggle Group', () => {
     })
 
     it('should received focus for the next toggle', async () => {
-      expect(await triggers[0].element()).toBe(document.activeElement)
+      expect(triggers[0].element()).toBe(document.activeElement)
     })
 
     describe('after toggling', () => {

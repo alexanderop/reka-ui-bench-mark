@@ -1,3 +1,4 @@
+import type { Locator } from 'vitest/browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
@@ -9,18 +10,18 @@ import Tree from './story/_Tree.vue'
 type Screen = Awaited<ReturnType<typeof render>>
 
 function treeItems(screen: Screen) {
-  return [...screen.container.querySelectorAll<HTMLElement>('[role=treeitem]')]
+  return screen.getByRole('treeitem').all()
 }
 
-async function press(element: HTMLElement, key: string) {
-  element.focus()
-  await expect.element(element).toHaveFocus()
+async function press(locator: Locator, key: string) {
+  locator.element().focus()
+  await expect.element(locator).toHaveFocus()
   await userEvent.keyboard(key)
 }
 
 describe('given default Tree', () => {
   let screen: Screen
-  let items: HTMLElement[]
+  let items: Locator[]
 
   const updateItems = () => { items = treeItems(screen) }
 
@@ -39,9 +40,9 @@ describe('given default Tree', () => {
 
   it('should select and deselect item', async () => {
     await userEvent.click(items[0])
-    expect(items[0].getAttribute('aria-selected')).toBe('true')
+    expect(items[0].element().getAttribute('aria-selected')).toBe('true')
     await userEvent.click(items[0])
-    expect(items[0].getAttribute('aria-selected')).toBe('false')
+    expect(items[0].element().getAttribute('aria-selected')).toBe('false')
   })
 
   describe('when expand item by press ArrowRight', async () => {
@@ -55,25 +56,25 @@ describe('given default Tree', () => {
     })
 
     it('should expand the item, revealing it\'s item', () => {
-      expect(items[2].textContent).toBe('tree')
+      expect(items[2].element().textContent).toBe('tree')
     })
 
     it('should close when press ArrowLeft', async () => {
       await press(items[1], '{ArrowLeft}')
       updateItems()
-      expect(items[2].textContent).toBe('routes')
-      expect(items[2].textContent).not.toBe('tree')
+      expect(items[2].element().textContent).toBe('routes')
+      expect(items[2].element().textContent).not.toBe('tree')
     })
 
     it('should focus on parent when press ArrowLeft on child item', async () => {
       await press(items[2], '{ArrowDown}')
       await press(items[3], '{ArrowLeft}')
-      expect(document.activeElement).toBe(items[1])
+      expect(document.activeElement).toBe(items[1].element())
     })
 
     it('should focus on child item when press ArriwRight', async () => {
       await press(items[1], '{ArrowRight}')
-      expect(document.activeElement).toBe(items[2])
+      expect(document.activeElement).toBe(items[2].element())
     })
 
     describe('when expand nested item', async () => {
@@ -87,7 +88,7 @@ describe('given default Tree', () => {
       })
 
       it('should expand the nested item, revealing it\'s item ', () => {
-        expect(items[3].textContent).toBe('Tree.vue')
+        expect(items[3].element().textContent).toBe('Tree.vue')
       })
     })
   })
@@ -95,8 +96,8 @@ describe('given default Tree', () => {
   describe('when typing letter', async () => {
     it('should highlight text starting with l', async () => {
       await press(items[0], 'l')
-      const item = items.find(i => i.textContent?.startsWith('l'))
-      expect(document.activeElement).toBe(item)
+      const item = items.find(i => i.element().textContent?.startsWith('l'))
+      expect(document.activeElement).toBe(item?.element())
     })
   })
 
@@ -109,22 +110,22 @@ describe('given default Tree', () => {
     it('should not toggle off the selected value', async () => {
       await userEvent.click(items[0])
       await userEvent.click(items[0])
-      expect(items[0].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
     })
 
     it('should select and replace another item', async () => {
       await userEvent.click(items[0])
-      expect(items[0].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
       await userEvent.click(items[1])
-      expect(items[0].getAttribute('aria-selected')).toBe('false')
-      expect(items[1].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('false')
+      expect(items[1].element().getAttribute('aria-selected')).toBe('true')
     })
   })
 })
 
 describe('given multiple `true` Tree', () => {
   let screen: Screen
-  let items: HTMLElement[]
+  let items: Locator[]
 
   beforeEach(async () => {
     screen = await render(Tree, { props: { multiple: true, selectionBehavior: 'toggle' } })
@@ -136,9 +137,9 @@ describe('given multiple `true` Tree', () => {
     await press(items[0], '{ArrowDown}')
     await press(items[1], '{ArrowDown}')
     await press(items[2], '{Enter}')
-    expect(items[0].getAttribute('aria-selected')).toBe('true')
-    expect(items[1].getAttribute('aria-selected')).toBe('false')
-    expect(items[2].getAttribute('aria-selected')).toBe('true')
+    expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+    expect(items[1].element().getAttribute('aria-selected')).toBe('false')
+    expect(items[2].element().getAttribute('aria-selected')).toBe('true')
   })
 
   describe('when selection behavior `replace`', () => {
@@ -146,32 +147,32 @@ describe('given multiple `true` Tree', () => {
       await screen.rerender({ selectionBehavior: 'replace' })
       items = treeItems(screen)
       await userEvent.click(items[0])
-      items[0].focus()
+      items[0].element().focus()
     })
 
     it('should not toggle off the selected value', async () => {
       await userEvent.click(items[0])
       await userEvent.click(items[0])
-      expect(items[0].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
     })
 
     it('should select and replace another item', async () => {
-      expect(items[0].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
       await userEvent.click(items[1])
-      expect(items[0].getAttribute('aria-selected')).toBe('false')
-      expect(items[1].getAttribute('aria-selected')).toBe('true')
+      expect(items[0].element().getAttribute('aria-selected')).toBe('false')
+      expect(items[1].element().getAttribute('aria-selected')).toBe('true')
     })
 
     describe('when keypress Shift + ArrowDown', () => {
       it('should select the next item', async () => {
         await press(items[0], '{Shift>}{ArrowDown}{/Shift}')
-        expect(items[0].getAttribute('aria-selected')).toBe('true')
-        expect(items[1].getAttribute('aria-selected')).toBe('true')
-        expect(items[2].getAttribute('aria-selected')).toBe('false')
+        expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+        expect(items[1].element().getAttribute('aria-selected')).toBe('true')
+        expect(items[2].element().getAttribute('aria-selected')).toBe('false')
         await press(items[1], '{Shift>}{ArrowDown}{/Shift}')
-        expect(items[0].getAttribute('aria-selected')).toBe('true')
-        expect(items[1].getAttribute('aria-selected')).toBe('true')
-        expect(items[2].getAttribute('aria-selected')).toBe('true')
+        expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+        expect(items[1].element().getAttribute('aria-selected')).toBe('true')
+        expect(items[2].element().getAttribute('aria-selected')).toBe('true')
       })
     })
   })
@@ -187,7 +188,7 @@ describe('given a Tree with a custom children structure', () => {
     { title: 'routes', icon: 'folder', directories: [{ title: 'contents', icon: 'folder', files: [{ title: '+layout.vue', icon: 'vue' }, { title: '+page.vue', icon: 'vue' }] }] },
   ]
   let screen: Screen
-  let items: HTMLElement[]
+  let items: Locator[]
   const updateItems = () => { items = treeItems(screen) }
 
   beforeEach(async () => {
@@ -207,7 +208,7 @@ describe('given a Tree with a custom children structure', () => {
     })
 
     it('should expand the item, revealing it\'s item', () => {
-      expect(items[2].textContent).toBe('tree')
+      expect(items[2].element().textContent).toBe('tree')
     })
 
     describe('when expand nested item', async () => {
@@ -217,7 +218,7 @@ describe('given a Tree with a custom children structure', () => {
       })
 
       it('should expand the nested item, revealing it\'s item ', () => {
-        expect(items[3].textContent).toBe('Tree.vue')
+        expect(items[3].element().textContent).toBe('Tree.vue')
       })
     })
   })
@@ -226,8 +227,8 @@ describe('given a Tree with a custom children structure', () => {
 describe('given a Tree with bubbleSelect and propagateSelect', () => {
   const customItems = [{ title: 'components', children: [{ title: 'Home', children: [{ title: 'Card.vue' }, { title: 'Button.vue' }] }] }]
   let screen: Screen
-  let items: HTMLElement[]
-  const selected = () => items.map(i => i.getAttribute('aria-selected'))
+  let items: Locator[]
+  const selected = () => items.map(i => i.element().getAttribute('aria-selected'))
 
   beforeEach(async () => {
     screen = await render(Tree, { props: { items: customItems, expanded: ['components', 'Home'], multiple: true, propagateSelect: true, bubbleSelect: true } })
@@ -284,18 +285,18 @@ describe('given a Tree with disabled items', () => {
 
   it('should set aria-disabled and data-disabled attributes', async () => {
     const { items } = await mountTree()
-    expect(items()[1].getAttribute('aria-disabled')).toBe('true')
-    expect(items()[1].getAttribute('data-disabled')).toBe('')
-    expect(items()[0].getAttribute('aria-disabled')).toBeNull()
-    expect(items()[0].getAttribute('data-disabled')).toBeNull()
+    expect(items()[1].element().getAttribute('aria-disabled')).toBe('true')
+    expect(items()[1].element().getAttribute('data-disabled')).toBe('')
+    expect(items()[0].element().getAttribute('aria-disabled')).toBeNull()
+    expect(items()[0].element().getAttribute('data-disabled')).toBeNull()
   })
 
   it('should not select a disabled item on click or keydown', async () => {
     const { items } = await mountTree()
     await userEvent.click(items()[1], { force: true })
-    expect(items()[1].getAttribute('aria-selected')).toBe('false')
+    expect(items()[1].element().getAttribute('aria-selected')).toBe('false')
     await press(items()[1], '{Enter}')
-    expect(items()[1].getAttribute('aria-selected')).toBe('false')
+    expect(items()[1].element().getAttribute('aria-selected')).toBe('false')
   })
 
   it('should not toggle a disabled item', async () => {
@@ -309,8 +310,8 @@ describe('given a Tree with disabled items', () => {
 
   it('should disable all items when root is disabled', async () => {
     const { items } = await mountTree([], true)
-    for (const item of items()) expect(item.getAttribute('aria-disabled')).toBe('true')
+    for (const item of items()) expect(item.element().getAttribute('aria-disabled')).toBe('true')
     await userEvent.click(items()[0], { force: true })
-    expect(items()[0].getAttribute('aria-selected')).toBe('false')
+    expect(items()[0].element().getAttribute('aria-selected')).toBe('false')
   })
 })

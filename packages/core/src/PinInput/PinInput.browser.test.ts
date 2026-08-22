@@ -1,12 +1,16 @@
+import type { Locator } from 'vitest/browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { commands, userEvent } from 'vitest/browser'
+import { commands, page, userEvent } from 'vitest/browser'
 import { nextTick } from 'vue'
 import PinInput from './story/_PinInput.vue'
 
 class InputPayloadHandle {
-  constructor(readonly element: HTMLInputElement) {}
+  constructor(
+    readonly element: HTMLInputElement,
+    readonly locator: Locator,
+  ) {}
 
   async dispatch(type: string, init: Record<string, unknown> = {}) {
     // This adapter is intentionally payload-only: browser automation cannot
@@ -28,7 +32,10 @@ class InputPayloadHandle {
 }
 
 function getInputs(screen: Awaited<ReturnType<typeof render>>) {
-  return Array.from(screen.container.querySelectorAll<HTMLInputElement>('input:not([aria-hidden])'), input => new InputPayloadHandle(input))
+  return Array.from(
+    screen.container.querySelectorAll<HTMLInputElement>('input:not([aria-hidden])'),
+    input => new InputPayloadHandle(input, page.elementLocator(input)),
+  )
 }
 
 async function copyAndPaste(text: string, target: HTMLInputElement) {
@@ -59,7 +66,7 @@ describe('given default PinInput', () => {
   beforeEach(async () => {
     wrapper = await render(PinInput)
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
   })
 
   it('should pass axe accessibility tests', async () => {
@@ -77,7 +84,7 @@ describe('given default PinInput', () => {
   describe('caret handling', () => {
     it('should handle caret at the start of the input', async () => {
       await userEvent.keyboard('a')
-      await userEvent.click(inputs[0].element)
+      await userEvent.click(inputs[0].locator)
       await userEvent.keyboard('{Home}')
       await userEvent.keyboard('b')
       expect(inputs.map(i => i.element.value)).toStrictEqual(['b', '', '', '', ''])
@@ -86,7 +93,7 @@ describe('given default PinInput', () => {
 
     it('should handle caret at the end of the input (default focus)', async () => {
       await userEvent.keyboard('a')
-      await userEvent.click(inputs[0].element)
+      await userEvent.click(inputs[0].locator)
       await userEvent.keyboard('b')
       expect(inputs.map(i => i.element.value)).toStrictEqual(['b', '', '', '', ''])
       expect(inputs[1].element).toBe(document.activeElement)
@@ -193,7 +200,7 @@ describe('given default PinInput', () => {
   describe('after inserting \'test\' and pressing Delete key', () => {
     beforeEach(async () => {
       await userEvent.keyboard('test')
-      await userEvent.click(inputs[1].element)
+      await userEvent.click(inputs[1].locator)
       await userEvent.keyboard('{Delete}')
     })
 
@@ -282,7 +289,7 @@ describe('give PinInput type=number', async () => {
   beforeEach(async () => {
     wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
   })
 
   it('should pass axe accessibility tests', async () => {
@@ -414,7 +421,7 @@ describe('handle IME composition', () => {
   beforeEach(async () => {
     wrapper = await render(PinInput)
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
   })
 
   it('should not shift focus during composition', async () => {
@@ -452,7 +459,7 @@ describe('handle IME composition', () => {
   it('should reject non-numeric IME input in numeric mode', async () => {
     wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
 
     await inputs[0].dispatch('compositionstart')
     inputs[0].element.value = 'あ'
@@ -477,7 +484,7 @@ describe('handle IME composition', () => {
   it('should distribute multi-digit numeric composition commit across slots', async () => {
     wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
 
     await inputs[0].dispatch('compositionstart')
     inputs[0].element.value = '123'
@@ -498,11 +505,11 @@ describe('give OTP PinInput', () => {
   beforeEach(async () => {
     wrapper = await render(PinInput, { props: { otp: true } })
     inputs = getInputs(wrapper)
-    await userEvent.click(inputs[0].element)
+    await userEvent.click(inputs[0].locator)
   })
 
   it('should disable later inputs if there are empty inputs before them', async () => {
-    await userEvent.click(inputs[1].element, { force: true })
+    await userEvent.click(inputs[1].locator, { force: true })
     expect(document.activeElement).toBe(inputs[0].element)
   })
 })

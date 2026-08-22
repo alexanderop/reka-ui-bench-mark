@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import DateRangeField from './story/_DateRangeField.vue'
 
@@ -96,7 +96,7 @@ describe('dateField', async () => {
       },
     })
 
-    await user.click(start.month)
+    await user.click(page.elementLocator(start.month))
     expect(start.month).toHaveFocus()
     await user.keyboard('{2}')
     expect(start.day).toHaveFocus()
@@ -186,7 +186,7 @@ describe('dateField', async () => {
     const fields = ['start', 'end'] as const
     const segments = ['month', 'day', 'year'] as const
 
-    await user.click(getByTestId('start-month'))
+    await user.click(page.elementLocator(getByTestId('start-month')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -198,7 +198,7 @@ describe('dateField', async () => {
       }
     }
 
-    await user.click(getByTestId('start-month'))
+    await user.click(page.elementLocator(getByTestId('start-month')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -219,7 +219,7 @@ describe('dateField', async () => {
     const fields = ['end', 'start'] as const
     const segments = ['year', 'day', 'month'] as const
 
-    await user.click(getByTestId('end-year'))
+    await user.click(page.elementLocator(getByTestId('end-year')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -231,7 +231,7 @@ describe('dateField', async () => {
       }
     }
 
-    await user.click(getByTestId('end-year'))
+    await user.click(page.elementLocator(getByTestId('end-year')))
 
     for (const field of fields) {
       for (const segment of segments) {
@@ -252,7 +252,7 @@ describe('dateField', async () => {
     expect(start.month).toHaveTextContent(String(calendarDate.start.month))
     expect(end.month).toHaveTextContent(String(calendarDate.end.month))
 
-    await user.click(start.month)
+    await user.click(page.elementLocator(start.month))
     await user.keyboard('2')
     expect(start.month).toHaveTextContent('2')
     expect(end.month).toHaveTextContent(String(calendarDate.end.month))

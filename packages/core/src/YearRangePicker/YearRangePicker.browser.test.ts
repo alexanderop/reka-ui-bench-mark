@@ -5,7 +5,7 @@ import { CalendarDate, CalendarDateTime, toZoned } from '@internationalized/date
 import { describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { useTestKbd } from '@/shared'
 import YearRangePicker from './story/_YearRangePicker.vue'
 
@@ -104,7 +104,7 @@ describe('year range picker', () => {
     expect(startValue?.textContent).toBe('1980')
     expect(endValue?.textContent).toBe('1983')
 
-    await user.click(getYear(1985))
+    await user.click(page.elementLocator(getYear(1985)))
 
     expect(yearLabels(getSelectedYears(picker))).toStrictEqual(['1985'])
 
@@ -114,7 +114,7 @@ describe('year range picker', () => {
     expect(startValue).toBe(getYear(1985))
     expect(endValue).not.toBeInTheDocument()
 
-    await user.click(getYear(1987))
+    await user.click(page.elementLocator(getYear(1987)))
     expect(yearLabels(getSelectedYears(picker))).toStrictEqual(['1985', '1986', '1987'])
   })
 
@@ -143,7 +143,7 @@ describe('year range picker', () => {
     })
     rerender = screenRerender
 
-    await user.click(getYear(1983))
+    await user.click(page.elementLocator(getYear(1983)))
 
     expect(getYear(1983)).toHaveAttribute('data-selection-start')
     expect(getYear(1986)).toHaveAttribute('data-selection-end')
@@ -161,8 +161,8 @@ describe('year range picker', () => {
     rerender = screenRerender
 
     const year1980 = getYear(1980)
-    await user.click(year1980)
-    await user.click(year1980)
+    await user.click(page.elementLocator(year1980))
+    await user.click(page.elementLocator(year1980))
 
     expect(yearLabels(getSelectedYears(picker))).toStrictEqual(['1980'])
     expect(picker.querySelector('[data-selection-start]')).toBe(getYear(1980))
@@ -178,12 +178,12 @@ describe('year range picker', () => {
     rerender = screenRerender
 
     const year1980 = getYear(1980)
-    await user.click(year1980)
-    await user.click(year1980)
+    await user.click(page.elementLocator(year1980))
+    await user.click(page.elementLocator(year1980))
 
     expect(yearLabels(getSelectedYears(picker))).toStrictEqual(['1980'])
 
-    await user.click(year1980)
+    await user.click(page.elementLocator(year1980))
     expect(getSelectedYears(picker)).toHaveLength(0)
   })
 
@@ -201,7 +201,7 @@ describe('year range picker', () => {
     expect(startValue?.textContent).toBe('1980')
     expect(endValue?.textContent).toBe('1983')
 
-    await user.click(getYear(1985))
+    await user.click(page.elementLocator(getYear(1985)))
 
     const selectedYears = getSelectedYears(picker)
     expect(selectedYears).toHaveLength(1)
@@ -222,7 +222,7 @@ describe('year range picker', () => {
     const nextBtn = getButton('Next page')
 
     expect(heading.textContent).toBe('1980 - 1991')
-    await user.click(nextBtn)
+    await user.click(page.elementLocator(nextBtn))
     expect(heading.textContent).toBe('1992 - 2003')
   })
 
@@ -233,7 +233,7 @@ describe('year range picker', () => {
     const prevBtn = getButton('Previous page')
 
     expect(heading.textContent).toBe('1980 - 1991')
-    await user.click(prevBtn)
+    await user.click(page.elementLocator(prevBtn))
     expect(heading.textContent).toBe('1968 - 1979')
   })
 
@@ -248,7 +248,7 @@ describe('year range picker', () => {
     const heading = getByTestId('heading')
     expect(heading.textContent).toBe('1980 - 1991')
 
-    await user.click(getYear(1985))
+    await user.click(page.elementLocator(getYear(1985)))
 
     expect(getYear(1984)).toHaveAttribute('data-selected')
     expect(getYear(1980)).toHaveAttribute('data-selection-start')
@@ -266,13 +266,13 @@ describe('year range picker', () => {
     const heading = getByTestId('heading')
     expect(heading.textContent).toBe('1980 - 1991')
 
-    await user.click(getYear(1985))
+    await user.click(page.elementLocator(getYear(1985)))
 
     expect(getYear(1984)).toHaveAttribute('data-selected')
     expect(getYear(1980)).toHaveAttribute('data-selection-start')
     expect(getYear(1985)).toHaveAttribute('data-selection-end')
 
-    await user.click(getYear(1982))
+    await user.click(page.elementLocator(getYear(1982)))
     expect(getYear(1982)).toHaveAttribute('data-selection-start')
     expect(getYear(1985)).toHaveAttribute('data-selection-end')
   })
@@ -288,8 +288,8 @@ describe('year range picker', () => {
       },
     })
 
-    await user.click(getYear(1980))
-    await user.click(getYear(1984))
+    await user.click(page.elementLocator(getYear(1980)))
+    await user.click(page.elementLocator(getYear(1984)))
     expect(yearLabels(getSelectedYears(picker))).toStrictEqual(['1980', '1981', '1982', '1983', '1984'])
   })
 })
@@ -304,14 +304,14 @@ describe('year range picker - maximumYears', () => {
     })
 
     const year1983 = getYear(1983)
-    await user.click(year1983)
+    await user.click(page.elementLocator(year1983))
     expect(year1983).toHaveAttribute('data-selection-start')
 
     const year1986 = getYear(1986)
     // The range constraint marks this role-button aria-disabled before the
     // attempted interaction. Force skips Playwright's enabled wait while
     // preserving Chromium's real pointer sequence and the component guard.
-    await user.click(year1986, { force: true })
+    await user.click(page.elementLocator(year1986), { force: true })
 
     expect(year1986).toHaveAttribute('data-disabled')
     expect(year1986).not.toHaveAttribute('data-selected')
@@ -319,7 +319,7 @@ describe('year range picker - maximumYears', () => {
     const year1985 = getYear(1985)
     expect(year1985).not.toHaveAttribute('data-disabled')
 
-    await user.click(year1985)
+    await user.click(page.elementLocator(year1985))
     expect(getYear(1983)).toHaveAttribute('data-selected')
     expect(getYear(1984)).toHaveAttribute('data-selected')
     expect(getYear(1985)).toHaveAttribute('data-selected')
@@ -334,11 +334,11 @@ describe('year range picker - maximumYears', () => {
     })
 
     const year1983 = getYear(1983)
-    await user.click(year1983)
+    await user.click(page.elementLocator(year1983))
     expect(year1983).toHaveAttribute('data-selection-start')
 
     const year1981 = getYear(1981)
-    await user.hover(year1981)
+    await user.hover(page.elementLocator(year1981))
 
     expect(year1981).toHaveAttribute('data-highlighted-start')
     expect(getYear(1982)).toHaveAttribute('data-highlighted')

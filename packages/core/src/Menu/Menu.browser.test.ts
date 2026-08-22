@@ -1,3 +1,4 @@
+import type { Locator } from 'vitest/browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
@@ -22,15 +23,15 @@ describe('given a default Menu', () => {
   })
 
   describe('after focusing on item', () => {
-    let firstItem: HTMLElement
+    let firstItem: Locator
     beforeEach(async () => {
-      firstItem = screen.getByRole('menuitem').elements()[0]
-      firstItem.focus()
+      firstItem = screen.getByRole('menuitem').first()
+      firstItem.element().focus()
       await expect.element(firstItem).toHaveFocus()
     })
 
     it('should have highlighted state', () => {
-      expect(firstItem.parentElement?.innerHTML).toContain('data-highlighted')
+      expect(firstItem.element().parentElement?.innerHTML).toContain('data-highlighted')
     })
 
     describe('after selecting the item', () => {
@@ -45,7 +46,7 @@ describe('given a Menu with submenu', () => {
   beforeEach(async () => { screen = await render(MenuWithSubmenu) })
 
   it('should highlight sub trigger on pointermove', async () => {
-    const subTrigger = screen.getByRole('menuitem').elements().find(el => el.getAttribute('aria-haspopup') === 'menu')!
+    const subTrigger = screen.getByRole('menuitem').all().find(locator => locator.element().getAttribute('aria-haspopup') === 'menu')!
     expect(subTrigger).toBeTruthy()
     await userEvent.hover(subTrigger)
     await expect.element(subTrigger).toHaveAttribute('data-highlighted')

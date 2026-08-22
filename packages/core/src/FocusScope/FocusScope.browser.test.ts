@@ -170,7 +170,7 @@ describe('focusScope', () => {
     it('should move focus into the Select content, not trap it back to the Dialog', async () => {
       const screen = await render(DialogWithSelect)
       await screen.getByRole('button', { name: 'Open' }).click()
-      await userEvent.click(screen.getByRole('combobox').element())
+      await screen.getByRole('combobox').click()
       const content = screen.getByTestId('select-content').element()
       await expect.poll(() => content.contains(document.activeElement)).toBe(true)
       await userEvent.keyboard('{Escape}')
