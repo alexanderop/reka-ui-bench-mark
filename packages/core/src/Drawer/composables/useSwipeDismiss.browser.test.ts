@@ -21,7 +21,7 @@ interface HarnessOptions {
   directions?: Array<'up' | 'down' | 'left' | 'right'>
 }
 
-function mountHarness(opts: HarnessOptions = {}) {
+async function mountHarness(opts: HarnessOptions = {}) {
   const elementRef = ref<HTMLElement | null>(null)
   const onDismiss = opts.onDismiss ?? vi.fn()
   const onCancel = opts.onCancel ?? vi.fn()
@@ -53,7 +53,7 @@ function mountHarness(opts: HarnessOptions = {}) {
     },
   })
 
-  const wrapper = render(Harness)
+  const wrapper = await render(Harness)
   return { wrapper, elementRef, onDismiss, onCancel, onRelease }
 }
 
@@ -65,6 +65,12 @@ function dispatchPointer(
   time = 0,
   extra: Partial<PointerEventInit> = {},
 ) {
+  // This composable-level suite constructs otherwise-unreachable guard inputs:
+  // explicit timestamps for velocity classification, missing-button recovery,
+  // document-only release, pointer-id replacement and window-blur cleanup.
+  // Trusted end-to-end mouse and Chromium touch gestures live in
+  // Drawer.snap and Drawer.interactions; these exact payload fields are the
+  // reason this narrow helper remains synthetic.
   const event = new PointerEvent(type, {
     bubbles: true,
     cancelable: true,
@@ -91,7 +97,7 @@ function dispatchPointer(
 describe('useSwipeDismiss — dismiss vs cancel CSS var clearing', () => {
   it('preserves movement CSS vars on dismiss so close animation runs from drag position', async () => {
     const onDismiss = vi.fn()
-    const { wrapper, elementRef, onCancel } = mountHarness({ onDismiss })
+    const { wrapper, elementRef, onCancel } = await mountHarness({ onDismiss })
     await nextTick()
 
     const el = elementRef.value!
@@ -124,7 +130,7 @@ describe('useSwipeDismiss — dismiss vs cancel CSS var clearing', () => {
 
   it('clears movement CSS vars on cancel so drawer animates back to rest', async () => {
     const onCancel = vi.fn()
-    const { wrapper, elementRef, onDismiss } = mountHarness({ onCancel })
+    const { wrapper, elementRef, onDismiss } = await mountHarness({ onCancel })
     await nextTick()
 
     const el = elementRef.value!
@@ -152,7 +158,7 @@ describe('useSwipeDismiss — dismiss vs cancel CSS var clearing', () => {
 
   it('fires onRelease with the measured velocity vector', async () => {
     const onRelease = vi.fn()
-    const { wrapper, elementRef } = mountHarness({ onRelease })
+    const { wrapper, elementRef } = await mountHarness({ onRelease })
     await nextTick()
 
     const el = elementRef.value!
@@ -189,7 +195,7 @@ describe('useSwipeDismiss — dismiss vs cancel CSS var clearing', () => {
  */
 describe('useSwipeDismiss — non-dismissable direction (elastic pull)', () => {
   it('damps and tracks a drag away from the dismiss direction', async () => {
-    const { wrapper, elementRef, onDismiss, onCancel } = mountHarness()
+    const { wrapper, elementRef, onDismiss, onCancel } = await mountHarness()
     await nextTick()
 
     const el = elementRef.value!
@@ -217,7 +223,7 @@ describe('useSwipeDismiss — non-dismissable direction (elastic pull)', () => {
   })
 
   it('still adopts the dismiss direction when the drag reverses into it', async () => {
-    const { wrapper, elementRef, onDismiss, onCancel } = mountHarness()
+    const { wrapper, elementRef, onDismiss, onCancel } = await mountHarness()
     await nextTick()
 
     const el = elementRef.value!
@@ -241,7 +247,7 @@ describe('useSwipeDismiss — non-dismissable direction (elastic pull)', () => {
   it('leaves an allowed direction undamped when both axes directions are allowed', async () => {
     // Snap-point drawers pass both the dismiss direction and its opposite, so
     // neither vertical direction should be damped.
-    const { wrapper, elementRef } = mountHarness({ directions: ['down', 'up'] })
+    const { wrapper, elementRef } = await mountHarness({ directions: ['down', 'up'] })
     await nextTick()
 
     const el = elementRef.value!
@@ -268,7 +274,7 @@ describe('useSwipeDismiss — non-dismissable direction (elastic pull)', () => {
  */
 describe('useSwipeDismiss — releases the popup never sees', () => {
   it('treats a move with no button held as the missing pointerup', async () => {
-    const { wrapper, elementRef, onCancel } = mountHarness()
+    const { wrapper, elementRef, onCancel } = await mountHarness()
     await nextTick()
 
     const el = elementRef.value!
@@ -291,7 +297,7 @@ describe('useSwipeDismiss — releases the popup never sees', () => {
   })
 
   it('finishes on a pointerup that only reaches the document', async () => {
-    const { wrapper, elementRef, onCancel } = mountHarness()
+    const { wrapper, elementRef, onCancel } = await mountHarness()
     await nextTick()
 
     const el = elementRef.value!
@@ -311,7 +317,7 @@ describe('useSwipeDismiss — releases the popup never sees', () => {
   })
 
   it('finishes when the window loses focus mid-drag', async () => {
-    const { wrapper, elementRef, onCancel } = mountHarness()
+    const { wrapper, elementRef, onCancel } = await mountHarness()
     await nextTick()
 
     const el = elementRef.value!
@@ -332,7 +338,7 @@ describe('useSwipeDismiss — releases the popup never sees', () => {
 
   it('does not leak state from an unfinished gesture into the next one', async () => {
     const onDismiss = vi.fn()
-    const { wrapper, elementRef, onCancel } = mountHarness({ onDismiss })
+    const { wrapper, elementRef, onCancel } = await mountHarness({ onDismiss })
     await nextTick()
 
     const el = elementRef.value!

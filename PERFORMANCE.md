@@ -32,9 +32,16 @@ real input at all are, on average, **faster** in Chromium than in jsdom.
 
 ```bash
 pnpm --filter reka-ui exec vitest run --project=unit      # jsdom, 87 files
-pnpm --filter reka-ui exec vitest run --project=browser   # Chromium, 89 files
+pnpm --filter reka-ui exec vitest run --project=browser   # Chromium, currently 111 files
 pnpm --filter reka-ui exec vitest run --project=node      # no DOM, 10 files
 ```
+
+The table below is the dated 2026-08-19 migration-close benchmark over the 87 like-for-like pairs
+plus two browser harness files. It is retained because the ratios are measured evidence. The
+2026-08-22 reference-suite audit brought the suite to 22 unpaired behavior/accessibility files
+(14 new beyond the eight migration-close contracts); its single final
+verification run was 111 files / 1554 passing + 28 expected failures in 15.50s, while the retained
+unit project was 11.25s. Those totals are not a new like-for-like performance comparison.
 
 | project | files | tests | run 1 | run 2 | run 3 | median |
 |---|---|---|---|---|---|---|

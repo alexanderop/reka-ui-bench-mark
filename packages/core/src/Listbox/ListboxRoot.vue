@@ -267,8 +267,14 @@ function onEnter(event: Event) {
   if (entryFocusEvent.defaultPrevented)
     return
 
-  if (previousElement.value) {
+  if (previousElement.value?.isConnected) {
     changeHighlight(previousElement.value)
+  }
+  else if (isVirtual.value) {
+    // A virtual row can be the logical highlight after it has left the mounted
+    // window. Keyboard entry must restore the checked/first row before focus;
+    // otherwise the disconnected row leaves the entire Listbox untabbable.
+    void highlightSelected(event)
   }
   else {
     const el = getCollectionItem()?.[0]

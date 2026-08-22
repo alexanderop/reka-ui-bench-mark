@@ -4,21 +4,18 @@ import { playwright } from '@vitest/browser-playwright'
 import tailwindcss from 'tailwindcss'
 import { defineConfig } from 'vitest/config'
 import tailwindConfig from './tailwind.browser.config.js'
-import { mouseDown, mouseMove, mousePress, mouseUp } from './vitest.browser.commands.ts'
+import { copyPaste, mouseDown, mouseMove, mousePress, mouseUp, touchSwipe } from './vitest.browser.commands.ts'
 
 /**
  * Test files that need no DOM at all, and therefore never needed jsdom.
  *
- * The migration's goal is to delete jsdom outright, not to keep it for the
- * cheap cases: every file that touches the DOM goes to browser mode, and every
+ * Every file that touches the DOM has a browser-mode destination, and every
  * file that does not comes here instead. Identified by scanning all 97 files
  * for DOM signals and then *verified by running them* in `environment: 'node'`
  * with no setup file — 10 files, 571 tests, all green.
  *
- * This list only exists while the migration is in flight. The end state is
- * `*.test.ts` = node, `*.browser.test.ts` = browser, and no `unit` project at
- * all; until then the jsdom project has to exclude these explicitly or they
- * would run twice.
+ * The original jsdom corpus remains intentionally runnable for comparison, so
+ * the unit project excludes this list to avoid running these node tests twice.
  */
 const NODE_TESTS = [
   './src/Drawer/utils.test.ts',
@@ -38,7 +35,7 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(import.meta.dirname, 'src'),
     },
   },
 
@@ -55,9 +52,8 @@ export default defineConfig({
     // the jsdom setup file (canvas mock, jest-dom matchers, getComputedStyle
     // patch) — none of it applies in a real browser and some of it collides.
     //
-    // `unit` is the one being deleted. It shrinks as files move to `browser`
-    // (DOM-dependent) or `node` (not), and the migration is finished when its
-    // include list matches nothing.
+    // `unit` is the retained jsdom comparison corpus. It is no longer a
+    // migration progress measure; browser and node are the destinations.
     projects: [
       {
         extends: true,
@@ -109,8 +105,8 @@ export default defineConfig({
         // it — verified — so `@` does not need re-declaring here.
         resolve: {
           alias: {
-            'vitest-axe/matchers': resolve(__dirname, 'shims/vitest-axe/matchers.ts'),
-            'vitest-axe': resolve(__dirname, 'shims/vitest-axe/index.ts'),
+            'vitest-axe/matchers': resolve(import.meta.dirname, 'shims/vitest-axe/matchers.ts'),
+            'vitest-axe': resolve(import.meta.dirname, 'shims/vitest-axe/index.ts'),
           },
         },
         // Compile the story fixtures' Tailwind classes. Nothing else does, and
@@ -127,7 +123,7 @@ export default defineConfig({
           include: ['./**/*.browser.test.ts'],
           // Visual story sheets have platform-specific PNG baselines and run
           // only through `vite.config.visual.ts`. Keeping them out of this
-          // project preserves the 89-file functional/coverage corpus and
+          // project preserves the functional/coverage corpus and
           // prevents a macOS baseline from becoming an implicit Linux CI
           // requirement.
           exclude: ['**/node_modules/**', '**/*.visual.browser.test.ts'],
@@ -187,7 +183,7 @@ export default defineConfig({
             // drag primitive (`dropTo`) is atomic and iframe-local. These commands
             // let a gesture be split across `beforeEach` hooks — see
             // `vitest.browser.commands.ts`.
-            commands: { mouseDown, mouseMove, mousePress, mouseUp },
+            commands: { copyPaste, mouseDown, mouseMove, mousePress, mouseUp, touchSwipe },
           },
         },
       },

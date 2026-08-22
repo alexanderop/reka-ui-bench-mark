@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { nextTick } from 'vue'
 import DropdownMenuWithFilter from './story/_DropdownMenuWithFilter.vue'
 
@@ -39,13 +39,13 @@ describe('given DropdownMenu with Filter', () => {
     })
 
     it('should handle ArrowDown key to navigate to items', async () => {
-      input().focus()
+      await page.elementLocator(input()).click()
       await userEvent.keyboard('{ArrowDown}')
       await expect.element(items()[0]).toHaveAttribute('data-highlighted')
     })
 
     it('should handle ArrowUp key to navigate to last item', async () => {
-      input().focus()
+      await page.elementLocator(input()).click()
       await userEvent.keyboard('{ArrowUp}')
       await expect.element(items().at(-1)!).toHaveAttribute('data-highlighted')
     })
@@ -58,7 +58,7 @@ describe('given DropdownMenu with Filter', () => {
     })
 
     it('should sync aria-activedescendant with highlighted item', async () => {
-      input().focus()
+      await page.elementLocator(input()).click()
       await userEvent.keyboard('{ArrowDown}')
       await expect.element(items()[0]).toHaveAttribute('data-highlighted')
       const activeDescendant = input().getAttribute('aria-activedescendant')
@@ -80,6 +80,11 @@ describe('given DropdownMenu with Filter', () => {
 
   describe('handle IME composition', () => {
     beforeEach(async () => { await screen.getByRole('button').click() })
+
+    // Composition data, isComposing and Android preedit updates are the event
+    // payloads under test. Vitest Browser Mode 4.1.10 has no composition
+    // operation, so this block retains narrow synthetic events; ordinary
+    // focus, typing and post-composition navigation still use browser APIs.
 
     it('should not update search during IME composition', async () => {
       expect(input()).toBeTruthy()
@@ -139,7 +144,7 @@ describe('given DropdownMenu with Filter', () => {
     })
 
     it('should not navigate items during IME composition (arrow keys are IME candidate navigation)', async () => {
-      input().focus()
+      await page.elementLocator(input()).click()
       input().dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
       const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })
       Object.defineProperty(event, 'isComposing', { value: true })
@@ -149,7 +154,7 @@ describe('given DropdownMenu with Filter', () => {
       input().dispatchEvent(new CompositionEvent('compositionend', { data: '', bubbles: true }))
       await nextTick()
       await nextTick()
-      input().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+      await userEvent.keyboard('{ArrowDown}')
       await expect.poll(() => document.querySelector('[role="menuitem"][data-highlighted]')).not.toBeNull()
     })
   })

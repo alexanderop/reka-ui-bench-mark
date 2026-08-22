@@ -72,6 +72,8 @@ describe('given DropdownMenu tab navigation', () => {
   async function tabEvent(modal: boolean, index = 0) {
     const screen = await render(DropdownMenuTabTest, { props: { modal } })
     const menu = screen.getByRole('menu').elements()[index]
+    // The cancelation of this exact Tab event is the contract. Browser
+    // keyboard helpers do not expose the dispatched event's defaultPrevented.
     const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Tab' })
     menu.dispatchEvent(event)
     return event

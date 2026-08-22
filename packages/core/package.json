@@ -86,6 +86,7 @@
     "test:visual:update": "pnpm type-check:visual && vitest run --config vite.config.visual.ts --update",
     "test:unit": "vitest run --project=unit",
     "test:coverage": "vitest run --coverage",
+    "test:coverage:browser": "vitest run --config vite.config.browser-coverage.ts --project=browser --coverage",
     "test-update": "vitest -u",
     "port:inventory": "node scripts/port/inventory.mjs",
     "port:parity": "node scripts/port/parity-names.mjs",

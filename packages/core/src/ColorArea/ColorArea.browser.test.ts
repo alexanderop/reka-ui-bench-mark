@@ -1,38 +1,74 @@
-import type { BrowserWrapper } from '@/test/browser'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
-import { renderCompat } from '@/test/browser'
+import { render } from 'vitest-browser-vue'
+import { commands, userEvent } from 'vitest/browser'
+import { nextTick } from 'vue'
 import ColorArea from './story/_ColorArea.vue'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+type ColorAreaScreen = Awaited<ReturnType<typeof render<typeof ColorArea>>>
+
+function find<T extends Element = Element>(screen: ColorAreaScreen, selector: string) {
+  const element = screen.container.querySelector<T>(selector)
+  return {
+    element: element!,
+    exists: () => Boolean(element),
+    attributes: (name: string) => element?.getAttribute(name) ?? undefined,
+  }
+}
+
 /** Returns the x-channel value from aria-valuenow on the slider thumb. */
-function getXValue(wrapper: BrowserWrapper): number {
-  return Number(wrapper.find('[role="slider"]').attributes('aria-valuenow'))
+function getXValue(wrapper: ColorAreaScreen): number {
+  return Number(find(wrapper, '[role="slider"]').attributes('aria-valuenow'))
 }
 
 /**
  * Parses the y-channel value from aria-valuetext.
  * Format: "Saturation 50, Lightness 42"
  */
-function getYValue(wrapper: BrowserWrapper, channelName: string): number {
-  const text = wrapper.find('[role="slider"]').attributes('aria-valuetext') ?? ''
+function getYValue(wrapper: ColorAreaScreen, channelName: string): number {
+  const text = find(wrapper, '[role="slider"]').attributes('aria-valuetext') ?? ''
   const match = text.match(new RegExp(`${channelName} (\\d+)`))
   return match ? Number(match[1]) : NaN
 }
 
-/** Triggers a keydown on the color area (role=application). */
-async function keydown(wrapper: BrowserWrapper, key: string, opts: Record<string, unknown> = {}) {
-  await wrapper.find('[role="application"]').trigger('keydown', { key, ...opts })
+/** Drives keyboard input from the real focusable thumb. */
+async function keydown(wrapper: ColorAreaScreen, key: string, opts: Record<string, unknown> = {}) {
+  const application = find<HTMLElement>(wrapper, '[role="application"]').element
+  const thumb = find<HTMLElement>(wrapper, '[role="slider"]').element
+
+  if (application.getAttribute('aria-disabled') === 'true') {
+    // A real keyboard cannot focus this disabled slider. These two negative
+    // tests explicitly exercise the component's otherwise-unreachable guard.
+    application.dispatchEvent(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key,
+      ...opts,
+    }))
+    await nextTick()
+    return
+  }
+
+  // Vitest 4.1.10 has no locator focus primitive. Tab through the real browser
+  // focus order instead of clicking the thumb: ColorArea interprets a thumb
+  // pointerdown as a value-changing position gesture.
+  for (let attempt = 0; document.activeElement !== thumb && attempt < 20; attempt++)
+    await userEvent.tab()
+  if (document.activeElement !== thumb)
+    throw new Error('could not reach the ColorArea thumb through native Tab navigation')
+  const stroke = `{${key}}`
+  await userEvent.keyboard(opts.shiftKey ? `{Shift>}${stroke}{/Shift}` : stroke)
 }
 
 // ─── Accessibility ────────────────────────────────────────────────────────────
 
 describe('colorArea accessibility', () => {
-  let wrapper: BrowserWrapper
+  let wrapper: ColorAreaScreen
 
-  beforeEach(() => {
-    wrapper = renderCompat(ColorArea, {
+  beforeEach(async () => {
+    wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#bf40bf', // hsl(300, ~50%, 50%)
         colorSpace: 'hsl',
@@ -44,28 +80,28 @@ describe('colorArea accessibility', () => {
 
   it('passes axe accessibility tests', async () => {
     expect(
-      await axe(wrapper.element, { rules: { label: { enabled: false } } }),
+      await axe(wrapper.container.firstElementChild!, { rules: { label: { enabled: false } } }),
     ).toHaveNoViolations()
   })
 
   it('root has role="group"', () => {
-    expect(wrapper.find('[role="group"]').exists()).toBe(true)
+    expect(find(wrapper, '[role="group"]').exists()).toBe(true)
   })
 
   it('area has role="application" and aria-roledescription="Color picker"', () => {
-    const area = wrapper.find('[role="application"]')
+    const area = find(wrapper, '[role="application"]')
     expect(area.exists()).toBe(true)
     expect(area.attributes('aria-roledescription')).toBe('Color picker')
   })
 
   it('thumb has role="slider" and aria-roledescription="Color thumb"', () => {
-    const thumb = wrapper.find('[role="slider"]')
+    const thumb = find(wrapper, '[role="slider"]')
     expect(thumb.exists()).toBe(true)
     expect(thumb.attributes('aria-roledescription')).toBe('Color thumb')
   })
 
   it('thumb aria-label names both channels', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-label')).toBe('Saturation, Lightness')
+    expect(find(wrapper, '[role="slider"]').attributes('aria-label')).toBe('Saturation, Lightness')
   })
 })
 
@@ -73,7 +109,7 @@ describe('colorArea accessibility', () => {
 
 describe('colorArea pointer interaction', () => {
   it('thumb gains focus when dragging starts', async () => {
-    const wrapper = renderCompat(ColorArea, {
+    const wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#bf40bf',
         colorSpace: 'hsl',
@@ -82,16 +118,14 @@ describe('colorArea pointer interaction', () => {
       },
     })
 
-    const area = wrapper.find('[role="application"]')
-    const thumb = wrapper.find('[role="slider"]')
+    const area = find(wrapper, '[role="application"]')
+    const thumb = find(wrapper, '[role="slider"]')
 
     expect(document.activeElement).not.toBe(thumb.element)
 
-    await area.trigger('pointerdown', {
-      clientX: 100,
-      clientY: 100,
-      pointerId: 1,
-    })
+    const rect = area.element.getBoundingClientRect()
+    await commands.mouseDown(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    await commands.mouseUp()
 
     expect(document.activeElement).toBe(thumb.element)
 
@@ -99,7 +133,7 @@ describe('colorArea pointer interaction', () => {
   })
 
   it('thumb does not gain focus when disabled', async () => {
-    const wrapper = renderCompat(ColorArea, {
+    const wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#bf40bf',
         colorSpace: 'hsl',
@@ -109,14 +143,12 @@ describe('colorArea pointer interaction', () => {
       },
     })
 
-    const area = wrapper.find('[role="application"]')
-    const thumb = wrapper.find('[role="slider"]')
+    const area = find(wrapper, '[role="application"]')
+    const thumb = find(wrapper, '[role="slider"]')
 
-    await area.trigger('pointerdown', {
-      clientX: 100,
-      clientY: 100,
-      pointerId: 1,
-    })
+    const rect = area.element.getBoundingClientRect()
+    await commands.mouseDown(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    await commands.mouseUp()
 
     expect(document.activeElement).not.toBe(thumb.element)
 
@@ -128,10 +160,10 @@ describe('colorArea pointer interaction', () => {
 
 describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
   // #bf40bf ≈ hsl(300, 50%, 50%) — saturation=50, lightness=50
-  let wrapper: BrowserWrapper
+  let wrapper: ColorAreaScreen
 
-  beforeEach(() => {
-    wrapper = renderCompat(ColorArea, {
+  beforeEach(async () => {
+    wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#bf40bf',
         colorSpace: 'hsl',
@@ -147,19 +179,19 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
     })
 
     it('aria-valuemin = 0, aria-valuemax = 100', () => {
-      const thumb = wrapper.find('[role="slider"]')
+      const thumb = find(wrapper, '[role="slider"]')
       expect(Number(thumb.attributes('aria-valuemin'))).toBe(0)
       expect(Number(thumb.attributes('aria-valuemax'))).toBe(100)
     })
 
     it('aria-valuetext reports both channels', () => {
-      expect(wrapper.find('[role="slider"]').attributes('aria-valuetext')).toBe(
+      expect(find(wrapper, '[role="slider"]').attributes('aria-valuetext')).toBe(
         'Saturation 50, Lightness 50',
       )
     })
 
     it('thumb is focusable (tabindex=0)', () => {
-      expect(wrapper.find('[role="slider"]').attributes('tabindex')).toBe('0')
+      expect(find(wrapper, '[role="slider"]').attributes('tabindex')).toBe('0')
     })
   })
 
@@ -246,7 +278,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
   describe('boundary clamping', () => {
     it('saturation cannot exceed 100', async () => {
       // #ff0000 = hsl(0, 100%, 50%) — saturation is at max
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#ff0000', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'ArrowRight')
@@ -255,7 +287,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
 
     it('saturation cannot go below 0', async () => {
       // #808080 = hsl(0, 0%, 50%) — saturation is at min
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#808080', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'ArrowLeft')
@@ -264,7 +296,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
 
     it('lightness cannot exceed 100', async () => {
       // #ffffff = hsl(*, 0%, 100%) — lightness is at max
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#ffffff', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'ArrowUp')
@@ -273,7 +305,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
 
     it('lightness cannot go below 0', async () => {
       // #000000 = hsl(*, 0%, 0%) — lightness is at min
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#000000', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'ArrowDown')
@@ -281,7 +313,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
     })
 
     it('home at saturation=0 clamps to 0 (no underflow)', async () => {
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#808080', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'Home')
@@ -289,7 +321,7 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
     })
 
     it('end at saturation=100 clamps to 100 (no overflow)', async () => {
-      const w = renderCompat(ColorArea, {
+      const w = await render(ColorArea, {
         props: { defaultValue: '#ff0000', colorSpace: 'hsl', xChannel: 'saturation', yChannel: 'lightness' },
       })
       await keydown(w, 'End')
@@ -298,10 +330,10 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
   })
 
   describe('disabled state', () => {
-    let w: BrowserWrapper
+    let w: ColorAreaScreen
 
-    beforeEach(() => {
-      w = renderCompat(ColorArea, {
+    beforeEach(async () => {
+      w = await render(ColorArea, {
         props: {
           defaultValue: '#bf40bf',
           colorSpace: 'hsl',
@@ -313,15 +345,15 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
     })
 
     it('area has data-disabled=""', () => {
-      expect(w.find('[role="application"]').attributes('data-disabled')).toBe('')
+      expect(find(w, '[role="application"]').attributes('data-disabled')).toBe('')
     })
 
     it('area has aria-disabled="true"', () => {
-      expect(w.find('[role="application"]').attributes('aria-disabled')).toBe('true')
+      expect(find(w, '[role="application"]').attributes('aria-disabled')).toBe('true')
     })
 
     it('thumb has data-disabled="" and no tabindex', () => {
-      const thumb = w.find('[role="slider"]')
+      const thumb = find(w, '[role="slider"]')
       expect(thumb.attributes('data-disabled')).toBe('')
       expect(thumb.attributes('tabindex')).toBeUndefined()
     })
@@ -344,17 +376,17 @@ describe('colorArea HSL Saturation(x) / Lightness(y)', () => {
 
 describe('colorArea HSL Hue(x) / Saturation(y) — default channels', () => {
   // No colorSpace/xChannel/yChannel passed → defaults: hsl / hue / saturation
-  let wrapper: BrowserWrapper
+  let wrapper: ColorAreaScreen
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // #ff0000 = hsl(0, 100%, 50%) — hue=0, saturation=100
-    wrapper = renderCompat(ColorArea, {
+    wrapper = await render(ColorArea, {
       props: { defaultValue: '#ff0000' },
     })
   })
 
   it('aria-label names hue and saturation', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-label')).toBe('Hue, Saturation')
+    expect(find(wrapper, '[role="slider"]').attributes('aria-label')).toBe('Hue, Saturation')
   })
 
   it('aria-valuenow = 0 (hue)', () => {
@@ -362,13 +394,13 @@ describe('colorArea HSL Hue(x) / Saturation(y) — default channels', () => {
   })
 
   it('aria-valuemin = 0, aria-valuemax = 360 (hue range)', () => {
-    const thumb = wrapper.find('[role="slider"]')
+    const thumb = find(wrapper, '[role="slider"]')
     expect(Number(thumb.attributes('aria-valuemin'))).toBe(0)
     expect(Number(thumb.attributes('aria-valuemax'))).toBe(360)
   })
 
   it('aria-valuetext reports hue and saturation', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-valuetext')).toBe(
+    expect(find(wrapper, '[role="slider"]').attributes('aria-valuetext')).toBe(
       'Hue 0, Saturation 100',
     )
   })
@@ -386,7 +418,7 @@ describe('colorArea HSL Hue(x) / Saturation(y) — default channels', () => {
 
   it('arrowUp increments saturation by 1, hue unchanged', async () => {
     // saturation already at 100; test with a lower saturation color
-    const w = renderCompat(ColorArea, { props: { defaultValue: '#804040' } }) // hsl(0, ~33%, 38%) approx
+    const w = await render(ColorArea, { props: { defaultValue: '#804040' } }) // hsl(0, ~33%, 38%) approx
     const initHue = getXValue(w)
     await keydown(w, 'ArrowUp')
     expect(getXValue(w)).toBe(initHue) // hue unchanged
@@ -397,10 +429,10 @@ describe('colorArea HSL Hue(x) / Saturation(y) — default channels', () => {
 
 describe('colorArea HSB Saturation(x) / Brightness(y)', () => {
   // #800080 ≈ hsb(300, 100%, 50%)
-  let wrapper: BrowserWrapper
+  let wrapper: ColorAreaScreen
 
-  beforeEach(() => {
-    wrapper = renderCompat(ColorArea, {
+  beforeEach(async () => {
+    wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#800080',
         colorSpace: 'hsb',
@@ -411,7 +443,7 @@ describe('colorArea HSB Saturation(x) / Brightness(y)', () => {
   })
 
   it('aria-label names saturation and brightness', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-label')).toBe('Saturation, Brightness')
+    expect(find(wrapper, '[role="slider"]').attributes('aria-label')).toBe('Saturation, Brightness')
   })
 
   it('initial saturation = 100', () => {
@@ -423,7 +455,7 @@ describe('colorArea HSB Saturation(x) / Brightness(y)', () => {
   })
 
   it('aria-valuemin = 0, aria-valuemax = 100', () => {
-    const thumb = wrapper.find('[role="slider"]')
+    const thumb = find(wrapper, '[role="slider"]')
     expect(Number(thumb.attributes('aria-valuemin'))).toBe(0)
     expect(Number(thumb.attributes('aria-valuemax'))).toBe(100)
   })
@@ -459,7 +491,7 @@ describe('colorArea HSB Saturation(x) / Brightness(y)', () => {
 
   it('brightness cannot exceed 100', async () => {
     // Start at full brightness
-    const w = renderCompat(ColorArea, {
+    const w = await render(ColorArea, {
       props: { defaultValue: '#ff00ff', colorSpace: 'hsb', xChannel: 'saturation', yChannel: 'brightness' },
     })
     // #ff00ff = hsb(300, 100%, 100%)
@@ -472,10 +504,10 @@ describe('colorArea HSB Saturation(x) / Brightness(y)', () => {
 
 describe('colorArea RGB Red(x) / Green(y)', () => {
   // #7f007f = rgb(127, 0, 127)
-  let wrapper: BrowserWrapper
+  let wrapper: ColorAreaScreen
 
-  beforeEach(() => {
-    wrapper = renderCompat(ColorArea, {
+  beforeEach(async () => {
+    wrapper = await render(ColorArea, {
       props: {
         defaultValue: '#7f007f',
         colorSpace: 'rgb',
@@ -486,7 +518,7 @@ describe('colorArea RGB Red(x) / Green(y)', () => {
   })
 
   it('aria-label names red and green', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-label')).toBe('Red, Green')
+    expect(find(wrapper, '[role="slider"]').attributes('aria-label')).toBe('Red, Green')
   })
 
   it('aria-valuenow = 127 (red)', () => {
@@ -494,7 +526,7 @@ describe('colorArea RGB Red(x) / Green(y)', () => {
   })
 
   it('aria-valuemin = 0, aria-valuemax = 255 (RGB range)', () => {
-    const thumb = wrapper.find('[role="slider"]')
+    const thumb = find(wrapper, '[role="slider"]')
     expect(Number(thumb.attributes('aria-valuemin'))).toBe(0)
     expect(Number(thumb.attributes('aria-valuemax'))).toBe(255)
   })
@@ -504,7 +536,7 @@ describe('colorArea RGB Red(x) / Green(y)', () => {
   })
 
   it('aria-valuetext reports red and green', () => {
-    expect(wrapper.find('[role="slider"]').attributes('aria-valuetext')).toBe('Red 127, Green 0')
+    expect(find(wrapper, '[role="slider"]').attributes('aria-valuetext')).toBe('Red 127, Green 0')
   })
 
   it('arrowRight increments red by 1, green unchanged', async () => {
@@ -541,7 +573,7 @@ describe('colorArea RGB Red(x) / Green(y)', () => {
 
   it('red cannot exceed 255', async () => {
     // #ff00ff = rgb(255, 0, 255) — red at max
-    const w = renderCompat(ColorArea, {
+    const w = await render(ColorArea, {
       props: { defaultValue: '#ff00ff', colorSpace: 'rgb', xChannel: 'red', yChannel: 'green' },
     })
     await keydown(w, 'ArrowRight')
@@ -550,7 +582,7 @@ describe('colorArea RGB Red(x) / Green(y)', () => {
 
   it('red cannot go below 0', async () => {
     // #0000ff = rgb(0, 0, 255) — red at min
-    const w = renderCompat(ColorArea, {
+    const w = await render(ColorArea, {
       props: { defaultValue: '#0000ff', colorSpace: 'rgb', xChannel: 'red', yChannel: 'green' },
     })
     await keydown(w, 'ArrowLeft')

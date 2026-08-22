@@ -243,11 +243,31 @@ Ported so far:
   open menu (`#popper-arrow-svg-exposed-as-img`). Plus four fixture bugs, in the `#census` row. How
   to write one is under [ARIA census and transition tests](#aria-census-and-transition-tests).
 
+- **Reference-quality interaction and semantics follow-up.** The generic `src/test/browser.ts`
+  compatibility adapter is gone. Autocomplete, ColorArea, ColorSlider, Listbox, NumberField,
+  PinInput and TagsInput await render and drive ordinary input through locators / `userEvent`;
+  Drawer snap uses trusted clicks and a held mouse drag; ScrollArea uses wheel and held-pointer
+  commands. Constructed events remain only for documented payload contracts such as IME,
+  `defaultPrevented`, timestamps/pointer IDs and otherwise-unreachable disabled guards. Typed
+  `BrowserCommands` now live in `env.d.ts`; `touchSwipe` uses Chromium CDP because installed Vitest
+  4.1.10 has no touch operation. New unpaired regressions cover Splitter, ScrollArea, Drawer touch
+  edge arbitration, TreeVirtualizer and TabsIndicator. Semantic contracts add Tabs relations,
+  Toggle/ToggleGroup/Checkbox states, Tooltip descriptions, active-descendant lifecycle, all six
+  calendar families and native required-form validation across 20 empty-capable control families.
+  Every browser-proven production fix and unresolved quarantine is in `FINDINGS.tsv`.
+
+- **Production-only Browser Mode coverage.** `vite.config.browser-coverage.ts` includes unloaded
+  production `src/**/*.{ts,vue}` while excluding tests, type-tests, stories, fixtures, helpers,
+  shims, snapshots/screenshots and visual infrastructure. It writes an independent text/JSON/HTML
+  report to `packages/core/coverage/browser-production`; run it with
+  `pnpm --filter reka-ui test:coverage:browser`. It is a gap finder, not a percentage target.
+
 **The migration is complete.** All four pattern-frontier files (Select, NavigationMenu, Combobox,
 ScrollArea) and every remaining T3/T4 file are oracle-clean. Fake timers, `vi.mock`, stub-derived
 geometry, and DOM snapshots each have worked Chromium coverage; all sharp edges are recorded below.
 
-- **Cross-browser — the same 97 files on Firefox and WebKit, `vite.config.cross-browser.ts`.**
+- **Cross-browser — the full 111-file functional browser project on Firefox and WebKit,
+  `vite.config.cross-browser.ts`.**
   Same setup files, CSS shim, axe shims and custom commands as the `browser` project; one engine per
   run (`CROSS_BROWSERS=firefox|webkit`, default both), `fileParallelism: false`, and
   `contextOptions.timezoneId` set explicitly. Chromium is the engine the ports are written against
@@ -257,13 +277,14 @@ geometry, and DOM snapshots each have worked Chromium coverage; all sharp edges 
   (measured nondeterministic), each naming a `FINDINGS.tsv` key; `vitest.cross-browser.setup.ts`
   flips `task.fails` from a `beforeEach`, validates every key against the raw-imported TSV, and
   fails a file whose row matched nothing (a stale row is a renamed test or a fixed bug). Measured
-  on the serial whole corpus: Firefox 18 engine-specific failures (87s), WebKit 12 (81s) on macOS;
-  16 and 9 in the pinned Playwright `v1.62.1-noble` Linux container, which is what the
-  `Cross-Browser` workflow runs (one engine per job). What the run found is in the
+  on the final serial whole corpus: 222 engine/file instances, 3092 passing + 56 documented
+  expected failures + 16 documented skips in 180.20s. Historical macOS/Linux deltas remain in
+  `FINDINGS.tsv`; the pinned Playwright `v1.62.1-noble` Linux container is what the
+  `Cross-Browser` workflow runs (one engine per job). What the runs found is in the
   `cross-browser#…` rows — WebKit ignores `process.env.TZ`, the date fixtures' `en-UK` is an invalid
-  tag that only JavaScriptCore refuses to alias, Firefox empties a script-built `DataTransfer`
-  inside a `ClipboardEvent` and numbers the mouse pointer 0 (so ColorArea's `pointerId: 1` is the
-  real mouse on two engines by coincidence), `innerHTML` attribute order is engine-specific, macOS
+  tag that only JavaScriptCore refuses to alias, and `innerHTML` attribute order is engine-specific.
+  Earlier synthetic clipboard and pointer tests also exposed Firefox-specific payload differences;
+  the native-interaction follow-up superseded those expected failures. macOS
   WebKit neither focuses a clicked button nor tabs to links/buttons, and one `it.fails` quarantine
   (HoverCard) does not reproduce on WebKit. The gotchas are below under "Cross-browser".
 
@@ -276,8 +297,9 @@ pnpm --filter reka-ui exec vitest run --project=unit     # retained jsdom compar
 pnpm --filter reka-ui exec vitest run --project=node     # no DOM at all
 pnpm --filter reka-ui test:visual                        # isolated reviewed PNG references
 pnpm --filter reka-ui test:visual:update                 # intentionally refresh this OS baseline
-pnpm --filter reka-ui test:cross-browser                 # the 97 files on firefox + webkit, serial, expectations applied
+pnpm --filter reka-ui test:cross-browser                 # the functional suite on firefox + webkit, serial, expectations applied
 CROSS_BROWSERS=webkit pnpm --filter reka-ui test:cross-browser   # one engine (what each CI job runs)
+pnpm --filter reka-ui test:coverage:browser              # production-only Chromium report
 
 pnpm --filter reka-ui port:checklist Slider              # every describe/it, ✓ or ✗
 pnpm --filter reka-ui port:parity Slider --complete      # nothing renamed or weakened
@@ -291,12 +313,12 @@ pnpm --filter reka-ui exec vitest run --project=browser src/a11y-census.browser.
 source order with each node marked present or missing (`--missing-only` for just the gaps), and
 it is the only check that compares `describe` blocks directly. Full rules in `PORTING.md` §2.
 
-Final retained-comparison baseline: **194 files / 3513 passing + 28 expected fails** across all
-three projects, 32.1s wall clock (one run). Browser alone is 97 files / 1498 passing + 28 expected
-fails in 16.0s; jsdom is 1444 passing in 11.16s. The 8 browser files beyond the 89 ports are the
-unpaired accessibility files — the census, its six `*.aria` siblings and
-`Collapsible.aria-controls` — which add 72 tests and 8 of the expected fails. Keep both green;
-they run side by side on purpose.
+Final retained-comparison baseline (2026-08-22): **208 files / 3569 passing + 28 expected fails**
+across the three projects when counted independently. Browser alone is 111 files / 1554 passing
++ 28 expected failures in 15.50s; jsdom remains 87 files / 1444 passing in 11.25s; node remains
+10 files / 571 passing in 2.16s. The browser project is the 87 paired ports plus two harness files,
+accessibility and native-interaction contracts; the latter are intentionally unpaired. Keep all
+three green—the jsdom project is the retained comparison corpus, not unfinished migration work.
 
 ---
 
@@ -512,13 +534,15 @@ tabs.** Whole corpus, one engine, default parallelism: Firefox 30 failures, WebK
 `--no-file-parallelism`: 18 and 12 — and every failure that vanished was a focus or keyboard-routing
 assertion (DateField/TimeField `stepSnapping`, whose typed value is snapped on `focusout`; Calendar's
 next-button clicks; NavigationMenu Tab; Menu sub-trigger hover; Combobox addOnBlur; ColorArea thumb
-focus), each green in an isolated rerun (DateField 62/62, Calendar 54/54). Chromium is immune
-(97/97 parallel). `vite.config.cross-browser.ts` therefore sets `fileParallelism: false` and pays
+focus), each green in an isolated rerun (DateField 62/62, Calendar 54/54). In this historical
+97-file migration-close measurement Chromium was immune (97/97 parallel).
+`vite.config.cross-browser.ts` therefore sets `fileParallelism: false` and pays
 ~2.5× wall clock (Firefox 35s → 87s, WebKit 21s → 81s). Read a non-Chromium failure list only after
 a serial or isolated rerun. *[mechanism inferred from which tests flip, not from engine source]*
 
-**Three `browser.instances` in one process fail Chromium tests that are green alone.** chromium +
-firefox + webkit over the 97 files: 97s and 86 failures, **11 of them Chromium** (Select, DateField,
+**Three `browser.instances` in one process fail Chromium tests that are green alone.** In that same
+historical 97-file measurement, chromium + firefox + webkit together took 97s with 86 failures,
+**11 of them Chromium** (Select, DateField,
 Toast, MonthRangePicker, DropdownMenu, DismissableLayer…) in files that are 97/97 when Chromium runs
 by itself. CPU contention against the 2000ms `actionTimeout` and the timing-shaped tests, not an
 engine difference. One engine per process; the CI matrix is one engine per job.
@@ -534,8 +558,9 @@ Fix is `en-GB`; recorded, not patched (`cross-browser#webkit-en-uk-not-aliased`)
 deliver it (`getData('text/plain') === 'test'`); Firefox gives a non-null `clipboardData` whose
 `getData` returns `''` (measured, macOS and Linux). The six PinInput paste tests and two TagsInput
 delimiter-paste tests therefore exercise an *empty* paste on Firefox and fail — nothing in the
-component is wrong, the synthetic paste is Chromium/WebKit-only
-(`cross-browser#firefox-clipboardevent-empty-datatransfer`).
+component is wrong, the synthetic paste is Chromium/WebKit-only. This was a migration-time finding:
+the final suite serializes real keyboard copy/paste through a typed browser command, so the eight
+Firefox expected failures are gone (`cross-browser#firefox-clipboardevent-empty-datatransfer`).
 
 **`innerHTML` attribute order is engine-specific when `style` is written through the CSSOM.**
 ScrollArea's five DOM snapshots fail on Firefox and Tree's on Firefox *and* WebKit with **zero
@@ -763,12 +788,12 @@ hook (the open state before clicking closed), then preserve the original's insta
 An awaited Playwright click already crosses Vue's microtask flush for synchronous state updates;
 timers, transitions, and async watchers still need an explicit, distinct synchronization point.
 
-**Do not count a browser-only test adapter as gained product coverage.** The final batch added
-`src/test/browser.ts`, a small VTU-compatible wrapper used by five large ports. Istanbul initially
+**Do not count a browser-only test adapter as gained product coverage.** During migration,
+`src/test/browser.ts` was a small VTU-compatible wrapper used by five large ports. Istanbul initially
 reported every adapter line as browser-only because the jsdom originals never import it: apparent
 gains included +49 for Autocomplete and +29 for TagsInput. `parity-coverage.mjs` now excludes that
 exact harness path; the production gains are +25 and +1. Apply the same rule to any future helper
-under the instrumented source tree.
+under the instrumented source tree. The reference-quality follow-up removed the adapter entirely.
 
 **Shared helpers fail at the call site only if you wrap them — `vi.defineHelper` (4.1.0) does it,
 and it trims the stack, not the message.** From source: the wrapper is a function named
@@ -776,12 +801,11 @@ and it trims the stack, not the message.** From source: the wrapper is a functio
 slices the stack at the *last* such frame, so nested helpers resolve to the outermost call and a
 plain `throw new Error` is trimmed like an assertion; the browser tester's errors go through the
 same parser (`browser/src/node/rpc.ts:177`). Measured on six shapes in Chromium (table in the
-guide, §6): wrapped sync/async/`expect.element`/nested-throw all land on the test line. The trap is
-the compat adapter: `find(sel)!` + `.attributes()` wrapped still reads `Cannot read properties of
-null (reading 'getAttribute')`, just at a better line. So `src/test/browser.ts` now guards every
-consuming method (`cannot call attributes() on an empty BrowserElement (no element matching
-"…")`) **and** wraps it — `find` itself stays lenient because `find(sel).exists()` is the
-absence assertion (VTU's `ErrorWrapper` split). `cellQueries` (`get`/`getAll`/`rect`) and
+guide, §6): wrapped sync/async/`expect.element`/nested-throw all land on the test line. The
+migration-time compat adapter demonstrated the trap: `find(sel)!` + `.attributes()` wrapped still
+read `Cannot read properties of null (reading 'getAttribute')`, just at a better line. It therefore
+guarded every consuming method **and** wrapped it; the final audit then deleted the adapter when its
+ordinary interactions moved to locators and `userEvent`. `cellQueries` (`get`/`getAll`/`rect`) and
 `cell(name)` in the visual helper are wrapped too: `cell('Nope')` reports at the sheet file's
 line. Five compat files (169 + 4 expected fails) and the 22 visual files (25 + 1) unchanged. Do
 not wrap `expect.extend` matchers (already call-site) or `setup()` factories; for a helper called

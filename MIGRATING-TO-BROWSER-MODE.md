@@ -888,7 +888,8 @@ Three things the docs example does not tell you, all visible in that table:
    (That is VTU's own design: `find` returns an `ErrorWrapper` whose methods throw "Cannot call
    attributes on an empty DOMWrapper".) With both, the same stale selector fails as
    `cannot call attributes() on an empty BrowserElement (no element matching "[role="nope"]")`
-   with the caret on the test line (measured, `src/test/browser.ts`).
+   with the caret on the test line (measured in the then-present compatibility adapter, which the
+   final native-interaction audit later deleted).
 
 Where it pays, in our tree: the compat adapter's methods (`find`, `findAll`, `attributes`,
 `trigger`, `setValue`, `text`, `html`); the sheet helper's `cell(name)`, `cell.get`, `cell.getAll`,
@@ -1446,11 +1447,13 @@ Honest gaps. Do not read past silence here as endorsement.
   Firefox and WebKit run the whole corpus with 18 and 12 engine-specific failures, all recorded;
   headed mode is still unmeasured `[unverified]`.
 
-- **Performance. Answered, and the aggregate number is the least useful one.** On the completed
-  suite, Chromium ran 89 files / 1446 runtime tests in **12.10s** wall clock against the retained
+- **Performance. Answered, and the aggregate number is the least useful one.** In the dated
+  migration-close like-for-like benchmark, Chromium ran 89 files / 1446 runtime tests in
+  **12.10s** wall clock against the retained
   jsdom project's 87 files / 1444 tests in **10.75s** — about **1.13×**, no sharding required.
   But three different numbers are all true at once, and quoting the wrong one leads to the wrong
-  decision:
+  decision. A later reference-suite audit added unpaired behavior/accessibility contracts, so its
+  larger current totals are deliberately not substituted into this paired comparison:
 
   | question | number |
   |---|---|
@@ -1752,13 +1755,16 @@ is probably scoring as a pass.
 Everything above was measured on headless Chromium, and so is almost every browser-mode suite in
 the wild — `instances: [{ browser: 'chromium' }]` is the line every setup guide gives you. Vitest
 makes the other two engines one config line away, and running the finished corpus on them is the
-cheapest honest audit of the work. Here is what the 97 files said.
+cheapest honest audit of the work. Here is what the 97 files said in the 2026-08-19
+migration-close measurement; the later reference-quality suite reran the expanded 111-file
+functional corpus on both engines.
 
-**The numbers.** One engine per process, whole corpus, same machine. Chromium: 97/97, 16.3s.
+**The historical numbers.** One engine per process, whole corpus, same machine. Chromium: 97/97, 16.3s.
 Firefox: **18** failures, 87s. WebKit: **12** failures, 81s — and one `it.fails` quarantine that
 *passes*. In the pinned Playwright Linux container: 16 and 9. Not one of the 30 is a flake once
 the run is set up correctly, and not one is a Chromium bug. They sort into five piles, and the
-piles are the lesson.
+piles are the lesson. The final expanded run covered 222 engine/file instances: 3092 passing,
+56 documented expected failures and 16 documented skips in 180.20s.
 
 1. **Configuration you did not know was inheritance.** Our date fixtures depend on `process.env.TZ`
    set in a global setup; Chromium and Firefox inherit it from the Vitest process, WebKit does not
@@ -1776,7 +1782,9 @@ piles are the lesson.
    on the third, where `setPointerCapture(1)` throws. Likewise a script-built `DataTransfer` inside a
    synthetic `ClipboardEvent` carries its text on Chromium and WebKit and arrives empty on Firefox —
    eight paste tests became tests of an empty paste. Neither is an engine bug; both are reminders
-   that a synthetic event is a claim about one engine's implementation details.
+   that a synthetic event is a claim about one engine's implementation details. The final suite
+   replaced these cases with native mouse and serialized keyboard copy/paste, removing their
+   engine-specific expected failures.
 4. **Assertions that encode an engine's tables.** `locale: 'en-UK'` is not a valid tag (GB is); V8
    and SpiderMonkey alias it, JavaScriptCore resolves it to plain `en` and renders month-first with a
    day period. Three locale tests had asserted V8's alias table since the jsdom days. Same family:
@@ -1810,6 +1818,59 @@ if a row matched nothing — so a renamed test or a fixed bug shows up as a stal
 silence. Net: the default project stays green on Chromium in 16s; the cross-browser job stays green
 on Firefox and WebKit with the differences written down, and any *new* difference is a red test
 with no row, which is exactly what you want from a second engine.
+
+## 16. Audit the green ports after migration
+
+A faithful port can still be a jsdom test wearing a Chromium badge. After name and coverage parity
+are green, run a second audit whose question is not “did the translation preserve the original?”
+but “does ordinary input now come from the browser?”
+
+**Inventory interaction mechanisms, not just assertions.** Search for compatibility wrappers,
+un-awaited render, `.trigger`/`.setValue`, direct value/scroll assignments, constructed keyboard /
+pointer / clipboard events, raw focus, arbitrary sleeps and casts around custom commands. For every
+site, classify the subject:
+
+- ordinary user behavior → locator, `userEvent`, a typed browser command and a retrying outcome;
+- exact event payload or unreachable guard → the narrowest constructed event, with the reason next
+  to it;
+- pinned API limitation → source/type citation plus runtime evidence, not a training-data guess.
+
+This distinction deleted one shared synthetic adapter from five large ports. It also found a
+false coverage path: a click-only adapter could stack two focus scopes in an order a trusted
+pointerdown/focus/click sequence never does. The native sequence gained more product coverage while
+losing three adapter-only lines; those losses were argued explicitly rather than recreated.
+
+**Relations need a different accessibility oracle.** An ARIA snapshot can show roles, names and
+states, but not whether an IDREF resolves. For `aria-controls`, `aria-labelledby`,
+`aria-describedby` and `aria-activedescendant`, read the attribute and require
+`document.getElementById(value)` to be the intended mounted node throughout the lifecycle. That
+simple contract found inputs pointing at unmounted options and a menu filter whose active descendant
+was the empty string; axe and the previous equality-to-an-empty-item-id assertion both passed.
+
+**Use native constraint validation, not attribute presence.** Put each required component in a real
+form, click a real submit button while empty, assert the actual bridge input/select has
+`validity.valueMissing` and that submit did not fire, then populate through user input and prove
+validity, FormData and submit together. Attribute-only tests missed a Toggle whose hidden checkbox
+never synchronized `checked` and empty range controls whose native value was the non-empty string
+`"undefined - undefined"`.
+
+**Separate production coverage from migration parity.** A useful browser-only coverage command:
+
+1. runs only the Browser Mode project;
+2. includes unloaded production modules so zero-coverage files stay visible;
+3. excludes tests, type-tests, stories/fixtures, helpers, shims, snapshots and visual machinery;
+4. writes a separate report from unit/node coverage.
+
+Use the report to name user-visible gaps—real overflow buttons, drag arbitration, geometry updates—
+not to manufacture fixtures for a percentage. In this suite the first clean run named Select's
+scroll-button behavior, advanced Drawer composition primitives and Splitter persistence/stacking;
+only the first was the next high-value interaction contract.
+
+**Touch is provider-specific in Vitest 4.1.10.** The pinned `UserEvent` surface has no touch
+operation. Chromium's CDP `Input.dispatchTouchEvent` produces trusted touch and pointer events, so a
+typed, iframe-scale-aware browser command is defensible for Chromium-only arbitration tests. Skip it
+explicitly on Firefox/WebKit. A cross-engine constructed `pointerType: 'touch'` event remains valid
+only when that payload guard—not a physical gesture—is the subject, and must say so.
 
 ## Adding to this guide
 

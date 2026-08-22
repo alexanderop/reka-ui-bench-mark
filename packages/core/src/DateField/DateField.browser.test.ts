@@ -1017,8 +1017,7 @@ describe('handle IME composition', () => {
 
     // Typing a digit afterwards must still update the segment (regression: Vue's
     // text node was being detached, freezing the display).
-    dispatchKeydown(day, { key: '5' })
-    await nextTick()
+    await user.keyboard('5')
     expect(text(getByTestId('day'))).toBe('5')
   })
 
@@ -1059,7 +1058,7 @@ describe('handle IME composition', () => {
     expect(day).not.toHaveFocus()
 
     // Once composition ends, arrow keys navigate segments again
-    dispatchKeydown(month, { key: 'ArrowRight' })
+    await user.keyboard('{ArrowRight}')
     expect(day).toHaveFocus()
   })
 })

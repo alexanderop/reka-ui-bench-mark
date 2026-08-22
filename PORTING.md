@@ -209,11 +209,12 @@ So before writing a gained line into a finding, ask **whether the harness or the
 earned it.** If `mount()` + `unmount()` under jsdom reproduces it, it is a gap in the original
 suite, not a point for browser mode. Both are worth recording — but not as the same thing.
 
-The final batch exposed a second harness trap: `src/test/browser.ts`, the small VTU-compatible
-adapter used by five large ports, was itself being counted as browser-only coverage. The oracle
-now excludes that exact file, just as it excludes test files. Otherwise Autocomplete appeared to
+The final migration batch exposed a second harness trap: the then-present `src/test/browser.ts`,
+a small VTU-compatible adapter used by five large ports, was itself being counted as browser-only
+coverage. The oracle excluded that file, just as it excluded test files. Otherwise Autocomplete appeared to
 gain 49 lines when only 25 belonged to production code, and TagsInput appeared to gain 29 when
-the production gain was one.
+the production gain was one. The reference-quality follow-up later deleted the adapter; the
+coverage oracle now excludes test helpers generically.
 
 #### Files outside `src/<Component>/`
 
@@ -899,7 +900,7 @@ Order matters: T2 builds confidence in the loop cheaply, T3 is where the value i
 
 ### Phase 3 — the write-up. DONE.
 
-- [x] **Measure the whole suite.** On this machine, Chromium runs 89 files / 1446 runtime tests
+- [x] **Measure the migration-close suite (2026-08-19 historical benchmark).** On this machine, Chromium ran 89 files / 1446 runtime tests
       (1426 passing + 20 expected failures) in **12.62s wall clock**. The retained jsdom project
       runs 87 files / 1444 tests in **11.16s**. Browser mode therefore costs about **1.13×** at
       suite scale, far below the 1.5× boring-file observation. All three projects together run
@@ -942,10 +943,13 @@ pnpm --filter reka-ui exec vitest run --project=browser  # the destination
 |---|---|---|
 | `node` | 10 | 571 |
 | `unit` (jsdom) | 87 | 1444 |
-| `browser` | 89 | 1426 + 20 expected fail |
+| `browser` | 111 | 1554 + 28 expected fail |
 
 Baseline before this effort: **99 files / 2017 tests passing.**
-Current: **186 files / 3441 passing + 20 expected fail**, 25.80s wall clock for all three projects.
+Current (2026-08-22): **208 files / 3569 passing + 28 expected fail** across the three projects.
+The projects were verified independently: browser 15.50s, unit 11.25s, node 2.16s. Do not compare
+the 111-file post-migration browser suite directly with the 87 paired-file performance benchmark;
+its extra files are intentionally unpaired behavior and accessibility contracts.
 
 **Read `unit` carefully — it is the retained comparison corpus, not the progress bar.** The
 project owner chose to keep all 87 originals runnable. Progress is the `still on jsdom` line from

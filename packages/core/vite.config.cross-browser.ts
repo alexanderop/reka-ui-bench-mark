@@ -5,12 +5,12 @@ import { playwright } from '@vitest/browser-playwright'
 import tailwindcss from 'tailwindcss'
 import { defineConfig } from 'vitest/config'
 import tailwindConfig from './tailwind.browser.config.js'
-import { mouseDown, mouseMove, mousePress, mouseUp } from './vitest.browser.commands.ts'
+import { copyPaste, mouseDown, mouseMove, mousePress, mouseUp, touchSwipe } from './vitest.browser.commands.ts'
 
 /**
  * The browser corpus on the engines it was *not* written against.
  *
- * Same 97 `*.browser.test.ts` files, same CSS shim, same axe shims and custom
+ * Same full functional `*.browser.test.ts` corpus, same CSS shim, same axe shims and custom
  * commands as the `browser` project in `vite.config.ts` — but Firefox and
  * WebKit instead of Chromium, one instance per `CROSS_BROWSERS` entry. Kept out
  * of the default config on purpose: the ports are developed and kept green on
@@ -86,7 +86,7 @@ export default defineConfig({
       // Same as the `browser` project — exact text/name matching by default.
       locators: { exact: true },
       instances: ENGINES.map(browser => ({ browser })),
-      commands: { mouseDown, mouseMove, mousePress, mouseUp },
+      commands: { copyPaste, mouseDown, mouseMove, mousePress, mouseUp, touchSwipe },
     },
   },
 })

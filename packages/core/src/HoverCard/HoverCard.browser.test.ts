@@ -6,6 +6,9 @@ import { sleep } from '@/test'
 import HoverCard from './story/_HoverCard.vue'
 
 function touchTap(element: HTMLElement) {
+  // pointerType is the contract here. Vitest Browser Mode 4.1.10 has no
+  // cross-engine touch gesture (the repo's CDP touch command is Chromium-only),
+  // so this payload event is the narrow fallback retained for Firefox/WebKit.
   element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }))
 }
 
@@ -50,6 +53,7 @@ describe('given a HoverCard with enableTouch', () => {
 
   it('should ignore non-touch pointers', async () => {
     const trigger = screen.getByRole('link').element()
+    // This negative guard specifically needs a non-touch pointerup payload.
     trigger.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }))
     await expect.element(trigger).toHaveAttribute('data-state', 'closed')
   })

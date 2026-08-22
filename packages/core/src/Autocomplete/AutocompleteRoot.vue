@@ -145,7 +145,9 @@ const isVirtual = ref(false)
 const inputElement = ref<HTMLInputElement>()
 const triggerElement = ref<HTMLElement>()
 
-const highlightedElement = computed(() => primitiveElement.value?.highlightedElement ?? undefined)
+// Listbox retains its last highlight for reopening, but the highlighted option
+// is unmounted while the popup is closed and must not remain an active IDREF.
+const highlightedElement = computed(() => open.value ? primitiveElement.value?.highlightedElement ?? undefined : undefined)
 
 const allItems = ref<Map<string, string>>(new Map())
 const allGroups = ref<Map<string, Set<string>>>(new Map())

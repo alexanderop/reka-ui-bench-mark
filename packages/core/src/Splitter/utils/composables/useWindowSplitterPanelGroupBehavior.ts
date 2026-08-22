@@ -20,6 +20,7 @@ export function useWindowSplitterPanelGroupBehavior({
   getPanelDataWithPercentConstraints,
 }: {
   eagerValuesRef: Ref<{
+    layout: number[]
     panelDataArray: PanelData[]
   }>
   groupId: string
@@ -156,8 +157,10 @@ export function useWindowSplitterPanelGroupBehavior({
                   ),
                   trigger: 'keyboard',
                 })
-                if (layout.value !== nextLayout)
+                if (layout.value !== nextLayout) {
                   setLayout(nextLayout)
+                  eagerValuesRef.value.layout = nextLayout
+                }
               }
             }
             break

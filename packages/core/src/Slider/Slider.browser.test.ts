@@ -17,13 +17,6 @@ import Slider from './story/_Slider.vue'
 // was the only reason SliderImpl's `pointermove` handler emitted `slideMove`
 // under jsdom at all.
 
-/** `page.mouse`, split into steps. See `vitest.browser.commands.ts`. */
-const mouse = commands as unknown as {
-  mouseDown: (x: number, y: number) => Promise<void>
-  mouseMove: (x: number, y: number) => Promise<void>
-  mouseUp: () => Promise<void>
-}
-
 function renderSlider(props: SliderRootProps = {}) {
   return render(Slider, { props: { disabled: false, ...props } })
 }
@@ -354,7 +347,7 @@ describe('given default Slider', () => {
 
     beforeEach(async () => {
       rect = (screen.container.firstElementChild as HTMLElement).getBoundingClientRect()
-      await mouse.mouseDown(rect.left + 10, rect.top + rect.height / 2)
+      await commands.mouseDown(rect.left + 10, rect.top + rect.height / 2)
     })
 
     // Temporary hide emitted
@@ -364,7 +357,7 @@ describe('given default Slider', () => {
 
     describe('after pointermove', () => {
       beforeEach(async () => {
-        await mouse.mouseMove(rect.left + 50, rect.top + rect.height / 2)
+        await commands.mouseMove(rect.left + 50, rect.top + rect.height / 2)
       })
 
       // it('should emit slideMove', async () => {
@@ -373,7 +366,7 @@ describe('given default Slider', () => {
 
       describe('after pointerup', () => {
         beforeEach(async () => {
-          await mouse.mouseUp()
+          await commands.mouseUp()
         })
 
         // it('should emit slideEnd', async () => {

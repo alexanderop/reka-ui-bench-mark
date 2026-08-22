@@ -14,13 +14,10 @@
 // listed in PORT-COVERAGE-ALLOW.tsv, but only against a key that exists in
 // FINDINGS.tsv. See the `allowances` block below.
 //
-// KNOWN LIMITATION — read before trusting a green result:
-// istanbul currently reports no `.vue` files at all in this repo, in either
-// environment. Every entry is a `.ts` module. That is pre-existing (the
-// committed coverage report has 0 of 215 entries as `.vue`) and not something
-// browser mode introduced, but it means this oracle currently sees the
-// composables and utilities a component pulls in, NOT its SFC bodies. The
-// script fails loudly rather than silently under-reporting.
+// The provider is pinned to the Vitest 4-compatible Istanbul package and does
+// instrument Vue SFCs in both projects. `runCoverage` below fails loudly when
+// no report is produced; line-set parity therefore includes component bodies,
+// composables and utilities rather than silently comparing TypeScript alone.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'

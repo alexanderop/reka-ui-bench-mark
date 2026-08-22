@@ -149,7 +149,11 @@ const isVirtual = ref(false)
 const inputElement = ref<HTMLInputElement>()
 const triggerElement = ref<HTMLElement>()
 
-const highlightedElement = computed(() => primitiveElement.value?.highlightedElement ?? undefined)
+// An active descendant relation is only valid while its popup option remains
+// mounted. Listbox retains its last highlight for reopening, so gate the
+// accessibility relation on the popup lifecycle instead of exposing a stale
+// IDREF after close.
+const highlightedElement = computed(() => open.value ? primitiveElement.value?.highlightedElement ?? undefined : undefined)
 
 const allItems = ref<Map<string, string>>(new Map())
 const allGroups = ref<Map<string, Set<string>>>(new Map())

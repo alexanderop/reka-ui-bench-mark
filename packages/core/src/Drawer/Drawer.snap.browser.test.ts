@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
-import { defineComponent, nextTick, ref } from 'vue'
+import { commands } from 'vitest/browser'
+import { defineComponent, ref } from 'vue'
 import {
   DrawerClose,
   DrawerContent,
@@ -52,8 +52,6 @@ import {
 // `useDrawerSnapPoints` uses `window.innerHeight` as the viewport height
 // baseline for fraction-based snap points. Setting both to the same value
 // mirrors a real CSS `height: 100dvh` drawer where popupHeight === viewport.
-const fireEvent = { click: (target: any) => typeof target.click === 'function' ? target.click() : userEvent.click(target) }
-
 function findContent() {
   return document.querySelector('[role="dialog"]') as HTMLElement | null
 }
@@ -68,6 +66,23 @@ function expectedSnapOffset(el: HTMLElement, snap: number) {
 
 function getSwipeMovementY(el: HTMLElement) {
   return el.style.getPropertyValue('--drawer-swipe-movement-y')
+}
+
+async function dragUp(content: HTMLElement) {
+  const rect = content.getBoundingClientRect()
+  // Start on the content's empty lower-right surface, away from the handle,
+  // title and close button that useSwipeDismiss intentionally ignores.
+  const x = rect.right - 30
+  const startY = Math.min(window.innerHeight - 30, rect.bottom - 30)
+  await commands.mouseDown(x, startY)
+  try {
+    await commands.mouseMove(x, startY - 50)
+    await commands.mouseMove(x, startY - 250)
+    await commands.mouseMove(x, Math.max(50, startY - 600))
+  }
+  finally {
+    await commands.mouseUp()
+  }
 }
 
 const SnapDrawer = defineComponent({
@@ -103,49 +118,38 @@ const SnapDrawer = defineComponent({
 describe('drawer snap points — integration', () => {
   describe('mount-time snap offset write (reopen bug)', () => {
     it('writes --drawer-snap-point-offset on initial open for snap=0.5', async () => {
-      const { getByText } = render(SnapDrawer)
-      await fireEvent.click(getByText('Open'))
-      // Allow native ResizeObserver delivery plus Vue reactivity to settle.
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      const { getByText } = await render(SnapDrawer)
+      await getByText('Open').click()
 
-      const content = findContent()
-      expect(content).not.toBeNull()
+      await expect.poll(findContent).not.toBeNull()
+      const content = findContent()!
 
       // popupHeight=800, snap 0.5 => offset = 800 - 400 = 400
-      expect(getSnapOffset(content!)).toBe(expectedSnapOffset(content!, 0.5))
+      await expect.poll(() => getSnapOffset(content)).toBe(expectedSnapOffset(content, 0.5))
     })
 
     it('writes --drawer-snap-point-offset on REOPEN after close (lazy-watcher bug)', async () => {
-      const { getByText } = render(SnapDrawer)
+      const { getByText } = await render(SnapDrawer)
 
       // First open-close cycle. The lazy watcher fires here because
       // popupHeight transitions 0 -> 800, so this worked even before the fix.
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
-      expect(getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
+      await getByText('Open').click()
+      await expect.poll(() => getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
 
       // Close the drawer. Presence will unmount the content.
-      await fireEvent.click(getByText('Close'))
-      await nextTick()
-      await nextTick()
+      await getByText('Close').click()
+      await expect.poll(findContent).toBeNull()
 
       // Reopen. popupHeight is already cached on the root context (800px
       // from the previous mount), so activeSnapPointOffset is immediately
       // correct and a lazy `watch(activeSnapPointOffset, ...)` would NEVER
       // fire. The regression was that the CSS var stayed unset and the
       // drawer rendered as if snap=1.0 (offset=0).
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      await getByText('Open').click()
 
-      const content = findContent()
-      expect(content).not.toBeNull()
-      expect(getSnapOffset(content!)).toBe(expectedSnapOffset(content!, 0.5))
+      await expect.poll(findContent).not.toBeNull()
+      const content = findContent()!
+      await expect.poll(() => getSnapOffset(content)).toBe(expectedSnapOffset(content, 0.5))
     })
 
     it('writes --drawer-snap-point-offset on REOPEN after snap transition + close', async () => {
@@ -153,89 +157,52 @@ describe('drawer snap points — integration', () => {
       // state change, close, reopen - the offset must reflect the CURRENT
       // active snap point (which reopens at 0.5 because state goes back to
       // the v-model seed value in this harness).
-      const { getByText } = render(SnapDrawer)
+      const { getByText } = await render(SnapDrawer)
 
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
-      expect(getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
+      await getByText('Open').click()
+      await expect.poll(() => getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
 
-      await fireEvent.click(getByText('Close'))
-      await nextTick()
-      await nextTick()
+      await getByText('Close').click()
+      await expect.poll(findContent).toBeNull()
 
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      await getByText('Open').click()
 
-      expect(getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
+      await expect.poll(() => getSnapOffset(findContent()!)).toBe(expectedSnapOffset(findContent()!, 0.5))
     })
 
     it('writes a snap=1.0 offset (0px) when defaultSnapPoint is 1', async () => {
-      const { getByText } = render(SnapDrawer, { props: { defaultSnapPoint: 1 } })
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      const { getByText } = await render(SnapDrawer, { props: { defaultSnapPoint: 1 } })
+      await getByText('Open').click()
 
-      const content = findContent()
-      expect(content).not.toBeNull()
+      await expect.poll(findContent).not.toBeNull()
+      const content = findContent()!
       // popupHeight=800, snap 1.0 => offset = 800 - 800 = 0
-      expect(getSnapOffset(content!)).toBe(expectedSnapOffset(content!, 1))
+      await expect.poll(() => getSnapOffset(content)).toBe(expectedSnapOffset(content, 1))
     })
   })
 
   describe('swipe release does not leave stale movement var', () => {
     // These tests exercise the DrawerContentImpl.onRelease wiring that
     // clears --drawer-swipe-movement-{x,y} after snapToNearest runs.
-    // We drive it by simulating a pointer drag past threshold.
-
-    function dispatchPointer(
-      el: HTMLElement,
-      type: string,
-      x: number,
-      y: number,
-      buttons = 1,
-    ) {
-      const ev = new PointerEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-        pointerId: 1,
-        button: 0,
-        buttons,
-        clientX: x,
-        clientY: y,
-      })
-      el.dispatchEvent(ev)
-    }
+    // Stateful browser commands keep the primary button held across moves,
+    // exercising the production document listeners with trusted input.
 
     it('clears --drawer-swipe-movement-y after snap-to-snap release', async () => {
-      const { getByText } = render(SnapDrawer)
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      const { getByText } = await render(SnapDrawer)
+      await getByText('Open').click()
+      await expect.poll(findContent).not.toBeNull()
 
       const content = findContent()!
 
       // Simulate a drag upward that would cross into snap=1.0 territory.
       // The exact displacement is irrelevant to this assertion — we only
       // need the release path to run through the snap branch.
-      dispatchPointer(content, 'pointerdown', 100, 500)
-      dispatchPointer(content, 'pointermove', 100, 480)
-      dispatchPointer(content, 'pointermove', 100, 400)
-      dispatchPointer(content, 'pointermove', 100, 200)
-      dispatchPointer(content, 'pointerup', 100, 200, 0)
-      await nextTick()
-      await nextTick()
+      await dragUp(content)
 
       // Movement vars must be reset so the next interaction starts from a
       // clean slate and the inline `transform` doesn't carry stale drag
       // state into the new snap position.
-      expect(getSwipeMovementY(content)).toBe('0px')
+      await expect.poll(() => getSwipeMovementY(content)).toBe('0px')
       expect(content.style.getPropertyValue('--drawer-swipe-movement-x')).toBe('0px')
     })
 
@@ -244,30 +211,22 @@ describe('drawer snap points — integration', () => {
       // clearing the movement vars, so the CSS transition starts from the
       // drag position instead of snapping back to the old snap offset for
       // one frame.
-      const { getByText } = render(SnapDrawer)
-      await fireEvent.click(getByText('Open'))
-      await nextTick()
-      await nextTick()
-      await nextTick()
+      const { getByText } = await render(SnapDrawer)
+      await getByText('Open').click()
+      await expect.poll(findContent).not.toBeNull()
 
       const content = findContent()!
-      expect(getSnapOffset(content)).toBe(expectedSnapOffset(content, 0.5))
+      await expect.poll(() => getSnapOffset(content)).toBe(expectedSnapOffset(content, 0.5))
 
       // Drag upward past the snap threshold. Snap to nearest should pick
       // snap=1.0 (offset=0) given a large enough upward displacement.
-      dispatchPointer(content, 'pointerdown', 100, 500)
-      dispatchPointer(content, 'pointermove', 100, 450)
-      dispatchPointer(content, 'pointermove', 100, 300)
-      dispatchPointer(content, 'pointermove', 100, 100)
-      dispatchPointer(content, 'pointerup', 100, 100, 0)
-      await nextTick()
-      await nextTick()
+      await dragUp(content)
 
       // Snap offset should have updated immediately to the new target,
       // AND movement var should be cleared. If the movement var were
       // cleared without the snap offset update, the transform would
       // briefly revert to the old snap position.
-      expect(getSnapOffset(content)).toBe(expectedSnapOffset(content, 1))
+      await expect.poll(() => getSnapOffset(content)).toBe(expectedSnapOffset(content, 1))
       expect(getSwipeMovementY(content)).toBe('0px')
     })
   })

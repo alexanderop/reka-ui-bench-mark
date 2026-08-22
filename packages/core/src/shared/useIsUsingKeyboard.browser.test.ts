@@ -4,13 +4,6 @@ import { commands, userEvent } from 'vitest/browser'
 import { defineComponent } from 'vue'
 import { useIsUsingKeyboard } from './useIsUsingKeyboard'
 
-const mouse = commands as unknown as {
-  mouseDown: (x: number, y: number) => Promise<void>
-  mouseMove: (x: number, y: number) => Promise<void>
-  mousePress: () => Promise<void>
-  mouseUp: () => Promise<void>
-}
-
 function setupTestComponent() {
   return defineComponent({
     setup() {
@@ -41,8 +34,8 @@ describe('useIsUsingKeyboard', () => {
     await expect.element(state).toHaveTextContent('true')
 
     const rect = (await state.element()).getBoundingClientRect()
-    await mouse.mouseMove(rect.left + 1, rect.top + rect.height / 2)
-    await mouse.mouseMove(rect.right - 1, rect.top + rect.height / 2)
+    await commands.mouseMove(rect.left + 1, rect.top + rect.height / 2)
+    await commands.mouseMove(rect.right - 1, rect.top + rect.height / 2)
     await expect.element(state).toHaveTextContent('false')
   })
 
@@ -53,12 +46,12 @@ describe('useIsUsingKeyboard', () => {
 
     // Move before the keydown so the reset below is attributable to the real
     // pointerdown, rather than the pointermove that precedes a normal click.
-    await mouse.mouseMove(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    await commands.mouseMove(rect.left + rect.width / 2, rect.top + rect.height / 2)
     await userEvent.keyboard('{ArrowDown}')
     await expect.element(state).toHaveTextContent('true')
 
-    await mouse.mousePress()
-    await mouse.mouseUp()
+    await commands.mousePress()
+    await commands.mouseUp()
     await expect.element(state).toHaveTextContent('false')
   })
 })

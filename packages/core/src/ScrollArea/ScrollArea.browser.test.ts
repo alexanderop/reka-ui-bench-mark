@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { commands, page } from 'vitest/browser'
+import { commands, page, userEvent } from 'vitest/browser'
 import { defineComponent, h } from 'vue'
 import { sleep } from '@/test'
 import ScrollAreaCorner from './ScrollAreaCorner.vue'
@@ -25,16 +25,14 @@ import ScrollArea from './story/_ScrollArea.vue'
 //    exists to "match a browser's initial dispatch" — the definition of a
 //    compensating stub. The real RO dispatches for real here.
 //  - `trigger('pointerenter')` / `('pointerleave')` become real mouse travel:
-//    hover the component, then park the mouse outside it. `scrollTop = 40`
-//    becomes a real property write whose *browser-fired* scroll event drives
-//    the scrollbar, instead of a hand-dispatched Event.
+//    hover the component, then park the mouse outside it. Scrolling is driven
+//    by a trusted wheel gesture rather than a property write plus a
+//    hand-dispatched Event.
 //
 // Snapshots: `.browser.test.ts` gets its own `.snap` file, so the jsdom
 // baselines stay untouched for diffing. The browser snapshots carry the real
 // computed thumb sizes (`--reka-scroll-area-thumb-height` etc.), which the
 // jsdom ones structurally could not.
-
-const mouse = commands as unknown as { mouseMove: (x: number, y: number) => Promise<void> }
 
 describe('given default ScrollArea', () => {
   let screen: Awaited<ReturnType<typeof render<typeof ScrollArea>>>
@@ -43,7 +41,7 @@ describe('given default ScrollArea', () => {
     // Park the pointer away from where the component renders, so a cursor
     // left over the component by a previous test cannot pre-trigger the
     // hover-reveal that these tests are about.
-    await mouse.mouseMove(390, 5)
+    await commands.mouseMove(390, 5)
     screen = await render(ScrollArea)
   })
 
@@ -72,7 +70,7 @@ describe('given prop:type="always" ScrollArea', () => {
   let screen: Awaited<ReturnType<typeof render<typeof ScrollArea>>>
 
   beforeEach(async () => {
-    await mouse.mouseMove(390, 5)
+    await commands.mouseMove(390, 5)
     screen = await render(ScrollArea, { props: { type: 'always' } })
   })
 
@@ -90,7 +88,7 @@ describe('given prop:type="scroll" ScrollArea', () => {
   let screen: Awaited<ReturnType<typeof render<typeof ScrollArea>>>
 
   beforeEach(async () => {
-    await mouse.mouseMove(390, 5)
+    await commands.mouseMove(390, 5)
     screen = await render(ScrollArea, { props: { type: 'scroll' } })
   })
 
@@ -105,14 +103,12 @@ describe('given prop:type="scroll" ScrollArea', () => {
 
   describe('on scroll', () => {
     beforeEach(async () => {
-      // A real assignment: the browser scrolls the real overflow and fires the
-      // scroll event itself, on its own schedule — the original dispatched the
-      // Event by hand because jsdom never would. The `sleep(10)` stays as the
-      // original's settle beat; the visibility assertion in the test owns the
-      // rest of the wait.
       const viewport = screen.container.querySelector('[data-reka-scroll-area-viewport]') as HTMLElement
-      viewport.scrollTop = 40
-      await sleep(10)
+      await userEvent.wheel(page.elementLocator(viewport), { delta: { y: 40 } })
+      await expect.poll(() => viewport.scrollTop).toBeGreaterThan(0)
+      await expect.poll(() =>
+        (screen.container.querySelector('[data-scrollbarimpl] > [data-state]') as HTMLElement | null)?.style.transform ?? '',
+      ).toContain('translate3d')
     })
 
     it('should render scrollbar', async () => {
@@ -147,7 +143,7 @@ describe('given prop:type="hover" ScrollArea with both scrollbars and a corner',
   let screen: Awaited<ReturnType<typeof render<typeof BothScrollArea>>>
 
   beforeEach(async () => {
-    await mouse.mouseMove(390, 5)
+    await commands.mouseMove(390, 5)
     screen = await render(BothScrollArea, { props: { type: 'hover' } })
   })
 
@@ -161,7 +157,7 @@ describe('given prop:type="hover" ScrollArea with both scrollbars and a corner',
 
     // leave -> scrollbars hide and the corner is removed alongside them.
     // A real leave: park the mouse outside the 200×200 component.
-    await mouse.mouseMove(390, 5)
+    await commands.mouseMove(390, 5)
     await sleep(700)
     expect(screen.container.querySelector('[data-testid="corner-content"]')).toBeFalsy()
 

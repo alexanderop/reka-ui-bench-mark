@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
-import { userEvent } from 'vitest/browser'
+import { commands, userEvent } from 'vitest/browser'
 import { nextTick } from 'vue'
 import PinInput from './story/_PinInput.vue'
 
-class InputHandle {
+class InputPayloadHandle {
   constructor(readonly element: HTMLInputElement) {}
 
-  async trigger(type: string, init: Record<string, unknown> = {}) {
+  async dispatch(type: string, init: Record<string, unknown> = {}) {
+    // This adapter is intentionally payload-only: browser automation cannot
+    // drive IME composition or password-manager autofill cross-browser.
     const options = { ...init, bubbles: true, cancelable: true }
     const event = type.startsWith('composition')
       ? new CompositionEvent(type, options)
@@ -20,33 +22,44 @@ class InputHandle {
     this.element.dispatchEvent(event)
   }
 
-  setValue(value: string) {
+  assignValue(value: string) {
     this.element.value = value
   }
 }
 
-function getInputs(screen: ReturnType<typeof render>) {
-  return Array.from(screen.container.querySelectorAll<HTMLInputElement>('input:not([aria-hidden])'), input => new InputHandle(input))
+function getInputs(screen: Awaited<ReturnType<typeof render>>) {
+  return Array.from(screen.container.querySelectorAll<HTMLInputElement>('input:not([aria-hidden])'), input => new InputPayloadHandle(input))
 }
 
-function paste(text: string) {
-  const data = new DataTransfer()
-  data.setData('text/plain', text)
-  document.activeElement?.dispatchEvent(new ClipboardEvent('paste', {
-    bubbles: true,
-    cancelable: true,
-    clipboardData: data,
-  }))
+async function copyAndPaste(text: string, target: HTMLInputElement) {
+  // Parallel tester pages share the OS clipboard. The typed command holds one
+  // server-side mutex across the complete trusted copy/paste keyboard gesture.
+  const token = crypto.randomUUID()
+  const sourceSelector = `[data-browser-clipboard-source="${token}"]`
+  const targetSelector = `[data-browser-clipboard-target="${token}"]`
+  const source = document.createElement('textarea')
+  source.dataset.browserClipboardSource = token
+  source.value = text
+  target.dataset.browserClipboardTarget = token
+  document.body.append(source)
+
+  try {
+    await commands.copyPaste(sourceSelector, targetSelector, text)
+  }
+  finally {
+    source.remove()
+    delete target.dataset.browserClipboardTarget
+  }
 }
 
 describe('given default PinInput', () => {
-  let wrapper: ReturnType<typeof render>
-  let inputs: InputHandle[] = []
+  let wrapper: Awaited<ReturnType<typeof render>>
+  let inputs: InputPayloadHandle[] = []
 
-  beforeEach(() => {
-    wrapper = render(PinInput)
+  beforeEach(async () => {
+    wrapper = await render(PinInput)
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
   })
 
   it('should pass axe accessibility tests', async () => {
@@ -64,8 +77,8 @@ describe('given default PinInput', () => {
   describe('caret handling', () => {
     it('should handle caret at the start of the input', async () => {
       await userEvent.keyboard('a')
-      inputs[0].element.focus()
-      inputs[0].element.setSelectionRange(0, 0)
+      await userEvent.click(inputs[0].element)
+      await userEvent.keyboard('{Home}')
       await userEvent.keyboard('b')
       expect(inputs.map(i => i.element.value)).toStrictEqual(['b', '', '', '', ''])
       expect(inputs[1].element).toBe(document.activeElement)
@@ -73,7 +86,7 @@ describe('given default PinInput', () => {
 
     it('should handle caret at the end of the input (default focus)', async () => {
       await userEvent.keyboard('a')
-      inputs[0].element.focus()
+      await userEvent.click(inputs[0].element)
       await userEvent.keyboard('b')
       expect(inputs.map(i => i.element.value)).toStrictEqual(['b', '', '', '', ''])
       expect(inputs[1].element).toBe(document.activeElement)
@@ -104,7 +117,7 @@ describe('given default PinInput', () => {
 
   describe('after user paste \'test\'', () => {
     beforeEach(async () => {
-      paste('test')
+      await copyAndPaste('test', inputs[0].element)
     })
 
     it('should populate the word in each box', () => {
@@ -114,8 +127,7 @@ describe('given default PinInput', () => {
 
   describe('after user paste \'test\' at 2nd input', () => {
     beforeEach(async () => {
-      inputs[1].element.focus()
-      paste('test')
+      await copyAndPaste('test', inputs[1].element)
     })
 
     it('should populate the word in correct box', () => {
@@ -125,7 +137,7 @@ describe('given default PinInput', () => {
 
   describe('after pressing ArrowRight key', () => {
     beforeEach(async () => {
-      await inputs[0].trigger('keydown', { key: 'ArrowRight' })
+      await userEvent.keyboard('{ArrowRight}')
     })
 
     it('should navigate to 2nd box', () => {
@@ -134,7 +146,7 @@ describe('given default PinInput', () => {
 
     describe('after pressing ArrowRight key', () => {
       beforeEach(async () => {
-        await inputs[1].trigger('keydown', { key: 'ArrowRight' })
+        await userEvent.keyboard('{ArrowRight}')
       })
 
       it('should navigate to 3rd box', () => {
@@ -143,8 +155,7 @@ describe('given default PinInput', () => {
 
       describe('after pressing ArrowLeft key twice', () => {
         beforeEach(async () => {
-          await inputs[2].trigger('keydown', { key: 'ArrowLeft' })
-          await inputs[1].trigger('keydown', { key: 'ArrowLeft' })
+          await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
         })
 
         it('should navigate back to 1st box', () => {
@@ -157,7 +168,7 @@ describe('given default PinInput', () => {
   describe('after inserting \'test\' and pressing Backspace key', () => {
     beforeEach(async () => {
       await userEvent.keyboard('test')
-      await inputs[4].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}')
     })
 
     it('should navigate back to previous box and clear the value', () => {
@@ -168,7 +179,7 @@ describe('given default PinInput', () => {
 
     describe('after pressing Backspace again', () => {
       beforeEach(async () => {
-        await inputs[3].trigger('keydown', { key: 'Backspace' })
+        await userEvent.keyboard('{Backspace}')
       })
 
       it('should navigate back to previous box and clear the value', () => {
@@ -182,8 +193,8 @@ describe('given default PinInput', () => {
   describe('after inserting \'test\' and pressing Delete key', () => {
     beforeEach(async () => {
       await userEvent.keyboard('test')
-      inputs[1].element.focus()
-      await inputs[1].trigger('keydown', { key: 'Delete' })
+      await userEvent.click(inputs[1].element)
+      await userEvent.keyboard('{Delete}')
     })
 
     it('should clear the value', () => {
@@ -224,7 +235,7 @@ describe('given default PinInput', () => {
 
   describe('render placeholder', () => {
     // @finding PinInput/PinInput.test.ts#focused-placeholder-visible
-    it.fails('should render correct placeholder', async () => {
+    it('should render correct placeholder', async () => {
       expect(inputs[0].element.placeholder).toBe('')
       expect(inputs[1].element.placeholder).toBe('*')
       expect(inputs[2].element.placeholder).toBe('*')
@@ -237,6 +248,8 @@ describe('given default PinInput', () => {
       expect(inputs[1].element.placeholder).toBe('')
 
       // focus to hide placeholder
+      // Programmatic focus is the behavior under test. Vitest 4.1.10 exposes
+      // no locator/userEvent focus primitive, so use the native DOM API here.
       inputs[2].element.focus()
       await nextTick()
       expect(inputs[1].element.placeholder).toBe('*')
@@ -244,7 +257,7 @@ describe('given default PinInput', () => {
 
       inputs[0].element.focus()
       await nextTick()
-      await inputs[0].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}')
       const focusedEmptyPlaceholder = inputs[0].element.placeholder
       inputs[1].element.focus()
       await nextTick()
@@ -254,7 +267,7 @@ describe('given default PinInput', () => {
       // backspace to previous input and delete value
       inputs[0].element.focus()
       await userEvent.keyboard('a')
-      await inputs[1].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}')
       expect(inputs[0].element.placeholder).toBe('')
       expect(inputs[1].element.placeholder).toBe('*')
       expect(focusedEmptyPlaceholder).toBe('')
@@ -263,13 +276,13 @@ describe('given default PinInput', () => {
 })
 
 describe('give PinInput type=number', async () => {
-  let wrapper: ReturnType<typeof render>
-  let inputs: InputHandle[] = []
+  let wrapper: Awaited<ReturnType<typeof render>>
+  let inputs: InputPayloadHandle[] = []
 
-  beforeEach(() => {
-    wrapper = render(PinInput, { props: { type: 'number' } })
+  beforeEach(async () => {
+    wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
   })
 
   it('should pass axe accessibility tests', async () => {
@@ -288,7 +301,7 @@ describe('give PinInput type=number', async () => {
 
   describe('after user paste non-numeric word', () => {
     beforeEach(async () => {
-      paste('test')
+      await copyAndPaste('test', inputs[0].element)
     })
 
     it('should not populate the word', () => {
@@ -298,7 +311,7 @@ describe('give PinInput type=number', async () => {
 
   describe('after user paste mixed alphanumeric text', () => {
     beforeEach(async () => {
-      paste('a1b2c3')
+      await copyAndPaste('a1b2c3', inputs[0].element)
     })
 
     it('should only populate numeric characters', () => {
@@ -308,22 +321,21 @@ describe('give PinInput type=number', async () => {
 
   describe('after user paste mixed text with enough numeric characters', () => {
     beforeEach(async () => {
-      paste('a1b2c3d4e5')
+      await copyAndPaste('a1b2c3d4e5', inputs[0].element)
     })
 
     it('should populate all boxes with numeric characters only', () => {
       expect(inputs.map(i => i.element.value)).toStrictEqual(['1', '2', '3', '4', '5'])
     })
 
-    it('should emit \'complete\' with the result', () => {
-      expect(wrapper.emitted('complete')?.[0]?.[0]).toStrictEqual([1, 2, 3, 4, 5])
+    it('should emit \'complete\' with the result', async () => {
+      await expect.poll(() => wrapper.emitted('complete')?.[0]?.[0]).toStrictEqual([1, 2, 3, 4, 5])
     })
   })
 
   describe('after user paste mixed text at 2nd input', () => {
     beforeEach(async () => {
-      inputs[1].element.focus()
-      paste('a1b2c3')
+      await copyAndPaste('a1b2c3', inputs[1].element)
     })
 
     it('should populate numeric characters in correct boxes', () => {
@@ -345,20 +357,16 @@ describe('give PinInput type=number', async () => {
     })
 
     it('should delete the last input when pressing Backspace', async () => {
-      await inputs[4].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}')
       expect(inputs[4].element).toBe(document.activeElement)
       expect(inputs.map(i => i.element.value)).toStrictEqual(['1', '2', '3', '4', ''])
     })
 
     it('should delete all values input when pressing Backspace for each input', async () => {
       // Delete the last value
-      await inputs[4].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}')
       // Press again to move focus to the previous input
-      await inputs[4].trigger('keydown', { key: 'Backspace' })
-      await inputs[3].trigger('keydown', { key: 'Backspace' })
-      await inputs[2].trigger('keydown', { key: 'Backspace' })
-      await inputs[1].trigger('keydown', { key: 'Backspace' })
-      await inputs[0].trigger('keydown', { key: 'Backspace' })
+      await userEvent.keyboard('{Backspace}'.repeat(5))
 
       expect(inputs[0].element).toBe(document.activeElement)
       expect(inputs.map(i => i.element.value)).toStrictEqual(['', '', '', '', ''])
@@ -386,8 +394,10 @@ describe('give PinInput type=number', async () => {
        * Password managers (like 1Password, Bitwarden, etc.) fill PIN inputs with `input` events
        */
       for (const input of inputs) {
-        input.setValue('0')
-        input.trigger('input', { data: undefined })
+        // Password-manager assignment is the payload under test; a native
+        // keyboard/paste interaction would exercise a different code path.
+        input.assignValue('0')
+        await input.dispatch('input', { data: undefined })
       }
       await nextTick()
 
@@ -398,18 +408,18 @@ describe('give PinInput type=number', async () => {
 })
 
 describe('handle IME composition', () => {
-  let wrapper: ReturnType<typeof render>
-  let inputs: InputHandle[] = []
+  let wrapper: Awaited<ReturnType<typeof render>>
+  let inputs: InputPayloadHandle[] = []
 
-  beforeEach(() => {
-    wrapper = render(PinInput)
+  beforeEach(async () => {
+    wrapper = await render(PinInput)
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
   })
 
   it('should not shift focus during composition', async () => {
-    await inputs[0].trigger('compositionstart')
-    await inputs[0].trigger('input', { data: '1', isComposing: true })
+    await inputs[0].dispatch('compositionstart')
+    await inputs[0].dispatch('input', { data: '1', isComposing: true })
     await nextTick()
 
     expect(document.activeElement).toBe(inputs[0].element)
@@ -417,14 +427,14 @@ describe('handle IME composition', () => {
   })
 
   it('should process the committed value after compositionend', async () => {
-    await inputs[0].trigger('compositionstart')
-    await inputs[0].trigger('input', { data: '5', isComposing: true })
+    await inputs[0].dispatch('compositionstart')
+    await inputs[0].dispatch('input', { data: '5', isComposing: true })
     await nextTick()
 
     expect(document.activeElement).toBe(inputs[0].element)
 
     inputs[0].element.value = '5'
-    await inputs[0].trigger('compositionend', { data: '5' })
+    await inputs[0].dispatch('compositionend', { data: '5' })
     await nextTick()
 
     expect(inputs[0].element.value).toBe('5')
@@ -432,21 +442,21 @@ describe('handle IME composition', () => {
   })
 
   it('should not move between inputs with arrow keys during composition', async () => {
-    await inputs[0].trigger('compositionstart')
-    await inputs[0].trigger('keydown', { key: 'ArrowRight', isComposing: true })
+    await inputs[0].dispatch('compositionstart')
+    await inputs[0].dispatch('keydown', { key: 'ArrowRight', isComposing: true })
     await nextTick()
 
     expect(document.activeElement).toBe(inputs[0].element)
   })
 
   it('should reject non-numeric IME input in numeric mode', async () => {
-    wrapper = render(PinInput, { props: { type: 'number' } })
+    wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
 
-    await inputs[0].trigger('compositionstart')
+    await inputs[0].dispatch('compositionstart')
     inputs[0].element.value = 'あ'
-    await inputs[0].trigger('compositionend', { data: 'あ' })
+    await inputs[0].dispatch('compositionend', { data: 'あ' })
     await nextTick()
 
     expect(inputs[0].element.value).toBe('')
@@ -454,9 +464,9 @@ describe('handle IME composition', () => {
   })
 
   it('should distribute multi-character composition commit across slots', async () => {
-    await inputs[0].trigger('compositionstart')
+    await inputs[0].dispatch('compositionstart')
     inputs[0].element.value = 'ab'
-    await inputs[0].trigger('compositionend', { data: 'ab' })
+    await inputs[0].dispatch('compositionend', { data: 'ab' })
     await nextTick()
 
     expect(inputs[0].element.value).toBe('a')
@@ -465,13 +475,13 @@ describe('handle IME composition', () => {
   })
 
   it('should distribute multi-digit numeric composition commit across slots', async () => {
-    wrapper = render(PinInput, { props: { type: 'number' } })
+    wrapper = await render(PinInput, { props: { type: 'number' } })
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
 
-    await inputs[0].trigger('compositionstart')
+    await inputs[0].dispatch('compositionstart')
     inputs[0].element.value = '123'
-    await inputs[0].trigger('compositionend', { data: '123' })
+    await inputs[0].dispatch('compositionend', { data: '123' })
     await nextTick()
 
     expect(inputs[0].element.value).toBe('1')
@@ -482,17 +492,17 @@ describe('handle IME composition', () => {
 })
 
 describe('give OTP PinInput', () => {
-  let wrapper: ReturnType<typeof render>
-  let inputs: InputHandle[] = []
+  let wrapper: Awaited<ReturnType<typeof render>>
+  let inputs: InputPayloadHandle[] = []
 
-  beforeEach(() => {
-    wrapper = render(PinInput, { props: { otp: true } })
+  beforeEach(async () => {
+    wrapper = await render(PinInput, { props: { otp: true } })
     inputs = getInputs(wrapper)
-    inputs[0].element.focus()
+    await userEvent.click(inputs[0].element)
   })
 
   it('should disable later inputs if there are empty inputs before them', async () => {
-    inputs[1].element.focus()
+    await userEvent.click(inputs[1].element, { force: true })
     expect(document.activeElement).toBe(inputs[0].element)
   })
 })

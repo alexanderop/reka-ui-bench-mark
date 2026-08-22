@@ -18,7 +18,7 @@ import { useCollection } from '@/Collection'
 import {
   Primitive,
 } from '@/Primitive'
-import { getActiveElement, useForwardExpose } from '@/shared'
+import { getActiveElement, useForwardExpose, useId } from '@/shared'
 import { injectMenuContentContext } from './MenuContentImpl.vue'
 import { isMouseEvent } from './utils'
 
@@ -31,6 +31,7 @@ const props = defineProps<MenuItemImplProps>()
 const contentContext = injectMenuContentContext()
 const { forwardRef, currentElement } = useForwardExpose()
 const { CollectionItem } = useCollection()
+const id = useId(undefined, 'reka-menu-item')
 
 const isFocused = ref(false)
 const isHighlighted = computed(() => isFocused.value || (currentElement.value != null && contentContext.highlightedElement.value === currentElement.value))
@@ -75,6 +76,7 @@ async function handlePointerLeave(event: PointerEvent) {
 <template>
   <CollectionItem :value="{ textValue }">
     <Primitive
+      :id="id"
       :ref="forwardRef"
       role="menuitem"
       tabindex="-1"

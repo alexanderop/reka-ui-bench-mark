@@ -15,7 +15,11 @@ Caveat on all of it: "what an AT is handed" is read from the accessible tree (iv
 engine — the same one behind `getByRole`), not from a screen reader. The tree facts are measured;
 how NVDA or VoiceOver phrase them is inferred and marked so.
 
-Nothing in non-test source was changed. Findings are reported, not patched.
+The original census findings below remain reported, not patched. A later semantic-contract batch
+did change production code for separate browser-proven regressions: stale `aria-activedescendant`
+relations in Combobox/Autocomplete, an empty DropdownMenuFilter item ID, Toggle's required bridge,
+and empty range-field native values. Those resolved findings live in `FINDINGS.tsv` and are
+summarised below so census evidence is not confused with a claim that production stayed untouched.
 
 ---
 
@@ -101,9 +105,9 @@ Fix: put `aria-labelledby=<label id>` on the group, and `aria-labelledby="<segme
 
 ### 3. Calendar's `application` landmark is unnamed
 
-**Severity:** medium. Calendar and RangeCalendar (`RangeCalendarRoot.vue:454`, same shape, not
-separately tested).
-**Key:** `Calendar/Calendar.aria.browser.test.ts#application-unnamed`
+**Severity:** medium. Calendar and RangeCalendar (`RangeCalendarRoot.vue:454`), both verified.
+**Keys:** `Calendar/Calendar.aria.browser.test.ts#application-unnamed`,
+`Calendar/CalendarFamily.aria.browser.test.ts#range-application-unnamed`
 
 What the tree shows (`_Calendar.vue`):
 
@@ -203,15 +207,36 @@ found another way), states that are *false*, anything `aria-hidden` or `display:
 contrast (keep axe), and whether a keyboard user can actually operate the thing (keep the real-input
 tests). The open states of overlays are in the `*.aria.browser.test.ts` files, not the census.
 
+## Resolved follow-up semantic regressions
+
+Direct IDREF and native-form contracts found four separate production defects that ARIA snapshots
+cannot represent:
+
+- Combobox and Autocomplete removed their highlighted option from the DOM on close but retained a
+  stale `aria-activedescendant`; the relation now exists only while open.
+- DropdownMenuFilter wrote `aria-activedescendant=""` because MenuItemImpl had no ID; items now
+  receive a generated ID while an explicit consumer ID still wins.
+- Toggle's visible pressed state did not synchronize its required native checkbox bridge; it now
+  binds the bridge's checked state.
+- Empty DateRangeField and TimeRangeField models submitted `"undefined - undefined"`, which native
+  constraint validation treated as populated; they now expose an empty native value until both
+  endpoints exist. DateRangePicker inherits the fix.
+
+Each statement above is verified by a green real-browser lifecycle/submit regression and a
+`FINDINGS.tsv` row; it is not inferred from the census tree.
+
 ## Reproduce
 
 ```bash
 pnpm --filter reka-ui exec vitest run --project=browser src/a11y-census.browser.test.ts
 pnpm --filter reka-ui exec vitest run --project=browser src/Select/Select.aria.browser.test.ts \
   src/DropdownMenu/DropdownMenu.aria.browser.test.ts src/DateField/DateField.aria.browser.test.ts \
-  src/Calendar/Calendar.aria.browser.test.ts src/TagsInput/TagsInput.aria.browser.test.ts
+  src/Calendar/Calendar.aria.browser.test.ts src/Calendar/CalendarFamily.aria.browser.test.ts \
+  src/TagsInput/TagsInput.aria.browser.test.ts src/aria-activedescendant.browser.test.ts \
+  src/native-form-validation.browser.test.ts
 ```
 
-Seven tests report as "expected fail" — one per finding (DateField has two). When one of them
+Eight semantic tests report as "expected fail" — one per unresolved finding (DateField has two,
+and Calendar/RangeCalendar each pin the unnamed application landmark). When one of them
 turns **red**, the bug it names has been fixed: delete the `it.fails`, update the sibling snapshot,
 and retire the row here.
