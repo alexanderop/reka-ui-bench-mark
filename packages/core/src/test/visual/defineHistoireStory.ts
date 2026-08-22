@@ -1,7 +1,7 @@
 import type { RenderResult } from 'vitest-browser-vue'
 import type { Component, PropType, VNode, VNodeChild } from 'vue'
 import type { VisualCell } from './sheet'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
 import { defineComponent, Fragment, inject, provide, reactive } from 'vue'
 import { assertSheetFitsViewport, cellQueries, kebab, renderSheetCell, renderSheetHost, SHEET_TEST_ID } from './sheet'
@@ -184,12 +184,12 @@ export function defineHistoireStory(Story: Component, options: HistoireStoryOpti
       sheet,
       title,
       cells,
-      cell: (name) => {
+      cell: vi.defineHelper((name: string) => {
         const found = cells.find(cell => cell.name === name)
         if (!found)
           throw new Error(`[${title}] has no variant named "${name}"`)
         return found
-      },
+      }),
       screenshot: async (name = screenshotName) => {
         assertSheetFitsViewport(sheet, title)
         const mask = (options.mask ?? []).flatMap(selector => [...sheet.querySelectorAll(selector)])

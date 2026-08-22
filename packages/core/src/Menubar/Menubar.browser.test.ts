@@ -32,7 +32,10 @@ describe('given default Menubar', () => {
 
     describe('after selecting the first item', () => {
       beforeEach(async () => {
-        await screen.getByRole('menuitem', { name: 'New Tab' }).click()
+        // The item's accessible name includes its shortcut hint. Under the
+        // substring default, 'New Tab' matched it silently; locators are exact
+        // now (FINDINGS.tsv Menubar/Menubar.test.ts#menuitem-name-includes-shortcut).
+        await screen.getByRole('menuitem', { name: 'New Tab ⌘ T' }).click()
       })
       it('should close the modal', async () => { await expect.element(screen.getByRole('menu')).not.toBeInTheDocument() })
       it('should emit select event', () => { expect(screen.emitted('select')?.length).toBe(1) })

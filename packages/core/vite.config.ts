@@ -156,9 +156,32 @@ export default defineConfig({
               // ZonedDateTime test there). The 12 date files depend on this
               // zone, so it is configuration here, not inheritance. Same name
               // the tests assert (`America/New_York`; `US/Eastern` is its alias).
-              contextOptions: { timezoneId: 'America/New_York' },
+              //
+              // `viewport` is NOT cosmetic. With the browser UI off, the
+              // provider does not copy the instance viewport to the outer
+              // Playwright page (browser-playwright/src/playwright.ts,
+              // `createContext`), so the 414x896 tester iframe is CSS-scaled
+              // to fit the 1280x720 default page (measured: rendered 333x720,
+              // scale 0.8036). Locator actions compensate; raw `page.mouse`
+              // does not, and the custom mouse commands below landed at 1.244x
+              // the requested coordinates (`mouseDown(100, 200)` -> pointerdown
+              // at client (124, 249)). Matching the context to the instance
+              // makes the scale 1 (measured: exactly (100, 200)). Same lever
+              // `vite.config.visual.ts` uses for unscaled screenshots.
+              contextOptions: {
+                timezoneId: 'America/New_York',
+                viewport: { width: 414, height: 896 },
+              },
             }),
             headless: true,
+            // Vitest 5's default, available since 4.1.3: `getByText`, role
+            // `name` and friends match the whole string. Under the substring
+            // default, `getByRole('menuitem', { name: 'New Tab' })` silently
+            // matched the item named "New Tab ⌘ T" (Menubar) — the quiet
+            // widening the substring-family gotchas describe. Measured on
+            // 4.1.10 before fixing that locator: 1496 pass, 2 fail, both
+            // Menubar. Calls can still opt out with `{ exact: false }`.
+            locators: { exact: true },
             instances: [{ browser: 'chromium' }],
             // `page.mouse` is stateful and page-level; the locator API's only
             // drag primitive (`dropTo`) is atomic and iframe-local. These commands

@@ -107,7 +107,11 @@ user sees, distinct from `aria-valuenow`. Both retrying.
 `browser: { trace: 'retain-on-failure' }` (Playwright provider only) writes
 Playwright trace files to `__traces__` next to the test. Not a test-code
 change; worth enabling when debugging a flaky port instead of sprinkling
-`console.warn`.
+`console.warn` — **for one file at a time.** Measured on the green browser
+project: baseline 24.3s; `retain-on-failure` 69.4s with 13–15 *new*
+failures in 12 files and a `tracing.stopChunk` error; serial, 359.6s and still
+5 failures. It records a chunk per test whether or not it keeps the zip
+(`FINDINGS.tsv` `browser-mode#trace-cost`; `__traces__` is gitignored).
 
 ---
 
@@ -220,8 +224,15 @@ port.
 
 - **IME composition guards** — TimeField (`:255-263`), ColorField
   (`dispatchComposingKeydown`), Autocomplete's composition describes,
-  NumberField's IME describe. Playwright cannot select a real IME; the files
-  say so in comments. The synthetic dispatch *is* the faithful gesture.
+  NumberField's IME describe. *Playwright* cannot drive an IME; the files say
+  so in comments. **CDP can**, on Chromium: `cdp().send('Input.imeSetComposition',
+  …)` + `Input.insertText` produced real `compositionstart/update/end` and
+  `beforeinput`/`input` with `isComposing: true` (measured — AGENTS.md `cdp()`
+  gotcha, `browser-mode#cdp-real-ime`). So these are *Chromium-improvable*,
+  and the synthetic dispatch stays the faithful gesture only for the
+  cross-browser run. Same for the touch swipes in `Drawer.snap`,
+  `useSwipeDismiss` and HoverCard's `enableTouch`
+  (`Input.dispatchTouchEvent`, `browser-mode#cdp-real-touch`).
 - **Disabled-element keydown negatives** — ColorField (`:367-374`): a real
   keyboard cannot reach a disabled input, so the dispatch keeps the guard-path
   scenario observable instead of passing vacuously.
@@ -274,6 +285,11 @@ Sweep note: BSD grep misses byte-pattern form — use `grep -rlP '\x{00A0}'`.
    see AGENTS.md "ARIA census and transition tests".)*
 6. **Editable selection, DropdownMenu real Tab, useGraceArea real geometry** —
    smaller, independent.
+7. **CDP-driven IME and touch** (Chromium only, `it.skipIf` for the other
+   engines) — DropdownMenuFilter/Combobox composition describes first (35 of
+   the 37 synthetic `CompositionEvent`s), then the Drawer swipes. Wrap the
+   touch sequence as a `touchSwipe` custom command beside `mouseDown` so
+   the page-coordinate offset/scale lives in one place.
 
 
 ---

@@ -351,7 +351,9 @@ enough: 0 of the 176 stories use `initState` or the `{ state }` slot prop.
   as Histoire names them. `cell.variant` is `{ name }` only: there is no expectation data, so
   literal expected values live in the test body — and keep them literal, never derived from the
   helper the component itself uses.
-- **`cell.get(sel)` throws naming the cell; `getAll`, `rect` scope to the cell.** Selectors are
+- **`cell.get(sel)` throws naming the cell — at the call site; `getAll`, `rect` scope to the cell.**
+  `cell(name)` and all three queries are `vi.defineHelper`s (see the gotcha), so a stale selector
+  or variant name puts the `❯` frame on the sheet file's line, not `sheet.ts`. Selectors are
   CSS; the story's own `data-*` / `role` attributes are the stable markers to query.
 - **The screenshot name is `<kebab story title>-story`** (`Scroll Area/Chromatic/Both` →
   `scroll-area-chromatic-both-story`), derived from the rendered title, so it is only known after
@@ -487,6 +489,8 @@ same on every OS.
 | `wrapper.findAllComponents(X)[n].emitted('e')` | **no equivalent** — `render`'s `emitted` is root-only and the `VueWrapper` is not exposed. Observe the DOM event that drives the emit (a `bubbles: false` `CustomEvent` still reaches a **capture** listener) |
 | `el.trigger('click')` on a **disabled** element | `loc.click({ force: true })` — delivers only `pointerdown`, then focuses the nearest *mouse*-focusable ancestor |
 | `wrapper.find('[type="Radio"]')` | ports **verbatim**, capital R and all — `type` is on HTML's case-insensitive attribute-value list |
+| `el.dispatchEvent(new CompositionEvent('compositionstart'))` + hand-set `.value` + `new Event('input')` — an IME sequence | **Chromium:** `cdp().send('Input.imeSetComposition', { text, selectionStart, selectionEnd })`, then `Input.insertText` to commit — real `compositionstart/update/end` *and* `beforeinput`/`input` with `isComposing: true` (see the `cdp()` gotcha). Other engines: keep the synthetic dispatch |
+| `el.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' }))` — a touch gesture | **Chromium:** `cdp().send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })` … `touchMove` … `touchEnd` — real `pointerType: 'touch'` pointer events plus `touchstart/move/end`; coordinates are page-level (offset *and* scale from `window.frameElement.getBoundingClientRect()`) |
 | ResizeObserver / pointer-capture mocks | *(delete)* |
 
 `vitest-browser-vue`'s `render` accepts *almost* all `@vue/test-utils` mount options, so most of
@@ -766,6 +770,24 @@ gains included +49 for Autocomplete and +29 for TagsInput. `parity-coverage.mjs`
 exact harness path; the production gains are +25 and +1. Apply the same rule to any future helper
 under the instrumented source tree.
 
+**Shared helpers fail at the call site only if you wrap them — `vi.defineHelper` (4.1.0) does it,
+and it trims the stack, not the message.** From source: the wrapper is a function named
+`__VITEST_HELPER__` (`vitest/src/integrations/vi.ts:614`) and `@vitest/utils/src/source-map.ts:235`
+slices the stack at the *last* such frame, so nested helpers resolve to the outermost call and a
+plain `throw new Error` is trimmed like an assertion; the browser tester's errors go through the
+same parser (`browser/src/node/rpc.ts:177`). Measured on six shapes in Chromium (table in the
+guide, §6): wrapped sync/async/`expect.element`/nested-throw all land on the test line. The trap is
+the compat adapter: `find(sel)!` + `.attributes()` wrapped still reads `Cannot read properties of
+null (reading 'getAttribute')`, just at a better line. So `src/test/browser.ts` now guards every
+consuming method (`cannot call attributes() on an empty BrowserElement (no element matching
+"…")`) **and** wraps it — `find` itself stays lenient because `find(sel).exists()` is the
+absence assertion (VTU's `ErrorWrapper` split). `cellQueries` (`get`/`getAll`/`rect`) and
+`cell(name)` in the visual helper are wrapped too: `cell('Nope')` reports at the sheet file's
+line. Five compat files (169 + 4 expected fails) and the 22 visual files (25 + 1) unchanged. Do
+not wrap `expect.extend` matchers (already call-site) or `setup()` factories; for a helper called
+in a loop keep a `message:` naming the iteration, because the call-site line is the same each
+time. While *authoring* a helper, leave it unwrapped — its own frames disappear.
+
 **Prefer outcome synchronization over `nextTick()`.** Auditing every completed browser port found
 14 actual calls: 2 before retrying Toolbar assertions, 5 after Teleport mounts, and 7 in Presence.
 All 14 are gone. Toolbar needed no replacement because `expect.element` already owns the wait;
@@ -866,6 +888,18 @@ than a label you control. Related strict-mode trap from `Combobox`: an original'
 `find('[role=group]')` (first match) is NOT `getByRole('group')` (strict, one match) when the
 fixture renders two groups — a wait written with the locator times out on the violation. Poll the
 original's own container query instead.
+
+**…and the whole substring family is switched off by one config flag that already exists on 4.1.**
+`browser.locators.exact: true` (`docs/config/browser/locators.md`, **since 4.1.3**, experimental;
+wired at `browser/src/client/tester/locators/index.ts:56` into `Ivya.create`) makes `getByText`,
+role `name` and the other text locators whole-string by default — it is Vitest 5's default, not a
+v5-only API. Measured on 4.1.10 over the browser project with it on: **1496 pass, 2 fail, both
+Menubar** — `getByRole('menuitem', { name: 'New Tab' })` had been matching an item whose accessible
+name is `New Tab ⌘ T` (the shortcut hint is inside the item, `_Menubar.vue:57-62`): the quiet
+widening predicted above, made loud. Both the `browser` and `cross-browser` projects now set it, the
+Menubar locator names the full string, and the defensive `{ exact: true }` calls elsewhere are
+redundant but harmless (`browser-mode#locators-exact-on-4-1`,
+`Menubar/Menubar.test.ts#menuitem-name-includes-shortcut`).
 
 **`toHaveTextContent` is substring-based too.** DateField and DatePicker had named overwrite,
 overflow and ArrowUp cases where expected `1` was already present in initial `1980` or `12`, and
@@ -1006,6 +1040,26 @@ PNG. Give `playwright()` the same `contextOptions.viewport`; the reference becom
 its Linux baseline beside the local platform baseline, and allow automated updates only from an
 explicit non-default branch dispatch.
 
+**…and the same scaling silently misplaced every raw `page.mouse` command in the default `browser`
+project, for the whole migration.** The functional project declares no viewport, so the tester
+iframe is 414×896 CSS px inside Playwright's 1280×720 default page and the orchestrator scales it to
+333×720 (measured from inside the test: `window.frameElement.getBoundingClientRect()` — the frame is
+same-origin and readable — width 332.68, scale 720/896 = 0.8036). Locator actions compensate; the
+custom `mouseDown/mouseMove/mousePress/mouseUp` commands add raw iframe-CSS offsets to
+`iframe.owner().boundingBox()` and do not: **`mouseDown(100, 200)` fired `pointerdown` at client
+(124, 249)**, 1.244× the request. Slider's `rect.left + 10` was really +12, its +50 really +62; all
+four files using the commands (Slider, Rating, ScrollArea, useIsUsingKeyboard) passed because their
+assertions tolerate it. Fixed by giving the `browser` and `cross-browser` projects
+`contextOptions.viewport: { width: 414, height: 896 }` — the same lever as the visual config — after
+which the probe lands at exactly (100, 200) and the suite is 97/97 green with one honest casualty:
+Rating's "reset the preview on mouse leave" left to (390, 5), which is *inside* the 414×32
+`RatingRoot` block (`elementFromPoint(390, 5)` is the radiogroup; the reset is on its `mouseleave`,
+`RatingRoot.vue:116`); it only passed because the scaled pointer left the iframe altogether
+(`elementFromPoint(485, 6)` → `null`). Now (390, 200), on bare body. Rule: **any page-level
+coordinate computed from iframe CSS px needs the offset *and* the scale**, and the cheap way to never
+need the scale is to make the outer page the size of the instance
+(`browser-mode#scaled-iframe-page-coordinates`, `Rating/Rating.test.ts#leave-point-was-inside-the-root`).
+
 **Generic component props need both an exact-key check and a test-specific type-check.** Vue's
 component props are mostly optional, and a variant produced by `Array.map` is no longer a fresh
 object literal. A plain `ComponentProps<C>` constraint therefore accepted `{ ratioo: 1 }` through
@@ -1087,6 +1141,18 @@ of it. The kicker is *why* the current instance never handles its own events: th
 registration is deferred by `setTimeout(0)` (`utils.ts:126`), and one jsdom test's hook chain is
 microtask-only, so **the listener only ever attaches between tests** — on instances that are
 already zombies. jsdom "covering" a line can mean a dead component processed a live test's event.
+
+**`browser.trace` is a single-file reproduction tool, not a suite mode.** Vitest 4.1 records
+Playwright traces (`--browser.trace=on|retain-on-failure|…`, `docs/guide/browser/trace-view.md`), with
+`page.mark()` / `locator.mark()` as timeline markers and a zip per test under `__traces__` (now
+gitignored). Measured on the green browser project, back to back on one machine: baseline **24.3s**;
+`retain-on-failure` **69.4s (2.85×) with 13–15 *new* failures in 12 files** across two runs
+(TimeField, Calendar, HoverCard, Menu, ScrollArea, Accordion, the Avatar snapshot, axe audits — the
+timing-shaped tests) plus a Playwright `tracing.stopChunk: file data stream has unexpected number of
+bytes`; with `--no-file-parallelism` **359.6s and still 5 failures**. `retain-on-failure` still starts
+and stops a chunk for every test (~210ms each) and only deletes the passing zips afterwards, so the
+cost and the interference are paid regardless. Turn it on for one file when a failure needs a
+timeline; never in CI or the default run (`browser-mode#trace-cost`, `PERFORMANCE.md` §8).
 
 **A failing retrying matcher inherits the *test* timeout — which browser mode defaults to 15s.**
 `expect.element(…).toHaveFocus()` going red took **15009ms** against the jsdom equivalent's 8ms;
@@ -1233,10 +1299,43 @@ starts" passes on Chromium and WebKit by that coincidence and fails on Firefox w
 `NotFoundError` (`cross-browser#firefox-mouse-pointerid-0`). A test that passes because of which
 number an engine gives its mouse is still a test of a synthetic event.
 
+**`cdp()` makes three "synthetic-only" things real — IME composition, touch, and a second opinion on
+the ARIA tree.** `import { cdp } from 'vitest/browser'` returns the page's Playwright `CDPSession`
+(Chromium only; gated by `browser.api.allowWrite` / `allowExec`, both default `true` when the API
+host is localhost — `docs/config/browser/api.md`). All three probed green in the `browser` project:
+
+- **IME.** On a focused `<input>`, `Input.imeSetComposition({ text: 'x', selectionStart: 1,
+  selectionEnd: 1 })`, again with `'xiang'`, then `Input.insertText({ text: '想' })` produced
+  `compositionstart → compositionupdate:x → beforeinput/input (isComposing: true) → … →
+  compositionupdate:想 → beforeinput/input → compositionend:想`, with `value` `xiang` mid-composition
+  and `想` after commit. The 37 hand-built `CompositionEvent`s in the ports (DropdownMenuFilter 18,
+  Combobox 17, Autocomplete, TimeField, ColorField, NumberField) were written under "Playwright has
+  no IME"; on Chromium that is no longer the only faithful gesture (`browser-mode#cdp-real-ime`).
+- **Touch.** `Input.dispatchTouchEvent({ type: 'touchStart', touchPoints: [{ x, y }] })` →
+  `touchMove` → `touchEnd` delivered real `pointerdown/move/up` with **`pointerType: 'touch'`,
+  `pointerId: 2`** plus `touchstart/move/end`, without `hasTouch` (`navigator.maxTouchPoints` stayed
+  0). Coordinates are page-level — use `window.frameElement.getBoundingClientRect()` for offset and
+  scale, or add a `touchSwipe` command beside `mouseDown`. Candidates: `Drawer.snap`,
+  `useSwipeDismiss` (synthetic `pointerType: 'mouse'` drags), HoverCard `enableTouch`
+  (`browser-mode#cdp-real-touch`).
+- **Chromium's own AX tree.** `Page.getFrameTree` → `childFrames[0].frame.id` is the tester iframe;
+  `Accessibility.getFullAXTree({ frameId })` returns the engine's nodes. Probe: a group with a dangling
+  `aria-labelledby` came back `name=""`, its valid sibling `name="Fruits"`. That is the engine-side
+  oracle the ivya-backed family lacks (see the `ivya` entry below) — the census findings can be
+  cross-checked against what Chromium actually exposes (`browser-mode#cdp-chromium-ax-tree`).
+
+Two caveats. `cdp()` is `undefined` under Firefox/WebKit, so anything using it in a shared file needs
+`it.skipIf(server.browser !== 'chromium')` or the cross-browser run dies at the call. And none of
+this is wired into a port yet — the probes were throwaway files; the entries record what was
+measured, not what has landed.
+
 **Tests run inside an iframe.** So raw `page.mouse` and `cdp()` take *page*-level coordinates
-and you would have to offset by the iframe rect yourself. Prefer locator methods. Custom
-commands (`docs/api/browser/commands.md`) are the escape hatch when you genuinely need
-`page.mouse`.
+and you would have to offset by the iframe rect yourself — **and scale by it**, unless the outer
+page is exactly the instance viewport (see the scaled-screenshot gotcha and its mouse-command
+sibling above; both projects now pin `contextOptions.viewport`). From inside a test,
+`window.frameElement.getBoundingClientRect()` gives the rendered box, and `width / window.innerWidth`
+the scale. Prefer locator methods. Custom commands (`docs/api/browser/commands.md`) are the escape
+hatch when you genuinely need `page.mouse`.
 
 **`dropTo` is atomic; three nested `beforeEach` hooks are not.** Several jsdom files nest their
 describes around the *steps* of a gesture — `after pointerdown` → `after pointermove` →
@@ -1473,7 +1572,11 @@ implementation across queries, matchers and snapshots, where the jsdom stack com
 `dom-accessibility-api` instead. Practical consequences: the tree is deterministic and carries no
 font metrics (unlike the DOM snapshots in `ScrollArea`), and it is a *model* of what an AT would
 be told, so it will not show Chromium's own repairs of broken relations — the divergence already
-recorded for `combobox-stale-activedescendant`.
+recorded for `combobox-stale-activedescendant`. The engine's own tree *is* reachable, though:
+`cdp().send('Accessibility.getFullAXTree', { frameId })` for the tester frame (see the `cdp()` gotcha)
+returned Chromium's nodes, naming a validly-labelled group `"Fruits"` and a dangling-`aria-labelledby`
+group `""` — so "what would Chromium tell an AT" is a probe away, not a guess
+(`browser-mode#cdp-chromium-ax-tree`).
 
 **…and the tree carries no relations at all, so an ARIA snapshot cannot see a broken
 `aria-controls`.** Read out of `@vitest/browser` `dist/expect-element.js` (bundled ivya): a tree

@@ -77,9 +77,14 @@ export default defineConfig({
           // process; WebKit does not and reports the host zone (measured:
           // `Europe/Berlin` in every ZonedDateTime test). Configure it.
           timezoneId: 'America/New_York',
+          // Same as the `browser` project: keep the outer page the size of
+          // the tester iframe so `page.mouse` commands are not CSS-scaled.
+          viewport: { width: 414, height: 896 },
         },
       }),
       headless: true,
+      // Same as the `browser` project — exact text/name matching by default.
+      locators: { exact: true },
       instances: ENGINES.map(browser => ({ browser })),
       commands: { mouseDown, mouseMove, mousePress, mouseUp },
     },

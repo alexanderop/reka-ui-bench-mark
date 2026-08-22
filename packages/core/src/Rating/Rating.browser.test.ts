@@ -83,7 +83,12 @@ describe('given a hoverable Rating', () => {
   beforeEach(async () => {
     // The pointer survives render cleanup. Park it away before mounting so a
     // new radio cannot appear already under it and make hover setup vacuous.
-    await mouse.mouseMove(390, 5)
+    // RatingRoot is a 414x32 block at the top-left of the iframe and the
+    // preview resets on ITS `mouseleave` (RatingRoot.vue:116), so "away" means below y=32 — not
+    // (390,5), which is inside the root. That point only ever worked because
+    // the unscaled harness threw the pointer out of the iframe entirely
+    // (FINDINGS.tsv Rating/Rating.test.ts#leave-point-was-inside-the-root).
+    await mouse.mouseMove(390, 200)
     screen = await render(Rating, { props: { defaultValue: 1, hoverable: true, length: 3 } })
     radios = Array.from(screen.container.querySelectorAll('[role=radio]'))
   })
@@ -96,8 +101,8 @@ describe('given a hoverable Rating', () => {
 
   it('should reset the preview to the model value on mouse leave', async () => {
     await page.elementLocator(radios[2]).hover()
-    // Move the real pointer outside the 96px-wide fixture.
-    await mouse.mouseMove(390, 5)
+    // Move the real pointer off the 414x32 RatingRoot — below it, onto bare body.
+    await mouse.mouseMove(390, 200)
 
     expect(radios[0].getAttribute('data-state')).toBe('active')
     expect(radios[1].getAttribute('data-state')).toBeNull()

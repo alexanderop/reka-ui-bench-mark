@@ -1,4 +1,5 @@
 import type { VNodeChild } from 'vue'
+import { vi } from 'vitest'
 import { h } from 'vue'
 
 /**
@@ -83,20 +84,27 @@ export interface VisualCell<Variant> {
   rect: (selector: string) => DOMRect
 }
 
-/** The scoped query surface every cell exposes, built over its `<section>`. */
+/**
+ * The scoped query surface every cell exposes, built over its `<section>`.
+ *
+ * Each query is a `vi.defineHelper`, so a selector that matches nothing fails
+ * at the line in the sheet file that asked, not here. A nested helper
+ * (`rect` → `get`) resolves to the outermost call site: Vitest slices the
+ * stack at the *last* `__VITEST_HELPER__` frame (`@vitest/utils` source-map.ts).
+ */
 export function cellQueries(el: HTMLElement, title: string, name: string) {
-  const getAll = <T extends Element = HTMLElement>(selector: string) =>
-    [...el.querySelectorAll<T>(selector)]
-  const get = <T extends Element = HTMLElement>(selector: string): T => {
+  const getAll = vi.defineHelper(<T extends Element = HTMLElement>(selector: string) =>
+    [...el.querySelectorAll<T>(selector)])
+  const get = vi.defineHelper(<T extends Element = HTMLElement>(selector: string): T => {
     const found = el.querySelector<T>(selector)
     if (!found)
       throw new Error(`[${title}] cell "${name}" has no element matching ${selector}`)
     return found
-  }
+  })
   return {
     get,
     getAll,
-    rect: (selector: string) => get(selector).getBoundingClientRect(),
+    rect: vi.defineHelper((selector: string) => get(selector).getBoundingClientRect()),
   }
 }
 

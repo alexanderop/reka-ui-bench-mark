@@ -43,6 +43,9 @@ vite.config.ts.timestamp*
 # those diagnostics ignored, but retain the reviewed references owned by the
 # isolated `*.visual.browser.test.ts` project.
 .vitest-attachments/
+# `browser.trace` writes Playwright trace zips next to the test file. They are
+# single-file reproduction material, never references (PERFORMANCE.md §8).
+**/__traces__/
 **/__screenshots__/
 !packages/core/src/**/__screenshots__/
 packages/core/src/**/__screenshots__/*

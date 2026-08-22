@@ -28,9 +28,12 @@ in AGENTS.md — stops being per-test discipline and becomes the default.
 
 ### Locators match exactly by default
 
-New config `browser.locators.exact`, **default `true`**: `getByText`, role
+`browser.locators.exact` becomes **default `true`**: `getByText`, role
 `name` filters and friends require a full, case-sensitive match unless a call
-opts out with `exact: false`. Concretely, against our recorded traps:
+opts out with `exact: false`. *(Correction: the option itself is not new — it
+shipped in **4.1.3**, default `false`, `docs/config/browser/locators.md`; v5
+only flips the default. We flipped it on 4.1.10 instead of waiting — see step
+0d below.)* Concretely, against our recorded traps:
 
 | AGENTS.md hazard | v4 behavior | v5 behavior |
 |---|---|---|
@@ -281,6 +284,12 @@ is an improvement on its own terms:
 - **0c. `useBodyScrollLock`'s `vi.mock` is hoisted to the top level.** This
   was already printing a deprecation warning on every 4.1 run; it is an error
   in v5.
+- **0d. `browser.locators.exact: true` is on** in both the `browser` and
+  `cross-browser` configs (it exists since 4.1.3). Measured blast radius
+  before fixing: 1496 pass, 2 fail, both Menubar's
+  `getByRole('menuitem', { name: 'New Tab' })` against the name `New Tab ⌘ T`
+  — fixed by naming the full string. The v5 bump will not change locator
+  semantics for this suite any more.
 
 What remains, once `vitest-browser-vue` ships a v5-compatible release (see
 Part 3 §2 — this is the blocker, not the codemod):
@@ -289,8 +298,8 @@ Part 3 §2 — this is the blocker, not the codemod):
    (npm is at `5.0.0-rc.2`; the reference clone is pinned at `rc.1`).
    `clearMocks: false` is **not** needed.
 2. Run the **async-`render` codemod** (adapter first, then the 89 files).
-3. Full three-project run. Triage what is left: substring-reliant locators
-   (fix the query), tight `expect.poll` timeouts (raise explicitly).
+3. Full three-project run. Triage what is left: tight `expect.poll` timeouts
+   (raise explicitly). Substring-reliant locators are already gone (0d).
 4. Re-pin the reference clone (`pinned/5.x`) and update AGENTS.md: the
    substring-family gotchas become historical notes, and the retrying-matcher
    timing rules get re-verified against v5's `expect.element` source.

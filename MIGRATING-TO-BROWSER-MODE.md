@@ -484,11 +484,55 @@ await locator.dropTo(target)
 Both go through Playwright's `FrameLocator`, which handles iframe coordinate translation for
 you.
 
-### Tests run inside an iframe
+### Gestures Playwright has no API for: reach through CDP
+
+Playwright has no IME and no multi-step touch API, so a port that needs `compositionstart` or a
+`pointerType: 'touch'` swipe is tempted to keep the jsdom-era synthetic dispatch. On Chromium you
+do not have to: `import { cdp } from 'vitest/browser'` hands you the page's DevTools session
+(gated by `browser.api.allowWrite` / `allowExec`, both default `true` on localhost). Measured, in
+a throwaway test inside our browser project:
+
+```ts
+const s = cdp()
+// IME: two composition updates, then a commit
+await s.send('Input.imeSetComposition', { text: 'x', selectionStart: 1, selectionEnd: 1 })
+await s.send('Input.imeSetComposition', { text: 'xiang', selectionStart: 5, selectionEnd: 5 })
+await s.send('Input.insertText', { text: '想' })
+// → compositionstart, compositionupdate:x, beforeinput/input (isComposing: true), …,
+//   compositionend:想; input.value was 'xiang' mid-composition and '想' after
+
+// Touch: page-level coordinates, so offset AND scale by the tester iframe (next section)
+await s.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y0 }] })
+await s.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y1 }] })
+await s.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+// → pointerdown/move/up with pointerType 'touch' (pointerId 2) + touchstart/move/end,
+//   without hasTouch; navigator.maxTouchPoints stayed 0
+```
+
+Same session, same idea for accessibility: `Page.getFrameTree` → the tester iframe's `frame.id` →
+`Accessibility.getFullAXTree({ frameId })` returns **the engine's** tree, which is a different
+thing from the ivya model the locators and ARIA snapshots use (section 12). Chromium only — under
+Firefox/WebKit `cdp()` is undefined, so guard with `it.skipIf(server.browser !== 'chromium')`
+in any file that runs on several engines.
+
+### Tests run inside an iframe — and the iframe may be scaled
 
 Raw `page.mouse` and `cdp()` take **page-level** coordinates, so you would have to offset by
 the iframe rect yourself. Prefer locator methods. Custom commands are the escape hatch when
 you genuinely need page-level control.
+
+The offset is the obvious half. The half that bit us for the entire migration: with the browser UI
+off, the Vitest 4.1 Playwright provider does not copy `browser.instances[].viewport` to the outer
+context, so a 414×896 tester iframe inside Playwright's 1280×720 default page is CSS-scaled to fit
+— 333×720, scale 0.80, readable from inside the test because the frame is same-origin:
+`window.frameElement.getBoundingClientRect().width / window.innerWidth`. Locator actions compensate
+for that; our custom mouse commands, which added iframe-CSS offsets to `iframe.owner().boundingBox()`,
+did not, and `mouseDown(100, 200)` was landing at client (124, 249) — **1.24× off** — in every test
+that used them. They all passed, because their assertions tolerated it; one passed *because* of it
+(a "move the pointer outside the component" step was actually moving it outside the iframe). The
+fix is one line and the same one that un-scales screenshots: give `playwright()` a
+`contextOptions.viewport` equal to the instance viewport. Then audit every test that computes page
+coordinates by hand; ours had one that only worked wrong.
 
 ### Drag primitives are atomic; hooks are not
 
@@ -551,6 +595,13 @@ Both bite hardest when your domain strings are prefixes of each other:
 Pass `{ exact: true }` whenever the string is data rather than a label you control. The loud
 strict-mode failure is the lucky case; budget an audit for the quiet ones, because name parity
 tooling cannot see a query that merely got wider.
+
+Better: turn the default off. **Vitest 4.1.3 added `browser.locators.exact`** (the v5 default,
+available now), which makes every text locator and role `name` whole-string unless a call opts
+out with `{ exact: false }`. Flipping it on our finished 97-file corpus failed **2 tests of 1526**,
+both one locator: `getByRole('menuitem', { name: 'New Tab' })` had been silently matching an item
+whose accessible name is `New Tab ⌘ T`. That is the audit the previous paragraph asks for, run by
+the engine in 20 seconds — do it before the port is "done", not after.
 
 Matcher text can be equally permissive. `toHaveTextContent('1')` passes for initial values such as
 `12` and `1980`, and `toHaveTextContent('5')` accepts a broken accumulated value like `20245`.
@@ -800,6 +851,54 @@ original fired a synthetic `submit` event and never exercised the path a user ta
 `expect.element(…)` polls. `.element()` is a synchronous escape hatch that does not. When a
 test computes a delta across an interaction, put the awaited assertion **before** reading the
 new value, or you race the framework's flush.
+
+### Shared helpers should fail at the call site — `vi.defineHelper`
+
+A migration grows helpers: a VTU-shaped compat adapter so large ports keep their
+`find(sel).trigger(…)` phrasing, a story-sheet helper with scoped `cell.get(sel)` queries,
+file-local `expectSelectedRange(…)` functions. Every one of them moves the failing frame out of
+the test and into the helper, and the test line becomes frame 2 — if the reporter shows it at
+all. Vitest 4.1.0 added `vi.defineHelper(fn)` for exactly this. From source it is tiny: the
+wrapper is a function literally named `__VITEST_HELPER__` (`vitest/src/integrations/vi.ts:614`),
+and the stack parser does `findLastIndex(frame => method.includes('__VITEST_HELPER__'))` and
+slices everything above it away (`@vitest/utils/src/source-map.ts:235`). Browser mode is
+covered because the tester ships the raw error up and the server parses it through the same
+function (`browser/src/node/rpc.ts:177`). We measured six shapes in Chromium on 4.1.10:
+
+| helper shape | where the `❯` frame lands |
+|---|---|
+| unwrapped `function h() { expect(a).toBe(b) }` | inside the helper; the test line is frame 2 |
+| `vi.defineHelper(() => { expect(a).toBe(b) })` | **the test line** |
+| wrapped `async` around `expect.element(…).toHaveAttribute` | the test line; the `Caused by: Matcher did not succeed in time` too |
+| wrapped `rect` → wrapped `get` → `throw new Error('no element matching …')` | the **`rect(…)` call** in the test — nesting collapses to the outermost helper |
+| `find(sel)!` then `.attributes()`, unwrapped | `TypeError: Cannot read properties of null (reading 'getAttribute')` at the adapter's `attributes` |
+| the same, both wrapped | the test line — **same useless message** |
+
+Three things the docs example does not tell you, all visible in that table:
+
+1. **It trims any error, not only assertion errors.** A plain `throw new Error` inside a helper
+   lands at the call site too, so a `cell.get(sel)` that throws "no element matching" is a full
+   citizen.
+2. **Nested helpers resolve to the outermost call.** `findLastIndex` means the frame closest to
+   the test wins, which is what you want for `rect → get`.
+3. **It trims the stack, not the message.** The last two rows are the trap: a compat adapter
+   built on `querySelector(sel)!` keeps saying "Cannot read properties of null" no matter how you
+   wrap it. Pair the wrapper with a guard that names what was asked for — and put the guard on the
+   *consuming* method, not on `find`, because `find(sel).exists()` is how ports assert absence.
+   (That is VTU's own design: `find` returns an `ErrorWrapper` whose methods throw "Cannot call
+   attributes on an empty DOMWrapper".) With both, the same stale selector fails as
+   `cannot call attributes() on an empty BrowserElement (no element matching "[role="nope"]")`
+   with the caret on the test line (measured, `src/test/browser.ts`).
+
+Where it pays, in our tree: the compat adapter's methods (`find`, `findAll`, `attributes`,
+`trigger`, `setValue`, `text`, `html`); the sheet helper's `cell(name)`, `cell.get`, `cell.getAll`,
+`cell.rect` — `cell('Nope')` now reports at `:7:55` in the sheet file instead of
+`defineHistoireStory.ts`; and file-local assertion helpers with several `expect`s inside. Where it
+does not: custom matchers registered with `expect.extend` (they already report at the call site),
+`setup()` factories (they fail once, at the one `await setup(…)` line anyway), and helpers called
+in a loop, where the call-site line is ambiguous across iterations — keep a `message:` that names
+the iteration. One cost: the helper's own frames vanish entirely, so while you are *writing* a
+helper, a bug inside it points at its caller. Wrap helpers once they are stable.
 
 ---
 
@@ -1408,6 +1507,13 @@ Honest gaps. Do not read past silence here as endorsement.
   not the predicted one — browser startup turned out to be cheap (~0.6s), so "too slow" is the
   wrong argument against porting pure logic. "Buys nothing" is the right one. Still
   `[unverified]` for date/colour utilities specifically; only the composable case was measured.
+- **Tracing is not free, and `retain-on-failure` is not "free when green".** Vitest 4.1 can record
+  Playwright traces per test (`browser.trace`, with `page.mark()` markers). Measured on our green
+  97-file Chromium corpus, back to back: baseline 24.3s; `retain-on-failure` 69.4s **and 13–15 new
+  failures in 12 files** (the timing-shaped tests) plus a `tracing.stopChunk` error; serial 359.6s
+  and still 5 failures. The mode starts and stops a chunk for every test and only deletes the
+  passing zips afterwards, so a suite of real-input tests pays and flakes regardless. Record a
+  trace for the one file you are debugging; do not put it in CI.
 - **Visual regression.** A bounded pilot showed the useful shape: define stable variants as data,
   render them together below one neutral Vue host, retain exact geometry/state assertions, and
   capture the whole story sheet once with `toMatchScreenshot`. Do not manually call
@@ -1572,6 +1678,14 @@ running as JS in the page — not from the browser's native accessibility tree. 
 deterministic and consistent across the three APIs, but a snapshot shows what an AT *should* be
 told from the DOM, not what a particular browser's AX tree ended up containing after its own
 repairs.
+
+When that difference matters — a finding you want to confirm against the engine before filing it —
+the native tree is one CDP call away on Chromium (section 6, "reach through CDP"):
+`Page.getFrameTree` gives the tester iframe's `frame.id`, and
+`Accessibility.getFullAXTree({ frameId })` returns Chromium's nodes with their computed names.
+Measured: a group whose `aria-labelledby` pointed at a missing id came back `name: ""`, its validly
+labelled sibling `name: "Fruits"` — the same verdict ivya gave, which is the point: you now have two
+independent oracles, and a disagreement between them is itself a finding.
 
 And the tree models **nodes, not relations**. A node carries its role, its computed name and the
 active states (`checked`, `disabled`, `expanded`, `level`, `pressed`, `selected`, `active`) plus

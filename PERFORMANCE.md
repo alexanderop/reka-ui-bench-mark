@@ -208,7 +208,9 @@ Consequences, in order of how often they bite:
    (`resolveConfig.ts:874`), and each failure takes a full-page screenshot with a 5s timeout
    (`packages/browser/src/client/tester/runner.ts:162-181`) — on top of the timeout above. It fires
    only on `task.result.state === 'fail'`, so the 20 `it.fails` quarantines do **not** pay it.
-   `browser.trace` defaults to `'off'` (`resolveConfig.ts:899-900`) and costs nothing here.
+   `browser.trace` defaults to `'off'` (`resolveConfig.ts:899-900`) and costs nothing here — and
+   turning it on is not a cheap diagnostic either: `retain-on-failure` on the green suite cost
+   **24.3s → 69.4s and 13–15 new failures**; see §8.
 
 ## 7. Cold start — the inner dev loop
 
@@ -243,7 +245,10 @@ result in either direction.
 | `isolate: false` | **46–53 of 89 files fail**, non-deterministically, and it is *slower*: 26.8–29.7s | rejected |
 | `maxWorkers` | 6 → 12.60s · **11 (default) → 11.79s** · 16 → 13.25s | keep default |
 | `expect: { poll: { interval: 10 } }` (from 50) | 11.70s vs 11.79s | noise, not adopted |
-| `viewport: 1280×800` (from default 414×896) | wall clock unchanged, **breaks `Rating`'s mouse-leave test** | rejected |
+| `viewport: 1280×800` (from default 414×896) | wall clock unchanged, **breaks `Rating`'s mouse-leave test** — *later understood*: not the viewport's fault. The outer Playwright page was still 1280×720, so the iframe was scaled 0.9 instead of 0.8 and the test's hand-computed "outside" point no longer left the iframe (`browser-mode#scaled-iframe-page-coordinates`, `Rating/Rating.test.ts#leave-point-was-inside-the-root`; consistent with the measurements, not re-run at 1280×800) | rejected |
+| `playwright({ contextOptions: { viewport: 414×896 } })` — outer page = instance viewport | unscales the tester iframe (was 333×720, scale 0.8036): raw `page.mouse` commands land where asked (`mouseDown(100,200)` → (124,249) before, (100,200) after); green suite **17.6s**, 97/97 after fixing Rating's leave point | **adopted** (browser + cross-browser) |
+| `browser.locators.exact: true` (4.1.3+, v5's default) | wall clock unchanged; **1496 pass / 2 fail**, both one Menubar locator matching `New Tab` against `New Tab ⌘ T` | **adopted** (browser + cross-browser), locator fixed |
+| `--browser.trace=retain-on-failure` | **24.3s → 69.4s** (2.85×), **13–15 new failures in 12 files** across two runs + `tracing.stopChunk: file data stream has unexpected number of bytes`; with `--no-file-parallelism` **359.6s**, still 5 failures. A chunk is recorded per test (~210ms) and passing zips deleted afterwards, so green tests pay in full | rejected as a suite/CI mode; single-file debugging only |
 | `launchOptions.args: --disable-frame-rate-limit, --disable-gpu-vsync, --disable-background-timer-throttling` | click **24.8 → 52.8ms**, 2×rAF **16.7 → 34.9ms** — **2× worse**, reverted and re-measured to confirm | rejected |
 | lazy-loading `axe-core` out of the setup file | per-file setup 454ms → 441ms | noise, not adopted |
 
