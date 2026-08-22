@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
 import { ColorSwatch } from '.'
@@ -7,6 +7,18 @@ type ColorSwatchScreen = Awaited<ReturnType<typeof render<typeof ColorSwatch>>>
 
 function root(screen: ColorSwatchScreen) {
   return screen.container.firstElementChild as HTMLElement
+}
+
+async function renderTransparentColor(color?: string) {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  try {
+    const screen = await render(ColorSwatch, { props: { color } })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Unable to resolve contrast color'))
+    return screen
+  }
+  finally {
+    warn.mockRestore()
+  }
 }
 
 describe('colorSwatch', () => {
@@ -58,21 +70,17 @@ describe('colorSwatch', () => {
     })
 
     it('should show "transparent" for alpha=0 color', async () => {
-      const screen = await render(ColorSwatch, {
-        props: { color: '#ff000000' },
-      })
+      const screen = await renderTransparentColor('#ff000000')
       expect(root(screen).getAttribute('aria-label')).toBe('transparent')
     })
 
     it('should show "transparent" for empty color', async () => {
-      const screen = await render(ColorSwatch, {
-        props: { color: '' },
-      })
+      const screen = await renderTransparentColor('')
       expect(root(screen).getAttribute('aria-label')).toBe('transparent')
     })
 
     it('should show "transparent" when no color prop provided', async () => {
-      const screen = await render(ColorSwatch)
+      const screen = await renderTransparentColor()
       expect(root(screen).getAttribute('aria-label')).toBe('transparent')
     })
   })
@@ -91,16 +99,12 @@ describe('colorSwatch', () => {
 
   describe('data attributes', () => {
     it('should set data-no-color when alpha is 0', async () => {
-      const screen = await render(ColorSwatch, {
-        props: { color: '#ff000000' },
-      })
+      const screen = await renderTransparentColor('#ff000000')
       expect(root(screen).getAttribute('data-no-color')).toBe('')
     })
 
     it('should set data-no-color when no color', async () => {
-      const screen = await render(ColorSwatch, {
-        props: { color: '' },
-      })
+      const screen = await renderTransparentColor('')
       expect(root(screen).getAttribute('data-no-color')).toBe('')
     })
 

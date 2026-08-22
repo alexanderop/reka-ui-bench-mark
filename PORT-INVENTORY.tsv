@@ -11,7 +11,7 @@ Collection/Collection.test.ts	T2-mechanical	5	14	181	none	-	-	-	-	yes
 ColorArea/ColorArea.test.ts	T3-payoff	64	91	567	mounts	pointerCapture	pointerCapture,coords,focusApi	-	axe,pointerEvents,keyboardEvents	yes
 ColorField/ColorField.test.ts	T2-mechanical	29	41	381	mounts	-	-	-	axe,keyboardEvents	yes
 ColorSlider/ColorSlider.test.ts	T3-payoff	16	25	214	mounts	ResizeObserver,pointerCapture,scrollIntoView	ResizeObserver,pointerCapture,scrollIntoView	-	axe,keyboardEvents	yes
-ColorSwatch/ColorSwatch.test.ts	T2-mechanical	17	20	150	exists	-	-	-	axe	yes
+ColorSwatch/ColorSwatch.test.ts	T2-mechanical	17	20	154	exists	-	-	-	axe,spyOn	yes
 ColorSwatchPicker/ColorSwatchPicker.test.ts	T2-mechanical	9	14	77	mounts	-	-	-	axe	yes
 Combobox/Combobox.test.ts	T3-payoff	45	67	896	mounts	ResizeObserver,pointerCapture,scrollIntoView,getBoundingClientRect,getComputedStyle	ResizeObserver,pointerCapture,scrollIntoView,rects,computedStyle,rAF,focusApi	-	axe,pointerEvents,keyboardEvents	yes
 ConfigProvider/ConfigProvider.test.ts	T4-hostile	8	14	111	none	ResizeObserver	ResizeObserver,rects	moduleMock	-	yes

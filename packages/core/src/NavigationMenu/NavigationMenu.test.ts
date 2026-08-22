@@ -208,6 +208,11 @@ describe('given default NavigationMenu', () => {
 
       // Click the top-level Github link
       const topLevelLink = wrapper.find('a[href="https://github.com/unovue"]').element as HTMLElement
+      // Keep the component's already-registered click handler intact, then
+      // cancel only the anchor default. Without this jsdom schedules a
+      // navigation it cannot implement and prints an asynchronous error after
+      // the otherwise-green test has finished.
+      topLevelLink.addEventListener('click', event => event.preventDefault(), { once: true })
       topLevelLink.click()
       await sleep(0)
       await wrapper.vm.$nextTick()

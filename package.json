@@ -4,8 +4,10 @@
   "version": "2.10.3",
   "private": true,
   "packageManager": "pnpm@10.13.1",
+  "description": "Completed case study: porting Reka UI's jsdom suite to Vitest Browser Mode while retaining a comparison corpus.",
   "license": "MIT",
-  "repository": "unovue/reka-ui",
+  "homepage": "https://github.com/alexanderop/reka-ui-bench-mark/tree/browserMode",
+  "repository": "alexanderop/reka-ui-bench-mark",
   "workspaces": [
     "packages/*"
   ],
@@ -19,6 +21,7 @@
     "docs:gen": "pnpm --filter docs docs:gen",
     "docs:contributors": "pnpm --filter docs docs:contributors",
     "docs:sponsors": "pnpm --filter docs docs:sponsors",
+    "docs:check-links": "node scripts/check-case-study-links.mjs",
     "prepare": "pnpm simple-git-hooks",
     "test": "pnpm --filter reka-ui test",
     "test:browser": "pnpm --filter reka-ui test:browser",

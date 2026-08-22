@@ -22,15 +22,18 @@ ship a feature. It exists for two reasons, in order:
 thing. Repo mechanics are at the bottom under [Repo reference](#repo-reference); everything
 before it is the browser-mode effort.
 
-## The four documents
+## Document map
 
 | Document | Audience | Holds |
 |---|---|---|
 | **`AGENTS.md`** (this file) | agents working in this repo | what the fork is for, the translation table, the gotchas, conventions for ported tests |
 | **`PORTING.md`** | whoever is running the migration | how the work is sequenced, the oracles, the tiers, the per-file loop |
 | **`MIGRATING-TO-BROWSER-MODE.md`** | **the public** | the generalised field guide, written to be shared outside this repo |
+| **`VITEST-BROWSER-MODE-COOKBOOK.md`** | **the public** | focused recipes for writing reference-quality Browser Mode tests after setup |
 | **`PERFORMANCE.md`** | anyone deciding whether browser mode is affordable | what it costs and where — per suite, per file, per operation, with the method for each number |
 | **`A11Y-FINDINGS.md`** | anyone triaging accessibility bugs in reka-ui | the product and fixture issues the ARIA census found, with evidence, severity and the `it.fails` that pins each |
+| **`IMPROVING-PORTED-TESTS.md`** | maintainers of this fork | the post-migration audit that replaced compatibility input with reference-quality browser interaction |
+| **`IMPROVING-PORTED-TESTS-VITEST-5.md`** | maintainers planning an upgrade | measured Vitest 5 opportunities; not current 4.1 setup guidance |
 
 **When you learn something non-obvious, it goes in two places**: the specific note here (or in
 `PORTING.md`), *and* the generalised version in `MIGRATING-TO-BROWSER-MODE.md`. That last file
@@ -42,8 +45,8 @@ mark anything unmeasured `[unverified]`.
 
 ## The premise
 
-reka-ui's suite runs on jsdom, and jsdom cannot do layout, focus, or pointer capture. The
-tests pay for that in mocks. `packages/core/src/Slider/Slider.test.ts:10-18` is the clearest
+reka-ui's original suite runs on jsdom, and jsdom cannot do layout, focus, or pointer capture. The
+retained originals pay for that in mocks. `packages/core/src/Slider/Slider.test.ts:10-18` is the clearest
 example — before it can assert anything it has to fake four browser APIs:
 
 ```ts
@@ -68,15 +71,16 @@ for this file" is a real result.
 
 ## Reference material
 
-`~/Projects/opensource/vitest` is a checkout of Vitest on branch **`pinned/4.1.10`** — the
-exact version this repo depends on. **Read it instead of guessing or relying on training
-data.** Vitest 4 moved a lot: the provider is now a function from a separate package
+Use the [Vitest v4.1.10 source](https://github.com/vitest-dev/vitest/tree/v4.1.10) — the exact
+version resolved by this repo's frozen lockfile — instead of guessing or relying on training data.
+For repeated source work, keep a local checkout pinned to tag `v4.1.10`; its path is deliberately
+not part of the repository contract. Vitest 4 moved a lot: the provider is now a function from a separate package
 (`playwright()` from `@vitest/browser-playwright`, not the v3 string `provider: 'playwright'`),
 and the context import moved from `@vitest/browser/context` to `vitest/browser`. Blog posts
 and older docs will lead you wrong.
 
-The docs tree in that clone is the versioned source of vitest.dev, so prefer it over the live
-site (which tracks `main`). Line numbers are safe to cite while the pin holds.
+The docs tree at that tag is the versioned source of vitest.dev, so prefer it over the live site
+(which can move ahead). Line numbers are safe to cite while the pin holds.
 
 Most useful paths:
 
@@ -122,12 +126,13 @@ root — the browser project must not inherit `vitest.setup.ts`, which loads
 `vitest-canvas-mock`, `@testing-library/jest-dom/vitest` (browser mode ships its own fork of
 those matchers), and a `getComputedStyle` patch for a jsdom bug that does not exist in Chrome.
 
-The browser project also registers three custom commands — `mouseDown` / `mouseMove` /
-`mouseUp`, from `vitest.browser.commands.ts`. They exist because the locator API's only drag
+The browser project also registers six custom commands — `copyPaste`, `mouseDown`, `mouseMove`,
+`mousePress`, `mouseUp`, and `touchSwipe` — from `vitest.browser.commands.ts`. The held-mouse
+commands exist because the locator API's only drag
 primitive (`dropTo`) is atomic and cannot be split across `beforeEach` hooks; see the gotcha
 below.
 
-Ported so far:
+Completed corpus and findings:
 
 - `packages/core/src/smoke.browser.test.ts` — harness check, imports nothing.
 - `packages/core/src/css-shim.browser.test.ts` — harness check, guards the Tailwind pipeline.
@@ -470,9 +475,9 @@ same on every OS.
 - Three ways to aim the feature, in order of payoff measured here: (1) the census, for "what does
   an AT get" across the whole library at once; (2) transition pairs on overlays, where the
   structure only exists when open; (3) **family conformance** — one regex template shared by
-  siblings that should expose the same shape (the six calendars), which would have flagged the
-  unnamed Calendar `application` against the named MonthPicker one without anyone reading a tree.
-  (3) is not written yet.
+  siblings that should expose the same shape. `CalendarFamily.aria.browser.test.ts` now applies
+  that contract to the six calendar families and catches a sibling that loses its application or
+  grid naming without requiring someone to read the whole census tree.
 
 ### Translation table
 
@@ -945,6 +950,14 @@ trigger a render that restored the old virtual-DOM style, creating `ResizeObserv
 with undelivered notifications`. Put the dimensions in reactive fixture state and change them via
 the fixture's real control; then Vue and the observer agree on ownership and the size transition is
 the component's scenario rather than a test-induced feedback loop.
+
+**Make observer-driven fixtures start at their settled geometry before suppressing anything.**
+ScrollArea's two-axis corner writes 10px CSS variables that shorten both observed tracks from 200px
+to 190px during the first delivery. The functional corner regression now declares those real 190px
+track lengths up front and Chromium, Firefox, and WebKit run it without an observer warning. The
+visual story sheet intentionally renders the natural multi-variant mount; Vitest 4.1.10 still prints
+the Vite client's exact deferral diagnostic before `onUnhandledError` accepts it. The visual and
+cross-browser configs match that complete message only, and every other browser error remains fatal.
 
 **A mock-choreographed numeric expectation may rebase deterministically — measure before
 quarantining.** Combobox's popper slot-render ladder is 3-then-4 in jsdom and **4-then-4** in

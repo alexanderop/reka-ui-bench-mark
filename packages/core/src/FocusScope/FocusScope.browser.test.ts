@@ -117,7 +117,7 @@ describe('focusScope', () => {
   describe('given a FocusScope with SelectTrigger inside Dialog (#2550)', () => {
     const DialogWithSelect = defineComponent({
       components: { DialogRoot, DialogTrigger, DialogContent, DialogTitle, SelectRoot, SelectTrigger, SelectValue, SelectContent, SelectItem },
-      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent><DialogTitle>Test Dialog</DialogTitle>
+      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent :aria-describedby="undefined"><DialogTitle>Test Dialog</DialogTitle>
         <input data-testid="email-input" type="text" placeholder="you@example.com" /><SelectRoot><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
         <SelectContent><SelectItem value="a">Option A</SelectItem><SelectItem value="b">Option B</SelectItem></SelectContent></SelectRoot>
       </DialogContent></DialogRoot>`,
@@ -138,7 +138,7 @@ describe('focusScope', () => {
   describe('given a FocusScope with Combobox input inside Dialog (#2749)', () => {
     const DialogWithCombobox = defineComponent({
       components: { DialogRoot, DialogTrigger, DialogContent, DialogTitle, ComboboxRoot, ComboboxAnchor, ComboboxTrigger, ComboboxPortal, ComboboxContent, ComboboxViewport, ComboboxInput, ComboboxItem },
-      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent><DialogTitle>Test Dialog</DialogTitle>
+      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent :aria-describedby="undefined"><DialogTitle>Test Dialog</DialogTitle>
         <ComboboxRoot><ComboboxAnchor as-child><ComboboxTrigger>Open combobox</ComboboxTrigger></ComboboxAnchor><ComboboxPortal>
           <ComboboxContent position="popper"><ComboboxViewport><ComboboxInput data-testid="combobox-input" />
             <ComboboxItem value="a">Option A</ComboboxItem><ComboboxItem value="b">Option B</ComboboxItem>
@@ -161,7 +161,7 @@ describe('focusScope', () => {
   describe('given a FocusScope with portaled Select content inside Dialog (#2749)', () => {
     const DialogWithSelect = defineComponent({
       components: { DialogRoot, DialogTrigger, DialogContent, DialogTitle, SelectRoot, SelectPortal, SelectTrigger, SelectValue, SelectContent, SelectViewport, SelectItem },
-      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent><DialogTitle>Test Dialog</DialogTitle>
+      template: `<DialogRoot><DialogTrigger>Open</DialogTrigger><DialogContent :aria-describedby="undefined"><DialogTitle>Test Dialog</DialogTitle>
         <SelectRoot><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectPortal>
           <SelectContent data-testid="select-content" position="popper"><SelectViewport><SelectItem value="a">Option A</SelectItem><SelectItem value="b">Option B</SelectItem></SelectViewport></SelectContent>
         </SelectPortal></SelectRoot></DialogContent></DialogRoot>`,

@@ -1,7 +1,19 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { axe } from 'vitest-axe'
 import { ColorSwatch } from '.'
+
+function mountTransparentColor(color?: string) {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  try {
+    const wrapper = mount(ColorSwatch, { props: { color } })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Unable to resolve contrast color'))
+    return wrapper
+  }
+  finally {
+    warn.mockRestore()
+  }
+}
 
 describe('colorSwatch', () => {
   describe('given a default ColorSwatch', () => {
@@ -46,21 +58,17 @@ describe('colorSwatch', () => {
     })
 
     it('should show "transparent" for alpha=0 color', () => {
-      const wrapper = mount(ColorSwatch, {
-        props: { color: '#ff000000' },
-      })
+      const wrapper = mountTransparentColor('#ff000000')
       expect(wrapper.attributes('aria-label')).toBe('transparent')
     })
 
     it('should show "transparent" for empty color', () => {
-      const wrapper = mount(ColorSwatch, {
-        props: { color: '' },
-      })
+      const wrapper = mountTransparentColor('')
       expect(wrapper.attributes('aria-label')).toBe('transparent')
     })
 
     it('should show "transparent" when no color prop provided', () => {
-      const wrapper = mount(ColorSwatch)
+      const wrapper = mountTransparentColor()
       expect(wrapper.attributes('aria-label')).toBe('transparent')
     })
   })
@@ -79,16 +87,12 @@ describe('colorSwatch', () => {
 
   describe('data attributes', () => {
     it('should set data-no-color when alpha is 0', () => {
-      const wrapper = mount(ColorSwatch, {
-        props: { color: '#ff000000' },
-      })
+      const wrapper = mountTransparentColor('#ff000000')
       expect(wrapper.attributes('data-no-color')).toBe('')
     })
 
     it('should set data-no-color when no color', () => {
-      const wrapper = mount(ColorSwatch, {
-        props: { color: '' },
-      })
+      const wrapper = mountTransparentColor('')
       expect(wrapper.attributes('data-no-color')).toBe('')
     })
 

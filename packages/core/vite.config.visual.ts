@@ -43,7 +43,7 @@ export default defineConfig({
     // "notifications deferred to next frame" warning, not an app error —
     // filter exactly it, nothing else.
     onUnhandledError(error) {
-      if (error.message.includes('ResizeObserver loop completed with undelivered notifications'))
+      if (error.message === 'ResizeObserver loop completed with undelivered notifications.')
         return false
     },
     exclude: ['**/node_modules/**'],

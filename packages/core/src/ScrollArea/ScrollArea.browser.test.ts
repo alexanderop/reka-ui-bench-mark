@@ -133,8 +133,13 @@ describe('given prop:type="hover" ScrollArea with both scrollbars and a corner',
           // `offsetWidth/Height = 10` prototype stub; the port declares the
           // same 10px as real CSS. See
           // `ScrollArea/ScrollArea.test.ts#scrollbar-thickness-was-stubbed`.
-          h(ScrollAreaScrollbar, { orientation: 'vertical', style: 'width: 10px;' }, () => h(ScrollAreaThumb)),
-          h(ScrollAreaScrollbar, { orientation: 'horizontal', style: 'height: 10px;' }, () => h(ScrollAreaThumb)),
+          // The 10px corner leaves each 200px track 190px long. Declaring the
+          // settled length up front prevents the fixture itself from resizing
+          // both observed tracks during the first corner notification; the
+          // product still measures their real 10px thickness and remounts the
+          // corner across both hover cycles.
+          h(ScrollAreaScrollbar, { orientation: 'vertical', style: 'width: 10px; height: 190px;' }, () => h(ScrollAreaThumb)),
+          h(ScrollAreaScrollbar, { orientation: 'horizontal', style: 'width: 190px; height: 10px;' }, () => h(ScrollAreaThumb)),
           h(ScrollAreaCorner, null, () => h('span', { 'data-testid': 'corner-content' })),
         ])
     },

@@ -3,7 +3,7 @@ name: Visual Regression
 on:
   push:
     branches:
-      - main
+      - browserMode
     paths:
       - .github/workflows/visual-regression.yml
       - package.json

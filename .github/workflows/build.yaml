@@ -1,78 +1,54 @@
-name: Build
+name: Verify Browser Mode Migration
 
 on:
   push:
     branches:
-      - main
-    paths:
-      - 'packages/**'
-
+      - browserMode
   pull_request:
-    paths:
-      - 'packages/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: verify-browser-mode-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Setup (Install node & pnpm)
+      - name: Setup Node and pnpm
         uses: ./.github/actions/setup
 
-      - name: Build
-        run: pnpm --filter reka-ui build
+      - name: Install Chromium and system dependencies
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: reka-ui-dist
-          path: packages/core/dist
-          retention-days: 1
+      - name: Lint
+        run: pnpm lint
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
+      - name: Check case-study document links
+        run: pnpm docs:check-links
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - name: Type-check functional and visual tests
+        run: |
+          pnpm --filter reka-ui type-check
+          pnpm --filter reka-ui type-check:visual
 
-      - name: Setup (Install node & pnpm)
-        uses: ./.github/actions/setup
+      - name: Verify migration inventory is current
+        run: |
+          pnpm --filter reka-ui port:inventory
+          git diff --exit-code -- PORT-INVENTORY.tsv
 
-      - name: Test (with coverage)
-        run: pnpm --filter reka-ui test:coverage
+      - name: Verify all browser and jsdom pairs retain structural parity
+        run: pnpm --filter reka-ui port:parity --complete
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report
-          path: packages/core/coverage
-          retention-days: 7
-
-  size:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup (Install node & pnpm)
-        uses: ./.github/actions/setup
-
-      - name: Download dist artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: reka-ui-dist
-          path: packages/core/dist
-
-      - name: Check bundle size
-        run: pnpm --filter reka-ui size
+      - name: Run Node, retained jsdom, and Chromium projects
+        run: pnpm --filter reka-ui exec vitest run

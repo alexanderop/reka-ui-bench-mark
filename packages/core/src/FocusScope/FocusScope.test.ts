@@ -155,7 +155,7 @@ describe('focusScope', () => {
       template: `
         <DialogRoot>
           <DialogTrigger>Open</DialogTrigger>
-          <DialogContent>
+          <DialogContent :aria-describedby="undefined">
             <DialogTitle>Test Dialog</DialogTitle>
             <input data-testid="email-input" type="text" placeholder="you@example.com" />
             <SelectRoot>
@@ -195,7 +195,7 @@ describe('focusScope', () => {
       template: `
         <DialogRoot>
           <DialogTrigger>Open</DialogTrigger>
-          <DialogContent>
+          <DialogContent :aria-describedby="undefined">
             <DialogTitle>Test Dialog</DialogTitle>
             <ComboboxRoot>
               <ComboboxAnchor as-child>
@@ -252,7 +252,7 @@ describe('focusScope', () => {
       template: `
         <DialogRoot>
           <DialogTrigger>Open</DialogTrigger>
-          <DialogContent>
+          <DialogContent :aria-describedby="undefined">
             <DialogTitle>Test Dialog</DialogTitle>
             <SelectRoot>
               <SelectTrigger>

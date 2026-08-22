@@ -1,17 +1,16 @@
 # Improving the ported tests with Vitest 5
 
 Companion to `IMPROVING-PORTED-TESTS.md` (the Vitest 4.1 backlog, actionable
-today). This document covers **Vitest 5**, currently at `v5.0.0-rc.1`: what
-its new defaults and APIs do for this suite, and the exact sweeps the upgrade
-will force.
+today). This is a **survey snapshot of Vitest `v5.0.0-rc.1`**, not current setup
+guidance: it records what that prerelease's defaults and APIs would do for this
+suite and the exact sweeps an eventual upgrade was expected to force.
 
-**How this was surveyed:** the reference clone at `~/Projects/opensource/vitest`
-was fetched and everything below was read from the `v5.0.0-rc.1` tag via
-`git show` — the working tree stays on `pinned/4.1.10`, so 4.1 line-number
-citations elsewhere remain valid. The RC's migration guide still carries a
-"work in progress" warning; re-verify this document against the final release
-notes before upgrading. Anything checked against this repo's code is marked
-*measured*; predictions are marked *[unverified]*.
+**How this was surveyed:** everything below was read from Vitest's public
+[`v5.0.0-rc.1` tag](https://github.com/vitest-dev/vitest/tree/v5.0.0-rc.1) while
+this repository stayed pinned to 4.1.10. The v5 prerelease has since advanced,
+so re-verify every recommendation against the selected release and its final
+migration notes before upgrading. Anything checked against this repo's code is
+marked *measured*; predictions are marked *[unverified]*.
 
 **Prerequisites — met.** v5 requires Vite ≥ 6.4 and Node ≥ 22.12; this repo
 runs Vite 8 and Node 24 (measured). The config uses none of the removed

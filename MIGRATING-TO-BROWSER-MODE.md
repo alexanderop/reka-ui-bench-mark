@@ -75,6 +75,19 @@ Two things changed in v4 that will send you in circles if you follow older mater
   `provider: 'playwright'`.
 - The browser context import moved from `@vitest/browser/context` to **`vitest/browser`**.
 
+Install the runner, Playwright provider, Vue renderer, and the browser binary explicitly. The
+versions below are the ones measured by this guide; this repository's frozen lockfile is the
+reproducibility source.
+
+```bash
+pnpm add -D vitest@4.1.10 @vitest/browser-playwright@4.1.10 \
+  playwright@1.62.1 vitest-browser-vue@2.1.0 @vitejs/plugin-vue@6.0.8
+pnpm exec playwright install chromium
+```
+
+On a fresh Linux CI runner use `pnpm exec playwright install --with-deps chromium` so the system
+libraries are installed as well.
+
 ### Run both environments side by side
 
 Do not flip the suite over in one commit. Run two Vitest **projects** against the same source
@@ -82,6 +95,7 @@ tree so you can migrate file by file and diff the two approaches:
 
 ```ts
 // vite.config.ts
+import vue from '@vitejs/plugin-vue'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
@@ -746,6 +760,15 @@ Vue owns can make the ResizeObserver callback trigger a render that restores Vue
 creating a real `ResizeObserver loop completed with undelivered notifications`. Put test dimensions
 in reactive fixture state and change them through the fixture's control so Vue and the native
 observer agree on the transition.
+
+The same rule applies to initial geometry: if an observer callback writes a corner or gutter size
+that immediately resizes another observed track, declare the fixture's settled track length up
+front when that transition is not the subject. That removed the warning on all three engines in
+the functional ScrollArea regression. If an integration sheet deliberately exercises the natural
+multi-element mount, filter only the browser's complete known deferral message and keep every
+other error fatal. Measured on Vitest 4.1.10: `onUnhandledError` can accept that event so the test
+passes, but the Vite client still prints its own diagnostic; a broad substring or blanket browser
+error listener would hide unrelated failures.
 
 ### Rituals that reconstruct the event sequence just evaporate
 
@@ -1735,8 +1758,8 @@ on a real library in one afternoon:
    the popper arrow `<svg>` with no `aria-hidden`. The combobox, whose fixture nests its label, read
    `- group "Fruits": - text: Fruits …` and is the shape the other two should have.
 3. **Family conformance** — one template with regex for the data, applied to every sibling that
-   should expose the same structure (here: six calendar variants). Not written yet; it would have
-   flagged the unnamed `application` without anyone reading a tree.
+   should expose the same structure. `CalendarFamily.aria.browser.test.ts` now applies this to six
+   calendar variants; it flags an unnamed `application` without anyone reading the whole tree.
 
 Two mechanics that made the census cheap: `expect.element(document.body)` is accepted and the
 matcher's stability polling replaces every sleep; and an `it.fails` per finding with a single

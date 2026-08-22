@@ -58,6 +58,8 @@ export default defineConfig({
     onUnhandledError(error) {
       if (error.message === 'Element.setPointerCapture: Invalid pointer id')
         return false
+      if (error.message === 'ResizeObserver loop completed with undelivered notifications.')
+        return false
     },
     // One file at a time. Firefox and WebKit route keyboard and focus to the
     // *active* tab, and Vitest runs files in parallel tabs of one context —

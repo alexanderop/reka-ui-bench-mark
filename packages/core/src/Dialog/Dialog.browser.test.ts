@@ -63,7 +63,7 @@ const UnmountOnHideDialogTest = defineComponent({
   template: `<DialogRoot :unmount-on-hide="false">
   <DialogTrigger>${OPEN_TEXT}</DialogTrigger>
   <DialogOverlay />
-  <DialogContent>
+  <DialogContent :aria-describedby="undefined">
     <DialogTitle>${TITLE_TEXT}</DialogTitle>
     <DialogClose>${CLOSE_TEXT}</DialogClose>
   </DialogContent>
@@ -74,7 +74,7 @@ const NonModalUnmountOnHideDialogTest = defineComponent({
   components: { DialogRoot, DialogTrigger, DialogOverlay, DialogContent, DialogClose, DialogTitle },
   template: `<DialogRoot :modal="false" :unmount-on-hide="false">
   <DialogTrigger>${OPEN_TEXT}</DialogTrigger>
-  <DialogContent>
+  <DialogContent :aria-describedby="undefined">
     <DialogTitle>${TITLE_TEXT}</DialogTitle>
     <DialogClose>${CLOSE_TEXT}</DialogClose>
   </DialogContent>
@@ -193,7 +193,7 @@ describe('given a Dialog with unmountOnHide=false, openAutoFocus', () => {
     props: ['onOpenAutoFocus'],
     template: `<DialogRoot :unmount-on-hide="false">
   <DialogTrigger>${OPEN_TEXT}</DialogTrigger>
-  <DialogContent @open-auto-focus="onOpenAutoFocus">
+  <DialogContent :aria-describedby="undefined" @open-auto-focus="onOpenAutoFocus">
     <DialogTitle>${TITLE_TEXT}</DialogTitle>
     <DialogClose>${CLOSE_TEXT}</DialogClose>
   </DialogContent>
@@ -221,14 +221,14 @@ describe('given two Dialogs with unmountOnHide=false', () => {
   <DialogRoot :unmount-on-hide="false">
     <DialogTrigger data-testid="first-trigger">open first</DialogTrigger>
     <DialogOverlay />
-    <DialogContent data-testid="first-content">
+    <DialogContent :aria-describedby="undefined" data-testid="first-content">
       <DialogTitle>first</DialogTitle>
       <DialogClose data-testid="first-close">close first</DialogClose>
     </DialogContent>
   </DialogRoot>
   <DialogRoot :modal="false" :unmount-on-hide="false">
     <DialogTrigger data-testid="second-trigger">open second</DialogTrigger>
-    <DialogContent data-testid="second-content" @interact-outside="onInteractOutside">
+    <DialogContent :aria-describedby="undefined" data-testid="second-content" @interact-outside="onInteractOutside">
       <DialogTitle>second</DialogTitle>
       <DialogClose data-testid="second-close">close second</DialogClose>
     </DialogContent>
@@ -282,7 +282,7 @@ function makeModalDialog(contentBinding: string) {
     components: { DialogRoot, DialogTrigger, DialogContent, DialogClose, DialogTitle },
     template: `<DialogRoot>
   <DialogTrigger>${OPEN_TEXT}</DialogTrigger>
-  <DialogContent ${contentBinding}>
+  <DialogContent :aria-describedby="undefined" ${contentBinding}>
     <DialogTitle>${TITLE_TEXT}</DialogTitle>
     <DialogClose>${CLOSE_TEXT}</DialogClose>
   </DialogContent>

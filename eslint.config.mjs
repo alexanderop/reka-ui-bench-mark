@@ -54,6 +54,25 @@ export default antfu(
     },
   },
   {
+    // Markdown processors expose fenced examples as virtual child files.
+    // Console calls there are documentation, not package runtime logging.
+    files: ['**/*.md/**'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    // Both interfaces extend PopoverContentEmits, which declares
+    // openAutoFocus. The template rule cannot follow the imported extension.
+    files: [
+      'packages/core/src/DatePicker/DatePickerContent.vue',
+      'packages/core/src/DateRangePicker/DateRangePickerContent.vue',
+    ],
+    rules: {
+      'vue/require-explicit-emits': 'off',
+    },
+  },
+  {
     files: ['*.story.vue'],
     rules: {
       'no-console': 'off',

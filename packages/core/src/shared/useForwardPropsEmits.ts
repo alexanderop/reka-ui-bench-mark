@@ -12,9 +12,8 @@ import { useForwardProps } from './useForwardProps'
  * @param {T} props - The `props` parameter is of type `T`, which is a generic type that extends the
  * parameters of the `useForwardProps` function. It represents the props object that is passed to the
  * `useForwardProps` function.
- * @param [emit] - The `emit` parameter is a function that can be used to emit events. It takes two
- * arguments: `name`, which is the name of the event to be emitted, and `args`, which are the arguments
- * to be passed along with the event.
+ * The optional second overload accepts an emit function. It takes an event `name` and the arguments
+ * to pass with that event.
  * @returns a computed property that combines the parsed
  * props and emits as props.
  */

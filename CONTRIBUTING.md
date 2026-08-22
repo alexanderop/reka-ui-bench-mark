@@ -40,9 +40,10 @@ Inside `packages/core/src/`:
 pick this up automatically).
 
 ```bash
-git clone https://github.com/unovue/reka-ui.git
-cd reka-ui
-pnpm i
+git clone --branch browserMode https://github.com/alexanderop/reka-ui-bench-mark.git
+cd reka-ui-bench-mark
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
 ```
 
 Recommended dev loops, depending on what you're working on:
@@ -65,7 +66,11 @@ All commands run from the repo root.
 | Watch build | `pnpm --filter reka-ui watch` |
 | Type-check only | `pnpm --filter reka-ui type-check` |
 | Tests (watch) | `pnpm test` |
-| Tests (one-shot) | `pnpm --filter reka-ui exec vitest run [path]` |
+| Tests (all projects, one-shot) | `pnpm --filter reka-ui exec vitest run` |
+| Browser destination | `pnpm --filter reka-ui test:browser` |
+| Retained jsdom comparison | `pnpm --filter reka-ui test:unit` |
+| Cross-browser | `pnpm --filter reka-ui test:cross-browser` |
+| Visual references | `pnpm --filter reka-ui test:visual` |
 | Test coverage | `pnpm --filter reka-ui test:coverage` |
 | Lint / auto-fix | `pnpm lint` / `pnpm lint:fix` |
 | Stories | `pnpm story:dev` |
@@ -105,15 +110,18 @@ complete example to read alongside this section.
 
 ## Testing
 
-- Tests are **colocated** with the code as `<Name>.test.ts` inside each family
-  (e.g. `packages/core/src/Checkbox/Checkbox.test.ts`).
-- Stack: [Vitest](https://vitest.dev) + jsdom, with
-  [`@testing-library/vue`](https://testing-library.com/docs/vue-testing-library/intro/)
-  and `@vue/test-utils` for mounting, and `vitest-axe` for accessibility
-  assertions: `expect(await axe(el)).toHaveNoViolations()`.
-- jsdom quirks (a stubbed `scrollIntoView`, a patched `getComputedStyle` that
-  axe relies on) are handled globally in `packages/core/vitest.setup.ts` — you
-  don't need to repeat that per test.
+- DOM-dependent contracts are colocated as paired `<Name>.test.ts` (retained jsdom comparison)
+  and `<Name>.browser.test.ts` (the Chromium destination). The `describe` and `it` names stay
+  identical so `port:parity` can check the pair mechanically.
+- DOM-free files run in the `node` project. Do not send pure data transformations to either jsdom
+  or a browser merely because the file historically used the unit setup.
+- Browser tests render story fixtures with `vitest-browser-vue`, query through Vitest locators,
+  and use trusted `userEvent` or locator input for ordinary interaction. The browser project has
+  its own `vitest.browser.setup.ts`; it must not inherit jsdom's canvas, style, or DOM API patches.
+- `vitest-axe` remains the general accessibility-rule oracle. ARIA snapshots and relation queries
+  cover intended names, state, and cross-component semantics that axe cannot infer.
+- The original jsdom setup and tests remain runnable intentionally. New DOM behavior belongs in
+  Browser Mode; update a paired original only when preserving the comparison requires it.
 - New components and composables should ship with colocated tests, including an
   axe check for anything that renders.
 

@@ -786,13 +786,14 @@ getBoundingClientRect before blaming the locator.
 
 ## Provenance
 
-Every claim marked *measured* comes from migrating reka-ui's complete
-97-file, ~1450-test jsdom suite to Vitest Browser Mode and keeping both
-suites running side by side — with structural-parity, coverage-parity, and
-mutation oracles guarding each ported file. The worked example for the
-4.1-era APIs is
-[`NumberField.improved.browser.test.ts`](packages/core/src/NumberField/NumberField.improved.browser.test.ts)
-(14 tests, ~2.4s, green in headless Chromium at the time of writing). The
+Every claim marked *measured* comes from giving reka-ui's complete 97-file original suite a
+non-jsdom destination: 87 DOM-dependent files moved to Vitest Browser Mode and 10 DOM-free files
+to Node, while the 1,444-test jsdom comparison corpus stayed runnable. The paired suites run side
+by side with structural-parity, coverage-parity, and
+mutation oracles guarding each ported file. The reference-quality 4.1-era patterns were folded
+back into the canonical
+[`NumberField.browser.test.ts`](packages/core/src/NumberField/NumberField.browser.test.ts)
+rather than retained as a second "improved" copy. The
 full field guide to the *migration* itself — config, CSS, oracles, and the
 jsdom tests that turned out to be lying — is
 [`MIGRATING-TO-BROWSER-MODE.md`](MIGRATING-TO-BROWSER-MODE.md); this post

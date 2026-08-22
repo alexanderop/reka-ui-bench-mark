@@ -1,6 +1,6 @@
 name: Cross-Browser
 
-# The 97 `*.browser.test.ts` files on the engines they were not written
+# The complete 111-file functional Browser Mode corpus on the engines it was not written
 # against. Chromium is covered by the normal test job; this runs Firefox and
 # WebKit, one engine per job, through `vite.config.cross-browser.ts`, with the
 # engine-specific verdicts recorded in `packages/core/cross-browser.expectations.ts`.
@@ -10,7 +10,7 @@ name: Cross-Browser
 on:
   push:
     branches:
-      - v2
+      - browserMode
     paths:
       - .github/workflows/cross-browser.yml
       - package.json

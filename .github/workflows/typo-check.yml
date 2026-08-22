@@ -3,7 +3,7 @@ name: Typo check
 on:
   push:
     branches:
-      - main
+      - browserMode
 
   pull_request:
     types: [opened, reopened, synchronize]
