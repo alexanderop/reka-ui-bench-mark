@@ -25,7 +25,7 @@ describe('given the Select story fixture', () => {
       - combobox "Customise options"
       - combobox "Customise options"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(0)
 
     await screen.getByRole('combobox').first().click()
     await expect.element(page.getByRole('listbox')).toBeVisible()
@@ -52,8 +52,8 @@ describe('given the Select story fixture', () => {
           - option "Courgette" [disabled]
           - option "Leek"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('option', { selected: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(1)
+    await expect.element(page.getByRole('option', { selected: true })).toHaveLength(0)
 
     await userEvent.keyboard('{Escape}')
     await expect.element(page.getByRole('listbox')).not.toBeInTheDocument()
@@ -61,7 +61,7 @@ describe('given the Select story fixture', () => {
       - combobox "Customise options"
       - combobox "Customise options"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(0)
   })
 
   // `SelectGroup` renders `aria-labelledby=<its own id>` and `SelectLabel`

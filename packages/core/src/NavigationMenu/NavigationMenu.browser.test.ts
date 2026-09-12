@@ -103,9 +103,9 @@ describe('given default NavigationMenu', () => {
         await userEvent.tab()
       })
 
-      it('should focus on the first item in menu', () => {
+      it('should focus on the first item in menu', async () => {
         const links = content.querySelectorAll('a')
-        expect(links[0]).toBe(document.activeElement)
+        await expect.element(links[0]).toHaveFocus()
       })
     })
 
@@ -118,9 +118,9 @@ describe('given default NavigationMenu', () => {
         await sleep(0)
       })
 
-      it('should focus on the first item in menu', () => {
+      it('should focus on the first item in menu', async () => {
         const links = content.querySelectorAll('a')
-        expect(links[0]).toBe(document.activeElement)
+        await expect.element(links[0]).toHaveFocus()
       })
 
       it('should focus on the last item in menu', async () => {
@@ -129,7 +129,7 @@ describe('given default NavigationMenu', () => {
           await userEvent.keyboard('{ArrowDown}')
           await sleep(0)
         }
-        expect(Array.from(links).at(-1)).toBe(document.activeElement)
+        await expect.element(Array.from(links).at(-1)!).toHaveFocus()
       })
     })
 

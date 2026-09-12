@@ -72,8 +72,8 @@ describe('given default Teleport', () => {
     // `render()`'s destructured `getBy*` helpers are bound to `baseElement`
     // (default `document.body`) and therefore DO reach teleported content;
     // only `screen.locator` is container-scoped. See `#screen-is-body-scoped`.
-    expect(screen.getByText('teleported content', { exact: true }).elements()).toHaveLength(1)
-    expect(screen.locator.getByText('teleported content', { exact: true }).elements()).toHaveLength(0)
+    await expect.element(screen.getByText('teleported content', { exact: true })).toHaveLength(1)
+    await expect.element(screen.locator.getByText('teleported content', { exact: true })).toHaveLength(0)
 
     await screen.unmount()
   })

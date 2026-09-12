@@ -23,27 +23,34 @@ describe('given a single-value ToggleGroup', () => {
     const center = screen.getByRole('button', { name: 'Align center', exact: true })
     const right = screen.getByRole('button', { name: 'Align right', exact: true })
 
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - group "Text alignment":
-        - button "Align left"
-        - button "Align center" [pressed]
-        - button "Align right"
+    // `<html>` (role `document`) + `/children: deep-equal`: the only shape in
+    // which an extra node anywhere in the tree fails the snapshot (a directive
+    // at the root of a `<body>` snapshot is ignored — see AGENTS.md).
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - group "Text alignment":
+          - button "Align left": L
+          - button "Align center" [pressed]: C
+          - button "Align right": R
     `)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('button', { pressed: false }).elements()).toHaveLength(2)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(1)
+    await expect.element(page.getByRole('button', { pressed: false })).toHaveLength(2)
 
     await center.click()
     await userEvent.keyboard('{ArrowRight}')
-    expect(right.element()).toBe(document.activeElement)
+    await expect.element(right).toHaveFocus()
     await userEvent.keyboard('{Space}')
 
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - group "Text alignment":
-        - button "Align left"
-        - button "Align center"
-        - button "Align right" [pressed]
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - group "Text alignment":
+          - button "Align left": L
+          - button "Align center": C
+          - button "Align right" [pressed]: R
     `)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('button', { pressed: false }).elements()).toHaveLength(2)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(1)
+    await expect.element(page.getByRole('button', { pressed: false })).toHaveLength(2)
   })
 })

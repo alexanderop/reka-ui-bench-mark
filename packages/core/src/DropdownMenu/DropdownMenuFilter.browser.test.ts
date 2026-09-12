@@ -151,7 +151,7 @@ describe('given DropdownMenu with Filter', () => {
       Object.defineProperty(event, 'isComposing', { value: true })
       inputElement().dispatchEvent(event)
       expect(document.querySelector('[role="menuitem"][data-highlighted]')).toBeNull()
-      expect(document.activeElement).toBe(inputElement())
+      await expect.element(input()).toHaveFocus()
       inputElement().dispatchEvent(new CompositionEvent('compositionend', { data: '', bubbles: true }))
       await nextTick()
       await nextTick()

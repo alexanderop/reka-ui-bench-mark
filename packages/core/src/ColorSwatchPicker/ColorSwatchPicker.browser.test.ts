@@ -35,8 +35,8 @@ describe('given default ColorSwatchPicker', () => {
     await expect.element(items.nth(1)).toHaveAttribute('data-color', '#D6409F')
   })
 
-  it('should set CSS variable on items', () => {
-    expect(items.nth(0).element().getAttribute('style')).toContain('--reka-color-swatch-picker-item-color: #E5484D')
+  it('should set CSS variable on items', async () => {
+    await expect.element(items.nth(0)).toHaveAttribute('style', expect.stringContaining('--reka-color-swatch-picker-item-color: #E5484D'))
   })
 
   it('should have aria-label on items with color name', () => {
@@ -71,8 +71,8 @@ describe('given default ColorSwatchPicker', () => {
   })
 
   describe('keyboard navigation', () => {
-    it('should have horizontal orientation for keyboard navigation', () => {
-      expect(content.element().getAttribute('aria-orientation')).toBe('horizontal')
+    it('should have horizontal orientation for keyboard navigation', async () => {
+      await expect.element(content).toHaveAttribute('aria-orientation', 'horizontal')
     })
 
     it('should have role=option on items', () => {

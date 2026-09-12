@@ -18,7 +18,7 @@ describe('given the Combobox story fixture', () => {
       - combobox "Placeholder..."
       - button "Show popup"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(0)
 
     await screen.getByRole('button', { name: 'Show popup', exact: true }).click()
     await expect.element(page.getByRole('listbox')).toBeVisible()
@@ -41,9 +41,9 @@ describe('given the Combobox story fixture', () => {
           - option "Courgette"
           - option "Leek"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('group').elements()).toHaveLength(2)
-    expect(page.getByRole('group', { name: 'Fruits', exact: true }).elements()).toHaveLength(1)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(1)
+    await expect.element(page.getByRole('group')).toHaveLength(2)
+    await expect.element(page.getByRole('group', { name: 'Fruits', exact: true })).toHaveLength(1)
 
     await userEvent.keyboard('{Escape}')
     await expect.element(page.getByRole('listbox')).not.toBeInTheDocument()
@@ -51,6 +51,6 @@ describe('given the Combobox story fixture', () => {
       - combobox "Placeholder..."
       - button "Show popup"
     `)
-    expect(page.getByRole('combobox', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('combobox', { expanded: true })).toHaveLength(0)
   })
 })

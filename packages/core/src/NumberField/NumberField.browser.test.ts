@@ -151,7 +151,7 @@ describe('numberField', () => {
     const { input } = await setup({ defaultValue: 0, readonly: true })
 
     await userEvent.tab()
-    expect(input).toBe(document.activeElement)
+    await expect.element(input).toHaveFocus()
   })
 
   describe('with disable wheel change option', () => {

@@ -40,9 +40,9 @@ describe('given default Tree', () => {
 
   it('should select and deselect item', async () => {
     await userEvent.click(items[0])
-    expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+    await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
     await userEvent.click(items[0])
-    expect(items[0].element().getAttribute('aria-selected')).toBe('false')
+    await expect.element(items[0]).toHaveAttribute('aria-selected', 'false')
   })
 
   describe('when expand item by press ArrowRight', async () => {
@@ -69,12 +69,12 @@ describe('given default Tree', () => {
     it('should focus on parent when press ArrowLeft on child item', async () => {
       await press(items[2], '{ArrowDown}')
       await press(items[3], '{ArrowLeft}')
-      expect(document.activeElement).toBe(items[1].element())
+      await expect.element(items[1]).toHaveFocus()
     })
 
     it('should focus on child item when press ArriwRight', async () => {
       await press(items[1], '{ArrowRight}')
-      expect(document.activeElement).toBe(items[2].element())
+      await expect.element(items[2]).toHaveFocus()
     })
 
     describe('when expand nested item', async () => {
@@ -97,7 +97,7 @@ describe('given default Tree', () => {
     it('should highlight text starting with l', async () => {
       await press(items[0], 'l')
       const item = items.find(i => i.element().textContent?.startsWith('l'))
-      expect(document.activeElement).toBe(item?.element())
+      await expect.element(item!).toHaveFocus()
     })
   })
 
@@ -110,15 +110,15 @@ describe('given default Tree', () => {
     it('should not toggle off the selected value', async () => {
       await userEvent.click(items[0])
       await userEvent.click(items[0])
-      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should select and replace another item', async () => {
       await userEvent.click(items[0])
-      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
       await userEvent.click(items[1])
-      expect(items[0].element().getAttribute('aria-selected')).toBe('false')
-      expect(items[1].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'false')
+      await expect.element(items[1]).toHaveAttribute('aria-selected', 'true')
     })
   })
 })
@@ -137,9 +137,9 @@ describe('given multiple `true` Tree', () => {
     await press(items[0], '{ArrowDown}')
     await press(items[1], '{ArrowDown}')
     await press(items[2], '{Enter}')
-    expect(items[0].element().getAttribute('aria-selected')).toBe('true')
-    expect(items[1].element().getAttribute('aria-selected')).toBe('false')
-    expect(items[2].element().getAttribute('aria-selected')).toBe('true')
+    await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
+    await expect.element(items[1]).toHaveAttribute('aria-selected', 'false')
+    await expect.element(items[2]).toHaveAttribute('aria-selected', 'true')
   })
 
   describe('when selection behavior `replace`', () => {
@@ -153,26 +153,26 @@ describe('given multiple `true` Tree', () => {
     it('should not toggle off the selected value', async () => {
       await userEvent.click(items[0])
       await userEvent.click(items[0])
-      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should select and replace another item', async () => {
-      expect(items[0].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
       await userEvent.click(items[1])
-      expect(items[0].element().getAttribute('aria-selected')).toBe('false')
-      expect(items[1].element().getAttribute('aria-selected')).toBe('true')
+      await expect.element(items[0]).toHaveAttribute('aria-selected', 'false')
+      await expect.element(items[1]).toHaveAttribute('aria-selected', 'true')
     })
 
     describe('when keypress Shift + ArrowDown', () => {
       it('should select the next item', async () => {
         await press(items[0], '{Shift>}{ArrowDown}{/Shift}')
-        expect(items[0].element().getAttribute('aria-selected')).toBe('true')
-        expect(items[1].element().getAttribute('aria-selected')).toBe('true')
-        expect(items[2].element().getAttribute('aria-selected')).toBe('false')
+        await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
+        await expect.element(items[1]).toHaveAttribute('aria-selected', 'true')
+        await expect.element(items[2]).toHaveAttribute('aria-selected', 'false')
         await press(items[1], '{Shift>}{ArrowDown}{/Shift}')
-        expect(items[0].element().getAttribute('aria-selected')).toBe('true')
-        expect(items[1].element().getAttribute('aria-selected')).toBe('true')
-        expect(items[2].element().getAttribute('aria-selected')).toBe('true')
+        await expect.element(items[0]).toHaveAttribute('aria-selected', 'true')
+        await expect.element(items[1]).toHaveAttribute('aria-selected', 'true')
+        await expect.element(items[2]).toHaveAttribute('aria-selected', 'true')
       })
     })
   })
@@ -285,18 +285,18 @@ describe('given a Tree with disabled items', () => {
 
   it('should set aria-disabled and data-disabled attributes', async () => {
     const { items } = await mountTree()
-    expect(items()[1].element().getAttribute('aria-disabled')).toBe('true')
-    expect(items()[1].element().getAttribute('data-disabled')).toBe('')
-    expect(items()[0].element().getAttribute('aria-disabled')).toBeNull()
-    expect(items()[0].element().getAttribute('data-disabled')).toBeNull()
+    await expect.element(items()[1]).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(items()[1]).toHaveAttribute('data-disabled', '')
+    await expect.element(items()[0]).not.toHaveAttribute('aria-disabled')
+    await expect.element(items()[0]).not.toHaveAttribute('data-disabled')
   })
 
   it('should not select a disabled item on click or keydown', async () => {
     const { items } = await mountTree()
     await userEvent.click(items()[1], { force: true })
-    expect(items()[1].element().getAttribute('aria-selected')).toBe('false')
+    await expect.element(items()[1]).toHaveAttribute('aria-selected', 'false')
     await press(items()[1], '{Enter}')
-    expect(items()[1].element().getAttribute('aria-selected')).toBe('false')
+    await expect.element(items()[1]).toHaveAttribute('aria-selected', 'false')
   })
 
   it('should not toggle a disabled item', async () => {
@@ -310,8 +310,8 @@ describe('given a Tree with disabled items', () => {
 
   it('should disable all items when root is disabled', async () => {
     const { items } = await mountTree([], true)
-    for (const item of items()) expect(item.element().getAttribute('aria-disabled')).toBe('true')
+    for (const item of items()) await expect.element(item).toHaveAttribute('aria-disabled', 'true')
     await userEvent.click(items()[0], { force: true })
-    expect(items()[0].element().getAttribute('aria-selected')).toBe('false')
+    await expect.element(items()[0]).toHaveAttribute('aria-selected', 'false')
   })
 })

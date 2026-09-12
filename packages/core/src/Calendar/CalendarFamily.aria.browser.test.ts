@@ -43,7 +43,7 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(selected.elements()).toHaveLength(1)
+    await expect.element(selected).toHaveLength(1)
 
     const day = page.getByRole('button', {
       name: 'Tuesday, February 20, 2024',
@@ -62,7 +62,7 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(nextSelected.elements()).toHaveLength(1)
+    await expect.element(nextSelected).toHaveLength(1)
     await expect.element(nextSelected).toMatchAriaInlineSnapshot(`
       - gridcell "Wednesday, February 21, 2024" [selected]:
         - button "Wednesday, February 21, 2024": "21"
@@ -82,8 +82,8 @@ describe('calendar-family semantic accessibility', () => {
       },
     })
 
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(3)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(3)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(3)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(3)
 
     const newStart = page.getByRole('button', {
       name: 'Saturday, February 24, 2024',
@@ -102,8 +102,8 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(2)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(2)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(2)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(2)
     await expect.element(rangeEnd).toMatchAriaInlineSnapshot(`
       - gridcell "Sunday, February 25, 2024" [selected]:
         - button "Sunday, February 25, 2024" [pressed]: "25"
@@ -137,7 +137,7 @@ describe('calendar-family semantic accessibility', () => {
     })
 
     const application = page.getByRole('application', { name: '2024', exact: true })
-    expect(application.elements()).toHaveLength(1)
+    await expect.element(application).toHaveLength(1)
     expectResolvedLabelledBy(application.element() as HTMLElement, '2024')
 
     const february = page.getByRole('button', { name: 'February 2024', exact: true })
@@ -154,7 +154,7 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(selected.elements()).toHaveLength(1)
+    await expect.element(selected).toHaveLength(1)
     await expect.element(selected).toMatchAriaInlineSnapshot(`
       - gridcell "March 2024" [selected]:
         - button "March 2024": Mar
@@ -175,10 +175,10 @@ describe('calendar-family semantic accessibility', () => {
     })
 
     const application = page.getByRole('application', { name: '2024', exact: true })
-    expect(application.elements()).toHaveLength(1)
+    await expect.element(application).toHaveLength(1)
     expectResolvedLabelledBy(application.element() as HTMLElement, '2024')
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(3)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(3)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(3)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(3)
 
     const newStart = page.getByRole('button', { name: 'June 2024', exact: true })
     await newStart.click()
@@ -194,8 +194,8 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(2)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(2)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(2)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(2)
     await expect.element(selected).toMatchAriaInlineSnapshot(`
       - gridcell "July 2024" [selected]:
         - button "July 2024" [pressed]: Jul
@@ -213,7 +213,7 @@ describe('calendar-family semantic accessibility', () => {
     })
 
     const application = page.getByRole('application', { name: '2020 - 2031', exact: true })
-    expect(application.elements()).toHaveLength(1)
+    await expect.element(application).toHaveLength(1)
     expectResolvedLabelledBy(application.element() as HTMLElement, '2020 - 2031')
 
     const year = page.getByRole('button', { name: '2024', exact: true })
@@ -230,7 +230,7 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(selected.elements()).toHaveLength(1)
+    await expect.element(selected).toHaveLength(1)
     await expect.element(selected).toMatchAriaInlineSnapshot(`
       - gridcell "2025" [selected]:
         - button "2025"
@@ -251,10 +251,10 @@ describe('calendar-family semantic accessibility', () => {
     })
 
     const application = page.getByRole('application', { name: '2020 - 2031', exact: true })
-    expect(application.elements()).toHaveLength(1)
+    await expect.element(application).toHaveLength(1)
     expectResolvedLabelledBy(application.element() as HTMLElement, '2020 - 2031')
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(3)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(3)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(3)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(3)
 
     const newStart = page.getByRole('button', { name: '2028', exact: true })
     await newStart.click()
@@ -270,8 +270,8 @@ describe('calendar-family semantic accessibility', () => {
       selected: true,
       exact: true,
     })
-    expect(page.getByRole('gridcell', { selected: true }).elements()).toHaveLength(2)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(2)
+    await expect.element(page.getByRole('gridcell', { selected: true })).toHaveLength(2)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(2)
     await expect.element(selected).toMatchAriaInlineSnapshot(`
       - gridcell "2029" [selected]:
         - button "2029" [pressed]

@@ -1175,6 +1175,19 @@ teardown is deferred — `FocusScope.vue`'s `focusScopesStack.remove` runs in a 
 so its `pause()`/`resume()` lines are covered when jsdom runs two tests and not when it runs one.
 Bisect a 1-test run against a 2-test run before accepting that the port lost something real.
 
+**A browser destination does not invent the missing transition.** Issue
+[#2886](https://github.com/unovue/reka-ui/issues/2886) swaps a Dialog from a Combobox view to a form
+whose mounted input focuses itself while the open Combobox's nested FocusScope closes in the same
+Vue flush. The existing FocusScope browser test covers the adjacent open-state contract and stops
+before that close-and-swap boundary. A throwaway inline regression using the real components and
+locator clicks reproduced the report exactly in Chromium: the final `toHaveFocus()` expected the
+name input and received `#dialog-content`. The proposed active-element containment guard made it
+pass with the plain Edit control path unchanged. The faithful Testing Library/jsdom translation
+also failed before the guard and passed after it, so describe this as a bug Browser Mode **could
+have caught with the right integration scenario**, not one only Browser Mode can catch. General
+rule: for nested overlays/focus scopes, cover the complete open → select → close → newly-mounted
+focus-target hand-off; a green steady-state test on each component is not coverage of their race.
+
 **…and the bleed has a second, bigger form: zombie *document listeners*.** The jsdom originals
 never unmount, and `document.body.innerHTML = ''` removes elements but not document-level
 listeners — so every "outside press" and "focus outside" handler from every previously-opened

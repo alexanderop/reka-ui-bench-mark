@@ -1012,6 +1012,48 @@ green; the behaviour it guards is still tested by nobody, in either environment.
 is not a tested behaviour, and a migration that reports gained lines will happily let you
 believe otherwise.
 
+### Browser mode can catch a race only if the test crosses the boundary
+
+[Reka UI issue #2886](https://github.com/unovue/reka-ui/issues/2886) is an unusually clean
+example of a bug Browser Mode **could have caught**, and of why moving a test file is not enough
+by itself. A modal Dialog swaps from a Combobox view to a form whose `onMounted` hook focuses its
+name input. The plain Edit path works. Selecting an item from the open Combobox performs the same
+swap while the Combobox's nested `FocusScope` closes, and the Dialog moves focus from the freshly
+mounted input back to its own content.
+
+The existing browser test covered the neighbouring contract: while the Combobox popper is open,
+its scope pauses the Dialog's scope and lets the Combobox input retain focus. It stopped before
+the important transition — **close the child scope while replacing the focused subtree in the
+same Vue flush**. This small end-to-end continuation catches it:
+
+```ts
+const screen = await render(DialogWithComboboxAndForm)
+
+// Control path: the form's mounted input keeps focus.
+await screen.getByRole('button', { name: 'Edit' }).click()
+await expect.element(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus()
+
+await screen.getByRole('button', { name: 'Reset' }).click()
+await screen.getByRole('combobox', { name: 'Search products' }).click()
+await screen.getByRole('option', { name: 'Add custom product' }).click()
+
+// Regression path: selecting closes the child scope and mounts the same form.
+await expect.element(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus()
+```
+
+We ran that shape against the affected source with the real Dialog and Combobox components and no
+focus mocks. Chromium failed with the name input expected and `#dialog-content` actually focused,
+matching the issue exactly. Adding the proposed `getActiveElement()` containment guard made
+the test pass; the control path stayed green.
+
+The careful conclusion matters: **this is not a browser-only failure.** We translated the same
+fixture and interaction sequence to Testing Library under jsdom; it failed before the guard and
+passed after it too. Browser Mode makes this a high-confidence reproduction of the user's actual
+click, focus, MutationObserver and nested-overlay lifecycle, but it did not invent the missing
+scenario. Environment migration cannot replace interaction coverage. For layered components,
+test the hand-off between scopes — open → select → close → newly mounted focus target — rather
+than stopping after each component's isolated steady state is green.
+
 ### The test that only passes because its sibling ran first
 
 Port a suite mechanically and you inherit its **execution-order coupling** along with everything

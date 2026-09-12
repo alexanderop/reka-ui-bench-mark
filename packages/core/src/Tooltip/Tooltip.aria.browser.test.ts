@@ -31,7 +31,7 @@ describe('given the Tooltip story fixture', () => {
       entry.remove()
     }
 
-    expect(trigger.element()).toBe(document.activeElement)
+    await expect.element(trigger).toHaveFocus()
     await expect.element(trigger).toHaveAccessibleDescription('Add to library')
     const triggerElement = trigger.element()
     await expect.element(trigger).toHaveAttribute('aria-describedby')

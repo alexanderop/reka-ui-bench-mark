@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
 import { commands, page, userEvent } from 'vitest/browser'
-import { sleep } from '@/test'
+import { PARK, sleep } from '@/test'
 import { RatingRoot } from '..'
 import Rating from './story/_Rating.vue'
 
@@ -60,7 +60,7 @@ describe('given a default Rating', () => {
     it('should select next item on keydown', async () => {
       expect(radios[0].getAttribute('data-state')).toBe('active')
       expect(radios[1].getAttribute('data-state')).toBe('active')
-      expect(radios[1]).toBe(document.activeElement)
+      await expect.element(radios[1]).toHaveFocus()
     })
 
     describe('on arrow up', () => {
@@ -87,7 +87,7 @@ describe('given a hoverable Rating', () => {
     // (390,5), which is inside the root. That point only ever worked because
     // the unscaled harness threw the pointer out of the iframe entirely
     // (FINDINGS.tsv Rating/Rating.test.ts#leave-point-was-inside-the-root).
-    await commands.mouseMove(390, 200)
+    await commands.mouseMove(PARK.x, PARK.y)
     screen = await render(Rating, { props: { defaultValue: 1, hoverable: true, length: 3 } })
     radios = Array.from(screen.container.querySelectorAll('[role=radio]'))
   })
@@ -101,7 +101,7 @@ describe('given a hoverable Rating', () => {
   it('should reset the preview to the model value on mouse leave', async () => {
     await page.elementLocator(radios[2]).hover()
     // Move the real pointer off the 414x32 RatingRoot — below it, onto bare body.
-    await commands.mouseMove(390, 200)
+    await commands.mouseMove(PARK.x, PARK.y)
 
     expect(radios[0].getAttribute('data-state')).toBe('active')
     expect(radios[1].getAttribute('data-state')).toBeNull()

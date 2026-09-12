@@ -16,18 +16,26 @@ describe('given a named Toggle', () => {
     const toggle = screen.getByRole('button', { name: 'Italic', exact: true })
 
     await expect.element(toggle).toHaveAccessibleName('Italic')
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - button "Italic"
+    // `<html>` (implicit role `document`) rather than `<body>`: a root-level
+    // `/children` directive on a role-less root is silently dropped by the
+    // matcher, so this is the only shape where `deep-equal` is enforced and an
+    // extra node fails the test (see AGENTS.md, ARIA census).
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - button "Italic": I
     `)
-    expect(page.getByRole('button', { pressed: false }).elements()).toHaveLength(1)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { pressed: false })).toHaveLength(1)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(0)
 
     await toggle.click()
 
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - button "Italic" [pressed]
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - button "Italic" [pressed]: I
     `)
-    expect(page.getByRole('button', { pressed: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('button', { pressed: false }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { pressed: true })).toHaveLength(1)
+    await expect.element(page.getByRole('button', { pressed: false })).toHaveLength(0)
   })
 })

@@ -39,7 +39,7 @@ Menu/Menu.test.ts	T3-payoff	6	7	95	mounts	ResizeObserver	ResizeObserver,focusApi
 Menubar/Menubar.test.ts	T3-payoff	6	6	61	mounts	ResizeObserver	ResizeObserver	-	axe,pointerEvents	yes
 MonthPicker/MonthPicker.test.ts	T2-mechanical	25	74	420	mounts	-	focusApi	-	axe	yes
 MonthRangePicker/MonthRangePicker.test.ts	T2-mechanical	23	87	481	mounts	-	focusApi	-	axe	yes
-NavigationMenu/NavigationMenu.test.ts	T4-hostile	13	20	273	mounts	-	focusApi	fakeTimers,moduleMock	axe,pointerEvents	yes
+NavigationMenu/NavigationMenu.test.ts	T4-hostile	13	20	278	mounts	-	focusApi	fakeTimers,moduleMock	axe,pointerEvents	yes
 NumberField/NumberField.test.ts	T3-payoff	41	89	522	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	yes
 Pagination/Pagination.test.ts	T2-mechanical	28	46	262	mounts	-	-	-	axe	yes
 PinInput/PinInput.test.ts	T3-payoff	38	79	476	mounts	getComputedStyle	computedStyle,focusApi	-	axe,keyboardEvents	yes

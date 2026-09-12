@@ -122,9 +122,9 @@ describe('given default Tabs', () => {
       await userEvent.keyboard('{ArrowRight}')
     })
 
-    it('should focus on next tab', () => {
+    it('should focus on next tab', async () => {
       const trigger = screen.container.querySelectorAll('button')[1]
-      expect(trigger).toBe(document.activeElement)
+      await expect.element(trigger).toHaveFocus()
     })
 
     it('should render it\'s content', () => {

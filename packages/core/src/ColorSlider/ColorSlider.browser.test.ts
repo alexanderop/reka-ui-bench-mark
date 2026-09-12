@@ -32,17 +32,17 @@ describe('given default ColorSlider', () => {
     })).toHaveNoViolations()
   })
 
-  it('should render with initial value', () => {
+  it('should render with initial value', async () => {
     const slider = thumb(screen)
-    expect(slider.elements()).toHaveLength(1)
-    expect(slider.element().getAttribute('aria-valuemin')).toBe('0')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('360')
+    await expect.element(slider).toHaveLength(1)
+    await expect.element(slider).toHaveAttribute('aria-valuemin', '0')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '360')
   })
 
-  it('should have correct aria attributes', () => {
+  it('should have correct aria attributes', async () => {
     const slider = thumb(screen)
-    expect(slider.element().getAttribute('aria-label')).toBe('Hue')
-    expect(slider.element().getAttribute('aria-orientation')).toBe('horizontal')
+    await expect.element(slider).toHaveAttribute('aria-label', 'Hue')
+    await expect.element(slider).toHaveAttribute('aria-orientation', 'horizontal')
   })
 
   describe('when disabled', () => {
@@ -50,12 +50,12 @@ describe('given default ColorSlider', () => {
       await screen.rerender({ disabled: true })
     })
 
-    it('should not have tabindex when disabled', () => {
-      expect(thumb(screen).element().getAttribute('tabindex') ?? undefined).toBeUndefined()
+    it('should not have tabindex when disabled', async () => {
+      await expect.element(thumb(screen)).not.toHaveAttribute('tabindex')
     })
 
-    it('should have data-disabled attribute', () => {
-      expect(thumb(screen).element().getAttribute('data-disabled')).toBe('')
+    it('should have data-disabled attribute', async () => {
+      await expect.element(thumb(screen)).toHaveAttribute('data-disabled', '')
     })
   })
 
@@ -92,7 +92,7 @@ describe('given default ColorSlider', () => {
       const slider = thumb(screen)
       await slider.click()
       await userEvent.keyboard('{Home}')
-      expect(slider.element().getAttribute('aria-valuenow')).toBe('0')
+      await expect.element(slider).toHaveAttribute('aria-valuenow', '0')
     })
   })
 })
@@ -107,8 +107,8 @@ describe('given different channels', () => {
       },
     })
     const slider = thumb(screen)
-    expect(slider.element().getAttribute('aria-label')).toBe('Saturation')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('100')
+    await expect.element(slider).toHaveAttribute('aria-label', 'Saturation')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '100')
   })
 
   it('should render lightness slider', async () => {
@@ -120,8 +120,8 @@ describe('given different channels', () => {
       },
     })
     const slider = thumb(screen)
-    expect(slider.element().getAttribute('aria-label')).toBe('Lightness')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('100')
+    await expect.element(slider).toHaveAttribute('aria-label', 'Lightness')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '100')
   })
 
   it('should render alpha slider', async () => {
@@ -133,8 +133,8 @@ describe('given different channels', () => {
       },
     })
     const slider = thumb(screen)
-    expect(slider.element().getAttribute('aria-label')).toBe('Alpha')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('100')
+    await expect.element(slider).toHaveAttribute('aria-label', 'Alpha')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '100')
   })
 
   it('should render red slider with RGB range', async () => {
@@ -146,8 +146,8 @@ describe('given different channels', () => {
       },
     })
     const slider = thumb(screen)
-    expect(slider.element().getAttribute('aria-label')).toBe('Red')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('255')
+    await expect.element(slider).toHaveAttribute('aria-label', 'Red')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '255')
   })
 })
 
@@ -161,7 +161,7 @@ describe('given vertical orientation', () => {
         orientation: 'vertical',
       },
     })
-    expect(thumb(screen).element().getAttribute('aria-orientation')).toBe('vertical')
+    await expect.element(thumb(screen)).toHaveAttribute('aria-orientation', 'vertical')
   })
 })
 
@@ -174,7 +174,7 @@ describe('alpha channel aria-valuetext', () => {
         colorSpace: 'hsl',
       },
     })
-    expect(thumb(screen).element().getAttribute('aria-valuetext')).toBe('50%')
+    await expect.element(thumb(screen)).toHaveAttribute('aria-valuetext', '50%')
   })
 
   it('should display 100% for full alpha', async () => {
@@ -185,7 +185,7 @@ describe('alpha channel aria-valuetext', () => {
         colorSpace: 'hsl',
       },
     })
-    expect(thumb(screen).element().getAttribute('aria-valuetext')).toBe('100%')
+    await expect.element(thumb(screen)).toHaveAttribute('aria-valuetext', '100%')
   })
 })
 
@@ -200,9 +200,9 @@ describe('custom step prop', () => {
       },
     })
     const slider = thumb(screen)
-    expect(slider.elements()).toHaveLength(1)
+    await expect.element(slider).toHaveLength(1)
     // The SliderRoot should receive step=10
-    expect(slider.element().getAttribute('aria-valuemin')).toBe('0')
-    expect(slider.element().getAttribute('aria-valuemax')).toBe('360')
+    await expect.element(slider).toHaveAttribute('aria-valuemin', '0')
+    await expect.element(slider).toHaveAttribute('aria-valuemax', '360')
   })
 })

@@ -317,7 +317,7 @@ describe('given a default DismissableLayer', () => {
       const closeButton = screen.getByRole('button', { name: CLOSE_LABEL, exact: true })
       await expect.element(closeButton).toBeInTheDocument()
       closeButton.element().focus()
-      expect(document.activeElement).toBe(closeButton.element())
+      await expect.element(closeButton).toHaveFocus()
     })
 
     it('should render the content', async () => {
@@ -440,7 +440,6 @@ describe('given a not-present DismissableLayer (e.g. unmountOnHide hidden)', () 
     await nextTick()
 
     await userEvent.keyboard('{Escape}')
-    await nextTick()
 
     expect(screen.emitted('escapeKeyDown')).toBeUndefined()
     expect(screen.emitted('dismiss')).toBeUndefined()
@@ -502,7 +501,6 @@ describe('given a not-present DismissableLayer (e.g. unmountOnHide hidden)', () 
     await nextTick()
 
     await userEvent.keyboard('{Escape}')
-    await nextTick()
 
     expect(screen.emitted('escapeKeyDown')?.length).toBe(1)
     expect(screen.emitted('dismiss')?.length).toBe(1)

@@ -35,14 +35,14 @@ describe('given the Tabs story fixture', () => {
       - tabpanel "Account":
         - paragraph: Make changes to your account here. Click save when you're done.
     `)
-    expect(page.getByRole('tab', { selected: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('tab', { selected: false }).elements()).toHaveLength(1)
+    await expect.element(page.getByRole('tab', { selected: true })).toHaveLength(1)
+    await expect.element(page.getByRole('tab', { selected: false })).toHaveLength(1)
 
     await account.click()
     await userEvent.keyboard('{ArrowRight}')
 
     const passwordPanel = screen.getByRole('tabpanel', { name: 'Password', exact: true })
-    expect(password.element()).toBe(document.activeElement)
+    await expect.element(password).toHaveFocus()
     await expectTabPanelRelation(password, passwordPanel)
     await expect.element(document.body).toMatchAriaInlineSnapshot(`
       - tablist "Manage your account":
@@ -51,7 +51,7 @@ describe('given the Tabs story fixture', () => {
       - tabpanel "Password":
         - paragraph: Change your password here. After saving, you'll be logged out.
     `)
-    expect(page.getByRole('tab', { selected: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('tab', { selected: false }).elements()).toHaveLength(1)
+    await expect.element(page.getByRole('tab', { selected: true })).toHaveLength(1)
+    await expect.element(page.getByRole('tab', { selected: false })).toHaveLength(1)
   })
 })

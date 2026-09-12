@@ -3,7 +3,7 @@ import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
 import { commands, page, userEvent } from 'vitest/browser'
 import { defineComponent, h } from 'vue'
-import { sleep } from '@/test'
+import { PARK } from '@/test'
 import ScrollAreaCorner from './ScrollAreaCorner.vue'
 import ScrollAreaRoot from './ScrollAreaRoot.vue'
 import ScrollAreaScrollbar from './ScrollAreaScrollbar.vue'
@@ -41,7 +41,7 @@ describe('given default ScrollArea', () => {
     // Park the pointer away from where the component renders, so a cursor
     // left over the component by a previous test cannot pre-trigger the
     // hover-reveal that these tests are about.
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
     screen = await render(ScrollArea)
   })
 
@@ -57,7 +57,11 @@ describe('given default ScrollArea', () => {
   describe('on hover', () => {
     beforeEach(async () => {
       await page.elementLocator(screen.container.firstElementChild as HTMLElement).hover()
-      await sleep(100)
+      // Wait for the measured thumb geometry that the snapshot records.
+      // Scrollbar presence alone can precede the ResizeObserver update.
+      await expect.poll(() =>
+        screen.container.querySelector<HTMLElement>('[data-scrollbarimpl] > [data-state]')?.style.transform ?? '',
+      ).toContain('translate3d')
     })
 
     it('should render scrollbar', () => {
@@ -70,7 +74,7 @@ describe('given prop:type="always" ScrollArea', () => {
   let screen: Awaited<ReturnType<typeof render<typeof ScrollArea>>>
 
   beforeEach(async () => {
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
     screen = await render(ScrollArea, { props: { type: 'always' } })
   })
 
@@ -88,7 +92,7 @@ describe('given prop:type="scroll" ScrollArea', () => {
   let screen: Awaited<ReturnType<typeof render<typeof ScrollArea>>>
 
   beforeEach(async () => {
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
     screen = await render(ScrollArea, { props: { type: 'scroll' } })
   })
 
@@ -148,27 +152,27 @@ describe('given prop:type="hover" ScrollArea with both scrollbars and a corner',
   let screen: Awaited<ReturnType<typeof render<typeof BothScrollArea>>>
 
   beforeEach(async () => {
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
     screen = await render(BothScrollArea, { props: { type: 'hover' } })
   })
 
   it('keeps the corner in sync with the scrollbars across repeated hover cycles', async () => {
     const root = screen.container.firstElementChild as HTMLElement
 
+    const corner = page.getByTestId('corner-content')
+
     // 1st cycle: enter -> corner appears
     await page.elementLocator(root).hover()
-    await sleep(100)
-    expect(screen.container.querySelector('[data-testid="corner-content"]')).toBeTruthy()
+    await expect.element(corner).toBeInTheDocument()
 
     // leave -> scrollbars hide and the corner is removed alongside them.
-    // A real leave: park the mouse outside the 200×200 component.
-    await commands.mouseMove(390, 5)
-    await sleep(700)
-    expect(screen.container.querySelector('[data-testid="corner-content"]')).toBeFalsy()
+    // A real leave: park the mouse outside the 200×200 component. The hide
+    // is on the 600ms default `scrollHideDelay`, so give the retry 1500ms.
+    await commands.mouseMove(PARK.x, PARK.y)
+    await expect.element(corner, { timeout: 1500 }).not.toBeInTheDocument()
 
     // 2nd cycle: enter again -> corner must re-appear (regression #2669)
     await page.elementLocator(root).hover()
-    await sleep(100)
-    expect(screen.container.querySelector('[data-testid="corner-content"]')).toBeTruthy()
+    await expect.element(corner).toBeInTheDocument()
   })
 })

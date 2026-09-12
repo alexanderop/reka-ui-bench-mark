@@ -238,11 +238,12 @@ describe('dateField', async () => {
         if (field === 'end' && segment === 'year')
           continue
         const seg = getByTestId(`${field}-${segment}`)
-        await user.keyboard(kbd.SHIFT_TAB)
+        // `SHIFT_TAB` is `{Shift>}{Tab}` with no release; release it in the
+        // same chord so a failing assertion cannot leave Shift held.
+        await user.keyboard(`${kbd.SHIFT_TAB}{/Shift}`)
         expect(seg).toHaveFocus()
       }
     }
-    await user.keyboard('{/Shift}')
   })
 
   it('binds to the value', async () => {

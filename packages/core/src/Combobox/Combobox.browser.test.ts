@@ -389,7 +389,7 @@ describe('given a Combobox with openOnFocus', () => {
     await page.elementLocator(button).click()
     await expect.poll(() => screen.container.querySelector('[role=group]')).toBeFalsy()
 
-    expect(document.activeElement).toBe(button)
+    await expect.element(button).toHaveFocus()
   })
 
   it('should close content when focus moves to an element outside', async () => {
@@ -610,7 +610,7 @@ describe('given Combobox with TagsInput and addOnBlur', () => {
 
     // Input should be refocused so subsequent blur can trigger addOnBlur
     await expect.element(screen.getByRole('combobox')).toHaveFocus()
-    expect(document.activeElement).toBe(input())
+    await expect.element(input()).toHaveFocus()
   })
 })
 

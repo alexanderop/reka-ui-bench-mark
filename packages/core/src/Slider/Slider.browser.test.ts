@@ -1,6 +1,6 @@
 import type { Locator } from 'vitest/browser'
 import type { SliderRootProps } from '..'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { axe } from 'vitest-axe'
 import { render } from 'vitest-browser-vue'
 import { commands, userEvent } from 'vitest/browser'
@@ -348,6 +348,17 @@ describe('given default Slider', () => {
     beforeEach(async () => {
       rect = (screen.container.firstElementChild as HTMLElement).getBoundingClientRect()
       await commands.mouseDown(rect.left + 10, rect.top + rect.height / 2)
+    })
+
+    // The press above is only released by the innermost `after pointerup`
+    // hook, so any test or hook that throws between the two leaves the real
+    // button held for the rest of the file (the runner resets held *keys*
+    // before each test, never the mouse — `interactivity.md:43-56`). Releasing
+    // an already-released button is a no-op in Playwright (probed: two
+    // consecutive `page.mouse.up()` calls, and one after a press/release pair,
+    // all return cleanly), so this is safe on the happy path too.
+    afterEach(async () => {
+      await commands.mouseUp()
     })
 
     // Temporary hide emitted

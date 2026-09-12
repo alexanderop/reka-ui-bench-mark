@@ -15,7 +15,7 @@ async function expectActiveDescendant(input: Locator, name: string) {
   await expect.poll(() => resolveActiveDescendant(input)?.textContent?.trim()).toBe(name)
   const target = resolveActiveDescendant(input)
   expect(target).not.toBeNull()
-  expect(target!.id).toBe(input.element().getAttribute('aria-activedescendant'))
+  await expect.element(input).toHaveAttribute('aria-activedescendant', target!.id)
 }
 
 describe('aria-activedescendant lifecycle', () => {

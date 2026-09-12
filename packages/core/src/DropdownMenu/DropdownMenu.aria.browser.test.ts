@@ -20,7 +20,7 @@ describe('given the DropdownMenu story fixture', () => {
     await expect.element(document.body).toMatchAriaInlineSnapshot(`
       - button "Customise options"
     `)
-    expect(page.getByRole('button', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { expanded: true })).toHaveLength(0)
 
     await screen.getByRole('button').click()
     await expect.element(page.getByRole('menu')).toBeVisible()
@@ -44,16 +44,16 @@ describe('given the DropdownMenu story fixture', () => {
           - menuitemradio "Colm Tuite"
         - img
     `)
-    expect(page.getByRole('button', { expanded: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('menuitemradio', { checked: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('menuitemcheckbox', { checked: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { expanded: true })).toHaveLength(1)
+    await expect.element(page.getByRole('menuitemradio', { checked: true })).toHaveLength(1)
+    await expect.element(page.getByRole('menuitemcheckbox', { checked: true })).toHaveLength(0)
 
     await userEvent.keyboard('{Escape}')
     await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
     await expect.element(document.body).toMatchAriaInlineSnapshot(`
       - button "Customise options"
     `)
-    expect(page.getByRole('button', { expanded: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { expanded: true })).toHaveLength(0)
   })
 
   // Same mechanism as Select: `MenuGroup` (which `MenuRadioGroup` wraps) sets

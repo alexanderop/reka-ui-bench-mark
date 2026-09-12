@@ -31,7 +31,7 @@ describe('given a closed uncontrolled Collapsible at rest', () => {
     const trigger = screen.getByRole('button')
     const root = screen.container.firstElementChild as HTMLElement
 
-    expect(trigger.element().getAttribute('aria-controls')).toBe('')
+    await expect.element(trigger).toHaveAttribute('aria-controls', '')
     await expect.element(root).toMatchAriaInlineSnapshot(`
       - button "Trigger" [expanded]
       - text: Content
@@ -39,7 +39,7 @@ describe('given a closed uncontrolled Collapsible at rest', () => {
 
     await trigger.click()
     await trigger.click()
-    expect(trigger.element().getAttribute('aria-controls')).toMatch(/^reka-collapsible-content/)
+    await expect.element(trigger).toHaveAttribute('aria-controls', expect.stringMatching(/^reka-collapsible-content/))
     await expect.element(root).toMatchAriaInlineSnapshot(`
       - button "Trigger" [expanded]
       - text: Content

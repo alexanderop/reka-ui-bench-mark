@@ -13,21 +13,28 @@ describe('given the Checkbox story fixture', () => {
     const checkbox = screen.getByRole('checkbox', { name: 'Test', exact: true })
 
     await expect.element(checkbox).toHaveAccessibleName('Test')
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - text: Test
-      - checkbox "Test"
+    // `<html>` (role `document`) + `/children: deep-equal`: the only shape in
+    // which an extra node anywhere in the tree fails the snapshot (a directive
+    // at the root of a `<body>` snapshot is ignored — see AGENTS.md).
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - text: Test
+        - checkbox "Test"
     `)
-    expect(page.getByRole('checkbox', { checked: false }).elements()).toHaveLength(1)
-    expect(page.getByRole('checkbox', { checked: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('checkbox', { checked: false })).toHaveLength(1)
+    await expect.element(page.getByRole('checkbox', { checked: true })).toHaveLength(0)
 
     await checkbox.click()
 
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - text: Test
-      - checkbox "Test" [checked]
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - text: Test
+        - checkbox "Test" [checked]
     `)
-    expect(page.getByRole('checkbox', { checked: true }).elements()).toHaveLength(1)
-    expect(page.getByRole('checkbox', { checked: false }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('checkbox', { checked: true })).toHaveLength(1)
+    await expect.element(page.getByRole('checkbox', { checked: false })).toHaveLength(0)
   })
 
   it('exposes indeterminate as the mixed checked state', async () => {
@@ -37,11 +44,13 @@ describe('given the Checkbox story fixture', () => {
     const checkbox = screen.getByRole('checkbox', { name: 'Test', exact: true })
 
     await expect.element(checkbox).toHaveAttribute('aria-checked', 'mixed')
-    await expect.element(document.body).toMatchAriaInlineSnapshot(`
-      - text: Test
-      - checkbox "Test" [checked=mixed]
+    await expect.element(document.documentElement).toMatchAriaInlineSnapshot(`
+      - document:
+        - /children: deep-equal
+        - text: Test
+        - checkbox "Test" [checked=mixed]
     `)
-    expect(page.getByRole('checkbox', { checked: true }).elements()).toHaveLength(0)
-    expect(page.getByRole('checkbox', { checked: false }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('checkbox', { checked: true })).toHaveLength(0)
+    await expect.element(page.getByRole('checkbox', { checked: false })).toHaveLength(0)
   })
 })

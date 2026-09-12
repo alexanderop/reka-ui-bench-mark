@@ -56,7 +56,6 @@ describe('given default Autocomplete', () => {
   describe('opening the popup', () => {
     beforeEach(async () => {
       await screen.getByRole('button').click()
-      await nextTick()
     })
 
     // @finding Autocomplete/Autocomplete.test.ts#open-color-contrast
@@ -97,7 +96,6 @@ describe('given default Autocomplete', () => {
     describe('after selecting a value', () => {
       beforeEach(async () => {
         await screen.getByRole('option').nth(1).click()
-        await nextTick()
       })
 
       it('should fill the input with the selected item text', async () => {
@@ -116,7 +114,6 @@ describe('given default Autocomplete', () => {
       describe('after opening the popup again', () => {
         beforeEach(async () => {
           await screen.getByRole('button').click()
-          await nextTick()
         })
 
         it('should still show the selected text in the input', async () => {

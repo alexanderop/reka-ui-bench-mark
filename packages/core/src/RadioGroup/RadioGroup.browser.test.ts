@@ -109,15 +109,15 @@ describe('given a default RadioGroup', () => {
       expect(selectEvents.find(event => event.target === radios[2])?.detail).toBeTruthy()
     })
 
-    it('should skip disabled item', () => {
+    it('should skip disabled item', async () => {
       expect(radios[1].getAttribute('data-state')).toBe('unchecked')
-      expect(document.activeElement).toBe(radios[2])
+      await expect.element(radios[2]).toHaveFocus()
     })
 
     it('should select next item on keydown', async () => {
       expect(radios[0].getAttribute('data-state')).toBe('unchecked')
       expect(radios[2].getAttribute('data-state')).toBe('checked')
-      expect(document.activeElement).toBe(radios[2])
+      await expect.element(radios[2]).toHaveFocus()
     })
 
     describe('on arrow up', () => {

@@ -127,7 +127,7 @@ describe('colorArea pointer interaction', () => {
     await commands.mouseDown(rect.left + rect.width / 2, rect.top + rect.height / 2)
     await commands.mouseUp()
 
-    expect(document.activeElement).toBe(thumb.element)
+    await expect.element(thumb.element as HTMLElement).toHaveFocus()
 
     wrapper.unmount()
   })

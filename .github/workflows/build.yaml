@@ -16,18 +16,40 @@ concurrency:
 
 jobs:
   verify:
+    name: Verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Node and pnpm
         uses: ./.github/actions/setup
 
+      # The browser build lives under ~/.cache/ms-playwright and only changes when the
+      # resolved `playwright` package does, so the key is the version pnpm-lock.yaml
+      # resolves (`packages/core` pins it exactly). The grep is anchored to the lockfile's
+      # package-section line so it cannot match `@vitest/browser-playwright@x.y.z`.
+      - name: Read resolved Playwright version
+        id: playwright-version
+        run: |
+          version="$(grep -m1 -oE '^  playwright@[0-9]+\.[0-9]+\.[0-9]+' pnpm-lock.yaml | cut -d@ -f2)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # No restore-keys on purpose: an older browser build is useless to a newer
+      # Playwright, so a miss should download rather than restore a stale cache.
+      - name: Cache Playwright browsers
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      # Kept even on a cache hit: the OS packages `--with-deps` installs are not cached.
+      # Playwright itself skips the Chromium download when the build is already present.
       - name: Install Chromium and system dependencies
         run: pnpm exec playwright install --with-deps chromium
 
@@ -52,3 +74,17 @@ jobs:
 
       - name: Run Node, retained jsdom, and Chromium projects
         run: pnpm --filter reka-ui exec vitest run
+
+      # Browser Mode writes `<test name>-1.png` for every failing browser test
+      # (screenshotFailures is on by default headless) and per-test attachments under
+      # `.vitest-attachments`; both are gitignored, so they only exist as an artifact.
+      - name: Upload browser failure screenshots and attachments
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: browser-failures
+          path: |
+            packages/core/src/**/__screenshots__/*.browser.test.ts/*-1.png
+            packages/core/.vitest-attachments
+          if-no-files-found: ignore
+          retention-days: 7

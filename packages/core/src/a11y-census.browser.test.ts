@@ -52,7 +52,19 @@ describe('a11y census: at-rest ARIA tree of every story fixture', () => {
     const name = path.replace('./', '').replace('/story/_', ' / ').replace('.vue', '')
     it(name, async () => {
       await render(mod.default as never)
-      await expect.element(document.body).toMatchAriaSnapshot()
+      // `<html>`, not `<body>`: `toMatchAriaSnapshot` matches with *contain*
+      // semantics, so an added unnamed button or stray text node passes
+      // silently unless the entry carries `- /children: deep-equal`. The
+      // matcher's root call flattens a role-less root (body, a container div)
+      // and drops a root-level directive on the floor — measured, a template
+      // listing one of two buttons passes with `- /children: equal` at the
+      // top. `<html>` has the implicit role `document`, so its node survives
+      // as the tree root and a directive *under it* is honoured. Every entry
+      // in the `.snap` therefore reads `- document:` / `- /children:
+      // deep-equal` / …. `-u` keeps that line on an entry that still matches
+      // and DROPS it on one it rewrites (measured), so after an intended
+      // update re-add it to every rewritten entry before committing.
+      await expect.element(document.documentElement).toMatchAriaSnapshot()
     })
   }
 })

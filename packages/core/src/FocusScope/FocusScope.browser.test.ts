@@ -40,7 +40,7 @@ describe('focusScope', () => {
     it('should focus the next element in the scope on tab', async () => {
       tabbableFirst.focus()
       await userEvent.tab()
-      expect(tabbableSecond).toBe(document.activeElement)
+      await expect.element(tabbableSecond).toHaveFocus()
     })
 
     it('should focus the last element in the scope on shift+tab from the first element in scope', async () => {

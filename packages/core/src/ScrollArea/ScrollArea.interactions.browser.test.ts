@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
 import { commands, page, userEvent } from 'vitest/browser'
 import { defineComponent, h } from 'vue'
+import { PARK } from '@/test'
 import ScrollAreaRoot from './ScrollAreaRoot.vue'
 import ScrollAreaScrollbar from './ScrollAreaScrollbar.vue'
 import ScrollAreaThumb from './ScrollAreaThumb.vue'
@@ -42,7 +43,7 @@ const ScrollAreaInteractionFixture = defineComponent({
 
 describe('scrollArea browser interactions', () => {
   beforeEach(async () => {
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
   })
 
   it('scrolls with a native wheel gesture over the custom scrollbar', async () => {
@@ -97,7 +98,7 @@ describe('scrollArea browser interactions', () => {
     await root.hover()
     await expect.element(page.getByTestId('scrollbar')).toHaveAttribute('data-state', 'visible')
 
-    await commands.mouseMove(390, 5)
+    await commands.mouseMove(PARK.x, PARK.y)
     await expect.poll(() => page.getByTestId('scrollbar').elements().length).toBe(0)
 
     await userEvent.wheel(viewport, { delta: { y: 80 } })
