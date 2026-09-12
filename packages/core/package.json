@@ -81,6 +81,7 @@
     "type-check:visual": "vue-tsc -p tsconfig.visual.json --noEmit",
     "test": "vitest",
     "test:browser": "vitest run --project=browser",
+    "test:browser:dev": "vitest --project=browser --standalone --browser.headless=false",
     "test:cross-browser": "vitest run --config vite.config.cross-browser.ts",
     "test:visual": "pnpm type-check:visual && vitest run --config vite.config.visual.ts",
     "test:visual:update": "pnpm type-check:visual && vitest run --config vite.config.visual.ts --update",

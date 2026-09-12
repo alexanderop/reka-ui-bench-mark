@@ -25,6 +25,8 @@
     "prepare": "pnpm simple-git-hooks",
     "test": "pnpm --filter reka-ui test",
     "test:browser": "pnpm --filter reka-ui test:browser",
+    "test:browser:dev": "pnpm --filter reka-ui test:browser:dev",
+    "test:browser:headed": "pnpm --filter reka-ui test:browser --browser.headless=false",
     "test:cross-browser": "pnpm --filter reka-ui test:cross-browser",
     "test:visual": "pnpm --filter reka-ui test:visual",
     "test:visual:update": "pnpm --filter reka-ui test:visual:update",
